@@ -4,11 +4,6 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, X, Plus, Minus, Bell } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { supabase } from '@/lib/supabase';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
 function playDoneSound() {
   try {
@@ -34,10 +29,6 @@ function vibrateDevice() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Service-worker messaging (uses the main SW registered by next-pwa)
-// ---------------------------------------------------------------------------
-
 async function scheduleSwNotification(fireAt: number) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
@@ -54,98 +45,6 @@ async function cancelSwNotification() {
   } catch (_) {}
 }
 
-// ---------------------------------------------------------------------------
-// Web Push subscription helpers
-// ---------------------------------------------------------------------------
-
-function b64urlToUint8(b64: string): Uint8Array {
-  const padded = b64.replace(/-/g, '+').replace(/_/g, '/').padEnd(
-    b64.length + (4 - (b64.length % 4)) % 4, '='
-  );
-  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
-}
-
-async function getOrCreatePushSubscription(): Promise<PushSubscription | null> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: b64urlToUint8(VAPID_PUBLIC_KEY),
-      });
-    }
-    return sub;
-  } catch (_) {
-    return null;
-  }
-}
-
-async function savePushSubscription(sub: PushSubscription) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
-  const keys = sub.toJSON().keys as { p256dh: string; auth: string };
-  await fetch(`${SUPABASE_URL}/functions/v1/subscribe-push`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
-      Apikey: SUPABASE_ANON_KEY,
-    },
-    body: JSON.stringify({ endpoint: sub.endpoint, keys }),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Server-side push (sends push notification when timer expires)
-// ---------------------------------------------------------------------------
-
-async function scheduleServerNotification(fireAt: number) {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    await fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer-notification`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-        Apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ fireAt }),
-    });
-  } catch (_) {}
-}
-
-// ---------------------------------------------------------------------------
-// Cleanup: unregister legacy rest-timer-sw.js if present
-// ---------------------------------------------------------------------------
-
-async function unregisterLegacySW() {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-  try {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    for (const reg of registrations) {
-      if (reg.active?.scriptURL?.includes('rest-timer-sw')) {
-        await reg.unregister();
-      }
-    }
-  } catch (_) {}
-}
-
-// Ensures subscription exists and is saved for the current user
-async function ensurePushSubscriptionSynced() {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
-  if (Notification.permission !== 'granted') return;
-  const sub = await getOrCreatePushSubscription();
-  if (sub) await savePushSubscription(sub);
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function RestTimerBar() {
   const { restTimer, stopRestTimer, startRestTimer, isTourMode } = useAppStore();
   const [, forceUpdate] = useState(0);
@@ -157,22 +56,6 @@ export function RestTimerBar() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setNotifPermission(Notification.permission);
     }
-  }, []);
-
-  // On mount: unregister legacy SW + sync push subscription for current user
-  useEffect(() => {
-    unregisterLegacySW();
-    ensurePushSubscriptionSynced();
-  }, []);
-
-  // Re-sync push subscription whenever auth state changes (login/logout)
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        ensurePushSubscriptionSynced();
-      }
-    });
-    return () => subscription.unsubscribe();
   }, []);
 
   // Re-render every 500ms for smooth countdown
@@ -188,7 +71,7 @@ export function RestTimerBar() {
     return Math.max(0, restTimer.totalSeconds - elapsed);
   }, [restTimer]);
 
-  // Detect timer reaching 0
+  // Detect timer reaching 0 while app is open
   useEffect(() => {
     if (!restTimer.isRunning || isTourMode) {
       doneRef.current = false;
@@ -221,16 +104,14 @@ export function RestTimerBar() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [restTimer.isRunning, getRemainingSeconds, stopRestTimer]);
 
-  // Schedule / cancel notifications when timer state changes
+  // Schedule SW notification when timer starts/changes
   useEffect(() => {
     if (notifPermission !== 'granted') return;
 
     if (restTimer.isRunning) {
       const remaining = getRemainingSeconds();
       if (remaining <= 0) return;
-      const fireAt = Date.now() + remaining * 1000;
-      scheduleSwNotification(fireAt);
-      scheduleServerNotification(fireAt);
+      scheduleSwNotification(Date.now() + remaining * 1000);
     } else {
       cancelSwNotification();
     }
@@ -249,19 +130,10 @@ export function RestTimerBar() {
     setNotifPermission(result);
     setShowPermissionBanner(false);
 
-    if (result === 'granted') {
-      const sub = await getOrCreatePushSubscription();
-      if (sub) {
-        await savePushSubscription(sub);
-      }
-
-      if (restTimer.isRunning) {
-        const remaining = getRemainingSeconds();
-        if (remaining > 0) {
-          const fireAt = Date.now() + remaining * 1000;
-          scheduleSwNotification(fireAt);
-          scheduleServerNotification(fireAt);
-        }
+    if (result === 'granted' && restTimer.isRunning) {
+      const remaining = getRemainingSeconds();
+      if (remaining > 0) {
+        scheduleSwNotification(Date.now() + remaining * 1000);
       }
     }
   };
