@@ -586,18 +586,28 @@ export function WorkoutTab() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-zinc-500 capitalize">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
+                  <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
+                  <div className="flex items-center mt-1.5 bg-zinc-900 border border-zinc-800 rounded-full p-0.5 w-fit">
                     <motion.button
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => toggleUnilateral(currentEx.id)}
-                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold transition-colors ${
-                        currentEx.isUnilateral
-                          ? 'bg-sky-500/15 border-sky-500/30 text-sky-400'
-                          : 'bg-transparent border-zinc-700 text-zinc-600'
+                      onClick={() => currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        !currentEx.isUnilateral
+                          ? 'bg-zinc-700 text-white'
+                          : 'text-zinc-500'
                       }`}
                     >
-                      <Dumbbell size={9} />
+                      Bilateral
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => !currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        currentEx.isUnilateral
+                          ? 'bg-sky-500/20 text-sky-400'
+                          : 'text-zinc-500'
+                      }`}
+                    >
                       Unilateral
                     </motion.button>
                   </div>
