@@ -51,7 +51,7 @@ export function LoginScreen({ onSwitchToRegister, onSwitchToForgotPassword }: Lo
           </div>
           <span className="text-white font-bold text-2xl tracking-tight">IronGrid</span>
         </div>
-        <p className="text-zinc-500 text-sm mb-10">Logg inn for a fortsette treningen din</p>
+        <p className="text-zinc-500 text-sm mb-10">Logg inn for å fortsette treningen din</p>
 
         {/* Form */}
         <div className="space-y-4">
