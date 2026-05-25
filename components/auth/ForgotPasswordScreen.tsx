@@ -77,7 +77,7 @@ export function ForgotPasswordScreen({ onBack }: ForgotPasswordScreenProps) {
 
         <h1 className="text-2xl font-bold text-white mb-2">Glemt passord?</h1>
         <p className="text-zinc-500 text-sm mb-8">
-          Skriv inn e-postadressen din, sa sender vi deg en lenke for a tilbakestille passordet.
+          Skriv inn e-postadressen din, så sender vi deg en lenke for å tilbakestille passordet.
         </p>
 
         {/* Form */}
