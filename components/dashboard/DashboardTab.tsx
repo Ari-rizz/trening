@@ -226,7 +226,7 @@ export function DashboardTab() {
             className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-colors ${
               todayWeight !== null
                 ? 'bg-green-500 text-white'
-                : 'bg-zinc-800 text-white'
+                : 'bg-red-500 text-white'
             }`}
           >
             <Scale size={20} />
