@@ -52,7 +52,7 @@ export function RegisterScreen({ onSwitchToLogin }: RegisterScreenProps) {
     } catch (err: any) {
       const msg = err.message ?? 'Noe gikk galt';
       if (msg.includes('already registered')) {
-        setError('Denne e-postadressen er allerede registrert. Prov a logge inn.');
+        setError('Denne e-postadressen er allerede registrert. Prøv å logge inn.');
       } else {
         setError(msg);
       }
