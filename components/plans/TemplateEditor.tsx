@@ -308,7 +308,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] text-amber-500/80 block mb-0.5">Varmup-sett</label>
+                        <label className="text-[10px] text-amber-500/80 block mb-0.5">Warmup-sett</label>
                         <input
                           type="number"
                           value={ex.warmup_sets || ''}

@@ -994,7 +994,7 @@ export function WorkoutTab() {
                     className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium"
                   >
                     <Plus size={12} />
-                    Legg til varmup-sett
+                    Legg til warmup-sett
                   </motion.button>
                 </div>
 

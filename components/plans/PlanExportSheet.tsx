@@ -93,7 +93,7 @@ function PlanPrintView({ templates, userName, lastSessionData }: { templates: Wo
                   <th style={{ textAlign: 'center', padding: '6px 8px', color: '#555', fontWeight: 600 }}>Sett</th>
                   <th style={{ textAlign: 'center', padding: '6px 8px', color: '#555', fontWeight: 600 }}>Reps</th>
                   <th style={{ textAlign: 'center', padding: '6px 8px', color: '#555', fontWeight: 600 }}>Vekt (kg)</th>
-                  <th style={{ textAlign: 'center', padding: '6px 8px', color: '#c97a00', fontWeight: 600 }}>Varmup</th>
+                  <th style={{ textAlign: 'center', padding: '6px 8px', color: '#c97a00', fontWeight: 600 }}>Warmup</th>
                   <th style={{ textAlign: 'left', padding: '6px 8px', color: '#555', fontWeight: 600 }}>Siste økt</th>
                   <th style={{ textAlign: 'left', padding: '6px 8px', color: '#555', fontWeight: 600 }}>Notat</th>
                 </tr>
