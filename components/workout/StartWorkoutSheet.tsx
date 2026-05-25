@@ -9,9 +9,10 @@ import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 
 interface Props {
   onClose: () => void;
+  open?: boolean;
 }
 
-export function StartWorkoutSheet({ onClose }: Props) {
+export function StartWorkoutSheet({ onClose, open = true }: Props) {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export function StartWorkoutSheet({ onClose }: Props) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      {open && <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -233,7 +234,7 @@ export function StartWorkoutSheet({ onClose }: Props) {
             </div>
           </div>
         </motion.div>
-      </motion.div>
+      </motion.div>}
     </AnimatePresence>
   );
 }

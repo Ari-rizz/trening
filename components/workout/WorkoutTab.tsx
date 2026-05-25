@@ -404,9 +404,7 @@ export function WorkoutTab() {
             </motion.button>
           </motion.div>
         </div>
-        {showStartSheet && (
-          <StartWorkoutSheet onClose={() => setShowStartSheet(false)} />
-        )}
+        <StartWorkoutSheet key="start-sheet" onClose={() => setShowStartSheet(false)} open={showStartSheet} />
       </>
     );
   }
