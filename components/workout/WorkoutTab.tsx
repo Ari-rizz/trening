@@ -760,7 +760,7 @@ export function WorkoutTab() {
                                 ) : (
                                   <>
                                     <input
-                                      type="number"
+                                      type="text"
                                       value={set.weight || ''}
                                       onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
                                       className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
@@ -776,11 +776,11 @@ export function WorkoutTab() {
                                   </>
                                 )}
                                 <input
-                                  type="number"
+                                  type="text"
                                   value={set.rpe || ''}
                                   onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
                                   className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                  inputMode="decimal" placeholder="RPE" min="1" max="10"
+                                  inputMode="decimal" placeholder="RPE"
                                 />
                                 <motion.button
                                   whileTap={{ scale: 0.85 }}
@@ -813,7 +813,7 @@ export function WorkoutTab() {
                                   ) : (
                                     <>
                                       <input
-                                        type="number"
+                                        type="text"
                                         value={partnerSet.weight || ''}
                                         onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
                                         className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
@@ -829,11 +829,11 @@ export function WorkoutTab() {
                                     </>
                                   )}
                                   <input
-                                    type="number"
+                                    type="text"
                                     value={partnerSet.rpe || ''}
                                     onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
                                     className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                    inputMode="decimal" placeholder="RPE" min="1" max="10"
+                                    inputMode="decimal" placeholder="RPE"
                                   />
                                   <motion.button
                                     whileTap={{ scale: 0.85 }}
@@ -914,7 +914,7 @@ export function WorkoutTab() {
                           <>
                             <div className="col-span-3">
                               <input
-                                type="number"
+                                type="text"
                                 value={set.weight || ''}
                                 onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
                                 className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
@@ -936,14 +936,12 @@ export function WorkoutTab() {
                         )}
                         <div className="col-span-2">
                           <input
-                            type="number"
+                            type="text"
                             value={set.rpe || ''}
                             onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
                             className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                             inputMode="decimal"
                             placeholder="-"
-                            min="1"
-                            max="10"
                           />
                         </div>
                         <div className="col-span-1 flex justify-center">

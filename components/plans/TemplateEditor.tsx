@@ -301,11 +301,11 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                       <div>
                         <label className="text-[10px] text-zinc-600 block mb-0.5">Vekt (kg)</label>
                         <input
-                          type="number"
-                          value={ex.target_weight_kg || ''}
-                          onChange={e => updateExercise(index, 'target_weight_kg', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-zinc-800 text-white text-center rounded-lg py-1.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                          type="text"
                           inputMode="decimal"
+                          value={ex.target_weight_kg || ''}
+                          onChange={e => updateExercise(index, 'target_weight_kg', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                          className="w-full bg-zinc-800 text-white text-center rounded-lg py-1.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                           placeholder="0"
                         />
                       </div>

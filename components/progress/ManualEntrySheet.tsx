@@ -308,11 +308,11 @@ export function ManualEntrySheet({ open, userId, onClose, onSaved }: Props) {
                     <div>
                       <label className="block text-zinc-400 text-xs font-medium mb-1.5">Beste vekt (kg)</label>
                       <input
-                        type="number"
+                        type="text"
                         inputMode="decimal"
                         placeholder="0"
                         value={weight}
-                        onChange={e => setWeight(e.target.value)}
+                        onChange={e => setWeight(e.target.value.replace(',', '.'))}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-bold outline-none focus:border-blue-500/60 transition-colors"
                       />
                     </div>
