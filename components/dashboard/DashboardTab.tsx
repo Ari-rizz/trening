@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap } from 'lucide-react';
+import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Workout } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
 import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
+import { WeightLogModal } from './WeightLogModal';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -35,6 +36,8 @@ export function DashboardTab() {
   const [loading, setLoading] = useState(true);
   const { activeWorkout, setCurrentTab, isTourMode } = useAppStore();
   const [showStartSheet, setShowStartSheet] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [todayWeight, setTodayWeight] = useState<number | null>(null);
 
   const MOCK_STATS: DashboardStats = {
     weekSessions: 3,
@@ -58,10 +61,25 @@ export function DashboardTab() {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
       setUserId(uid);
-      if (uid) fetchStats(uid);
-      else setLoading(false);
+      if (uid) {
+        fetchStats(uid);
+        fetchTodayWeight(uid);
+      } else {
+        setLoading(false);
+      }
     });
   }, [isTourMode]);
+
+  const fetchTodayWeight = async (uid: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from('body_weight_logs')
+      .select('weight_kg')
+      .eq('user_id', uid)
+      .eq('logged_at', today)
+      .maybeSingle();
+    setTodayWeight(data?.weight_kg ?? null);
+  };
 
   const fetchStats = async (uid: string) => {
     setLoading(true);
@@ -199,6 +217,40 @@ export function DashboardTab() {
         </div>
       </div>
 
+      {/* Weight log button */}
+      {userId && !isTourMode && (
+        <div className="px-4 mb-4">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setShowWeightModal(true)}
+            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-colors ${
+              todayWeight !== null
+                ? 'bg-green-500/10 border-green-500/25'
+                : 'bg-zinc-900 border-zinc-800'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                todayWeight !== null ? 'bg-green-500/20' : 'bg-zinc-800'
+              }`}>
+                <Scale size={16} className={todayWeight !== null ? 'text-green-400' : 'text-zinc-400'} />
+              </div>
+              <div className="text-left">
+                <p className={`text-sm font-semibold ${todayWeight !== null ? 'text-green-400' : 'text-white'}`}>
+                  {todayWeight !== null
+                    ? `${String(todayWeight).replace('.', ',')} kg registrert`
+                    : 'Legg inn vekt'}
+                </p>
+                <p className="text-xs text-zinc-600 mt-0.5">
+                  {todayWeight !== null ? 'Trykk for å oppdatere' : 'Dagens kroppsvekt'}
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-zinc-700" />
+          </motion.button>
+        </div>
+      )}
+
       {/* Stats grid */}
       <div data-tour="stats-grid" className="px-4 grid grid-cols-2 gap-3 mb-4">
         <StatCard
@@ -329,6 +381,15 @@ export function DashboardTab() {
       )}
 
       <StartWorkoutSheet open={showStartSheet} onClose={() => setShowStartSheet(false)} />
+
+      {userId && (
+        <WeightLogModal
+          open={showWeightModal}
+          userId={userId}
+          onClose={() => setShowWeightModal(false)}
+          onSaved={(w) => setTodayWeight(w)}
+        />
+      )}
     </div>
   );
 }

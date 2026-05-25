@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus } from 'lucide-react';
+import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM } from '@/lib/exercises-data';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { ManualEntrySheet } from './ManualEntrySheet';
 import { useAppStore } from '@/lib/store';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface SessionData {
   workoutId: string;
@@ -80,6 +81,11 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
   },
 ];
 
+interface WeightLog {
+  logged_at: string;
+  weight_kg: number;
+}
+
 export function ProgressTab() {
   const [histories, setHistories] = useState<ExerciseHistory[]>([]);
   const [selected, setSelected] = useState<ExerciseHistory | null>(null);
@@ -87,6 +93,9 @@ export function ProgressTab() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const { isTourMode, tourSelectedExerciseId } = useAppStore();
+  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
+  const [weightPeriod, setWeightPeriod] = useState<30 | 90 | 180>(30);
+  const [weightExpanded, setWeightExpanded] = useState(true);
 
   useEffect(() => {
     if (isTourMode) {
@@ -97,10 +106,25 @@ export function ProgressTab() {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
       setUserId(uid);
-      if (uid) fetchHistory(uid);
-      else setLoading(false);
+      if (uid) {
+        fetchHistory(uid);
+        fetchWeightLogs(uid);
+      } else {
+        setLoading(false);
+      }
     });
   }, [isTourMode]);
+
+  const fetchWeightLogs = async (uid: string) => {
+    const from = format(subDays(new Date(), 180), 'yyyy-MM-dd');
+    const { data } = await supabase
+      .from('body_weight_logs')
+      .select('logged_at, weight_kg')
+      .eq('user_id', uid)
+      .gte('logged_at', from)
+      .order('logged_at', { ascending: true });
+    setWeightLogs(data ?? []);
+  };
 
   useEffect(() => {
     if (isTourMode && tourSelectedExerciseId) {
@@ -248,6 +272,25 @@ export function ProgressTab() {
     );
   }
 
+  const filteredWeightLogs = weightLogs.filter(l => {
+    const cutoff = format(subDays(new Date(), weightPeriod), 'yyyy-MM-dd');
+    return l.logged_at >= cutoff;
+  });
+  const currentWeight = filteredWeightLogs.length > 0
+    ? filteredWeightLogs[filteredWeightLogs.length - 1].weight_kg
+    : null;
+  const startWeight = filteredWeightLogs.length > 0
+    ? filteredWeightLogs[0].weight_kg
+    : null;
+  const weightDiff = currentWeight !== null && startWeight !== null
+    ? currentWeight - startWeight
+    : null;
+
+  const weightChartData = filteredWeightLogs.map(l => ({
+    date: format(new Date(l.logged_at), 'd. MMM', { locale: nb }),
+    vekt: Number(l.weight_kg),
+  }));
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 pt-5 pb-4 flex items-center justify-between">
@@ -265,6 +308,153 @@ export function ProgressTab() {
           </motion.button>
         )}
       </div>
+
+      {/* Body weight section */}
+      {userId && !isTourMode && (
+        <div className="px-4 mb-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            {/* Section header */}
+            <button
+              onClick={() => setWeightExpanded(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3.5"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center">
+                  <Scale size={15} className="text-blue-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-semibold text-sm">Kroppsvekt</p>
+                  {currentWeight !== null && (
+                    <p className="text-zinc-500 text-xs">{String(currentWeight).replace('.', ',')} kg nå</p>
+                  )}
+                </div>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`text-zinc-600 transition-transform ${weightExpanded ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <AnimatePresence initial={false}>
+              {weightExpanded && (
+                <motion.div
+                  key="weight-body"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4">
+                    {/* Period selector */}
+                    <div className="flex gap-2 mb-4">
+                      {([30, 90, 180] as const).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setWeightPeriod(p)}
+                          className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                            weightPeriod === p
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-zinc-800 text-zinc-500'
+                          }`}
+                        >
+                          {p} dager
+                        </button>
+                      ))}
+                    </div>
+
+                    {weightChartData.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <Scale size={32} className="text-zinc-700 mx-auto mb-2" />
+                        <p className="text-zinc-500 text-sm font-medium">Ingen vektdata</p>
+                        <p className="text-zinc-600 text-xs mt-1">Logg vekten din fra hjem-fanen</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Stats row */}
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                            <p className="text-white font-bold text-sm">
+                              {currentWeight !== null ? String(currentWeight).replace('.', ',') : '—'}
+                            </p>
+                            <p className="text-zinc-600 text-[10px] mt-0.5">Nå</p>
+                          </div>
+                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                            <p className="text-white font-bold text-sm">
+                              {startWeight !== null ? String(startWeight).replace('.', ',') : '—'}
+                            </p>
+                            <p className="text-zinc-600 text-[10px] mt-0.5">Start</p>
+                          </div>
+                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                            {weightDiff !== null ? (
+                              <>
+                                <p className={`font-bold text-sm flex items-center justify-center gap-0.5 ${
+                                  weightDiff < 0 ? 'text-green-400' : weightDiff > 0 ? 'text-red-400' : 'text-zinc-400'
+                                }`}>
+                                  {weightDiff > 0
+                                    ? <TrendingUp size={12} />
+                                    : weightDiff < 0
+                                    ? <TrendingDown size={12} />
+                                    : null}
+                                  {weightDiff > 0 ? '+' : ''}{weightDiff.toFixed(1).replace('.', ',')}
+                                </p>
+                                <p className="text-zinc-600 text-[10px] mt-0.5">Endring</p>
+                              </>
+                            ) : (
+                              <p className="text-zinc-600 text-sm">—</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Chart */}
+                        <div className="h-36">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                              <XAxis
+                                dataKey="date"
+                                tick={{ fill: '#52525b', fontSize: 9 }}
+                                tickLine={false}
+                                axisLine={false}
+                                interval="preserveStartEnd"
+                              />
+                              <YAxis
+                                tick={{ fill: '#52525b', fontSize: 9 }}
+                                tickLine={false}
+                                axisLine={false}
+                                domain={['auto', 'auto']}
+                              />
+                              <Tooltip
+                                contentStyle={{
+                                  background: '#18181b',
+                                  border: '1px solid #3f3f46',
+                                  borderRadius: 10,
+                                  color: '#fff',
+                                  fontSize: 12,
+                                }}
+                                formatter={(v: number) => [`${String(v).replace('.', ',')} kg`, 'Vekt']}
+                                labelStyle={{ color: '#a1a1aa', marginBottom: 2 }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="vekt"
+                                stroke="#3b82f6"
+                                strokeWidth={2}
+                                dot={weightChartData.length <= 14}
+                                activeDot={{ r: 4, fill: '#3b82f6' }}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-2">
         {loading && (
