@@ -51,18 +51,22 @@ async function getRestTimerSW(): Promise<ServiceWorkerRegistration | null> {
   }
 }
 
-async function scheduleSwNotification(delayMs: number) {
-  const reg = await getRestTimerSW();
-  const sw = reg?.active ?? reg?.installing ?? reg?.waiting;
-  if (!sw) return;
-  sw.postMessage({ type: 'SCHEDULE_NOTIFICATION', delayMs });
+async function scheduleSwNotification(fireAt: number) {
+  if (!isStandalonePWA()) return;
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    await getRestTimerSW();
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'SCHEDULE_NOTIFICATION', fireAt });
+  } catch (_) {}
 }
 
 async function cancelSwNotification() {
-  const reg = await getRestTimerSW();
-  const sw = reg?.active ?? reg?.installing ?? reg?.waiting;
-  if (!sw) return;
-  sw.postMessage({ type: 'CANCEL_NOTIFICATION' });
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ type: 'CANCEL_NOTIFICATION' });
+  } catch (_) {}
 }
 
 export function RestTimerBar() {
@@ -129,7 +133,7 @@ export function RestTimerBar() {
     if (!isStandalonePWA()) return;
     if (restTimer.isRunning && notifPermission === 'granted') {
       const remaining = getRemainingSeconds();
-      if (remaining > 0) scheduleSwNotification(remaining * 1000);
+      if (remaining > 0) scheduleSwNotification(Date.now() + remaining * 1000);
     } else if (!restTimer.isRunning) {
       cancelSwNotification();
     }
@@ -149,7 +153,7 @@ export function RestTimerBar() {
     setShowPermissionBanner(false);
     if (result === 'granted' && restTimer.isRunning) {
       const remaining = getRemainingSeconds();
-      if (remaining > 0) scheduleSwNotification(remaining * 1000);
+      if (remaining > 0) scheduleSwNotification(Date.now() + remaining * 1000);
     }
   };
 
