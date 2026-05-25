@@ -295,7 +295,7 @@ export function ProgressTab() {
     <div className="flex flex-col h-full">
       {/* Body weight section */}
       {userId && !isTourMode && (
-        <div className="px-4 mb-2">
+        <div className="px-4 pt-5 mb-2">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-2xl font-bold text-white">Kroppsvekt</h2>
