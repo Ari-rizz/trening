@@ -27,6 +27,7 @@ export function PlansTab() {
   const [sharingTemplate, setSharingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [warningDialog, setWarningDialog] = useState<UnknownExerciseWarning | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
 
@@ -283,7 +284,7 @@ export function PlansTab() {
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.85 }}
-                        onClick={() => handleDelete(template.id)}
+                        onClick={() => setDeleteConfirmId(template.id)}
                         className="p-2 text-zinc-500 active:text-red-400"
                       >
                         <Trash2 size={14} />
@@ -419,6 +420,59 @@ export function PlansTab() {
         )}
       </AnimatePresence>
 
+
+      {/* Delete confirmation modal */}
+      <AnimatePresence>
+        {deleteConfirmId && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-[60]"
+              onClick={() => setDeleteConfirmId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              className="fixed left-4 right-4 z-[61] bg-zinc-950 border border-zinc-800 rounded-2xl p-5"
+              style={{ top: '50%', transform: 'translateY(-50%)' }}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+                  <Trash2 size={16} className="text-red-400" />
+                </div>
+                <div>
+                  <p className="text-white font-bold">Slett plan</p>
+                  <p className="text-zinc-500 text-xs">Dette kan ikke angres</p>
+                </div>
+              </div>
+              <p className="text-zinc-400 text-sm mb-5 leading-relaxed">
+                Er du sikker på at du vil slette denne planen? All data tilknyttet planen vil forsvinne permanent.
+              </p>
+              <div className="flex gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 py-3 rounded-xl border border-zinc-800 text-zinc-400 text-sm font-bold"
+                >
+                  Avbryt
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { handleDelete(deleteConfirmId); setDeleteConfirmId(null); }}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={14} />
+                  Slett
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <SharePlanSheet
         open={!!sharingTemplate}
