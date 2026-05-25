@@ -89,18 +89,24 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     setSelectedDifficulty(null);
   };
 
-  if (selectedExercise) {
-    return (
-      <ExerciseDetail
-        exercise={selectedExercise}
-        onBack={() => setSelectedExercise(null)}
-        onAdd={onAddToWorkout ? () => { onAddToWorkout(selectedExercise); setSelectedExercise(null); } : undefined}
-      />
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full">
+    <AnimatePresence mode="wait">
+      {selectedExercise ? (
+        <ExerciseDetail
+          key="detail"
+          exercise={selectedExercise}
+          onBack={() => setSelectedExercise(null)}
+          onAdd={onAddToWorkout ? () => { onAddToWorkout(selectedExercise); setSelectedExercise(null); } : undefined}
+        />
+      ) : (
+    <motion.div
+      key="list"
+      initial={{ x: '-100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '-100%' }}
+      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      className="flex flex-col h-full"
+    >
       {/* Header */}
       <div className="px-4 pt-5 pb-1">
         <h1 className="text-2xl font-bold text-white">Øvelser</h1>
@@ -252,6 +258,8 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           );
         })}
       </div>
-    </div>
+    </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
