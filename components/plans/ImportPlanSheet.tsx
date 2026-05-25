@@ -88,7 +88,7 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
       .eq('share_code', trimmed)
       .maybeSingle();
 
-    if (fetchError || !data) {
+    if (fetchError || !data || !data.workout_templates) {
       setError('Ingen plan funnet med denne koden. Sjekk at du har skrevet riktig.');
     } else {
       // Fetch owner username from the public_profiles view (id + username only)
