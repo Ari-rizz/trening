@@ -2,12 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Play, Pencil, Trash2, ClipboardList, ChevronRight, Dumbbell, X, FileDown } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, FileDown, Share2, Download, User, TriangleAlert as AlertTriangle, Info } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
 import { TemplateEditor } from './TemplateEditor';
 import { PlanExportSheet } from './PlanExportSheet';
+import { SharePlanSheet } from './SharePlanSheet';
+import { ImportPlanSheet } from './ImportPlanSheet';
+
+interface UnknownExerciseWarning {
+  template: WorkoutTemplate;
+  unknownExercises: Array<{ name: string; weight: number }>;
+  lastSessionData: Record<string, Array<{ weight: number; reps: number; rpe: number }>>;
+  lastNotesData: Record<string, string>;
+}
 
 export function PlansTab() {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
@@ -17,6 +26,10 @@ export function PlansTab() {
   const [creating, setCreating] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+
+  const [sharingTemplate, setSharingTemplate] = useState<WorkoutTemplate | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [warningDialog, setWarningDialog] = useState<UnknownExerciseWarning | null>(null);
 
   const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
 
@@ -62,7 +75,31 @@ export function PlansTab() {
       fetchLastExerciseNotes(userId, exerciseIds),
     ]);
 
+    const isImported = !!(template as any).imported_from_username;
+
+    if (isImported) {
+      const unknownExercises = template.template_exercises
+        .filter(te => !lastSessionData[te.exercise_id])
+        .map(te => ({
+          name: te.exercises?.name ?? 'Ukjent øvelse',
+          weight: (te as any).target_weight_kg ?? 0,
+        }));
+
+      if (unknownExercises.length > 0) {
+        setWarningDialog({ template, unknownExercises, lastSessionData, lastNotesData });
+        return;
+      }
+    }
+
     startWorkoutFromTemplate(template, lastSessionData, lastNotesData);
+    setCurrentTab('workout');
+  };
+
+  const confirmStartWithWarning = () => {
+    if (!warningDialog) return;
+    const { template, lastSessionData, lastNotesData } = warningDialog;
+    startWorkoutFromTemplate(template, lastSessionData, lastNotesData);
+    setWarningDialog(null);
     setCurrentTab('workout');
   };
 
@@ -142,6 +179,14 @@ export function PlansTab() {
         </div>
         {userId && (
           <div className="flex items-center gap-2">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowImport(true)}
+              className="w-9 h-9 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center"
+              title="Importer plan"
+            >
+              <Download size={16} className="text-zinc-400" />
+            </motion.button>
             {templates.length > 0 && (
               <motion.button
                 whileTap={{ scale: 0.9 }}
@@ -151,14 +196,14 @@ export function PlansTab() {
                 <FileDown size={16} className="text-zinc-400" />
               </motion.button>
             )}
-          <motion.button
-            data-tour="plans-new-button"
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setCreating(true)}
-            className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center"
-          >
-            <Plus size={20} className="text-white" />
-          </motion.button>
+            <motion.button
+              data-tour="plans-new-button"
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setCreating(true)}
+              className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center"
+            >
+              <Plus size={20} className="text-white" />
+            </motion.button>
           </div>
         )}
       </div>
@@ -185,13 +230,23 @@ export function PlansTab() {
             <ClipboardList size={40} className="text-zinc-700 mx-auto mb-3" />
             <p className="text-zinc-400 font-medium">Ingen planer ennå</p>
             <p className="text-zinc-600 text-sm mt-1">Lag din første treningsplan for å komme i gang</p>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setCreating(true)}
-              className="mt-5 bg-red-500 text-white px-6 py-3 rounded-xl font-bold text-sm"
-            >
-              Lag ny plan
-            </motion.button>
+            <div className="flex flex-col items-center gap-2 mt-5">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setCreating(true)}
+                className="bg-red-500 text-white px-6 py-3 rounded-xl font-bold text-sm"
+              >
+                Lag ny plan
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowImport(true)}
+                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2"
+              >
+                <Download size={14} />
+                Importer fra kode
+              </motion.button>
+            </div>
           </div>
         )}
 
@@ -199,6 +254,7 @@ export function PlansTab() {
           {templates.map((template, i) => {
             const exercises = template.template_exercises ?? [];
             const muscleGroups = Array.from(new Set(exercises.map(te => te.exercises?.muscle_group).filter(Boolean)));
+            const importedFrom = (template as any).imported_from_username as string | null;
 
             return (
               <motion.div
@@ -213,11 +269,24 @@ export function PlansTab() {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
                       <h3 className="text-white font-bold text-base truncate">{template.name || 'Uten navn'}</h3>
-                      {template.description && (
+                      {importedFrom && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <User size={10} className="text-blue-400 flex-shrink-0" />
+                          <span className="text-blue-400 text-xs">Fra {importedFrom}</span>
+                        </div>
+                      )}
+                      {!importedFrom && template.description && (
                         <p className="text-zinc-500 text-xs mt-0.5 line-clamp-1">{template.description}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1 ml-2">
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => setSharingTemplate(template)}
+                        className="p-2 text-zinc-500 active:text-blue-400"
+                      >
+                        <Share2 size={14} />
+                      </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => setEditingTemplate(template)}
@@ -278,12 +347,98 @@ export function PlansTab() {
         </AnimatePresence>
       </div>
 
+      {/* Warning dialog for imported plans with unknown exercises */}
+      <AnimatePresence>
+        {warningDialog && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 z-50"
+              onClick={() => setWarningDialog(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-4 right-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-950 border border-zinc-800 rounded-2xl p-5 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={18} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white font-bold">Sjekk vektene</p>
+                  <p className="text-zinc-500 text-xs">Noen øvelser er forhåndsutfylt med eierens vekt</p>
+                </div>
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-amber-400/90 text-xs leading-relaxed">
+                    Du har ingen treningshistorikk på {warningDialog.unknownExercises.length === 1 ? 'denne øvelsen' : 'disse øvelsene'}. Vekten er hentet fra den opprinnelige planen og er kanskje ikke tilpasset deg — juster den under oppvarmingen.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 mb-5">
+                {warningDialog.unknownExercises.map((ex, i) => (
+                  <div key={i} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell size={12} className="text-zinc-600" />
+                      <span className="text-white text-sm font-medium">{ex.name}</span>
+                    </div>
+                    <span className="text-amber-400 text-sm font-bold">{ex.weight > 0 ? `${ex.weight} kg` : '—'}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setWarningDialog(null)}
+                  className="flex-1 py-3 rounded-xl border border-zinc-800 text-zinc-400 text-sm font-bold"
+                >
+                  Avbryt
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={confirmStartWithWarning}
+                  className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
+                >
+                  <Play size={14} className="fill-current" />
+                  Forstått, start
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <PlanExportSheet
         open={showExport}
         templates={templates}
         userName={userEmail}
         userId={userId}
         onClose={() => setShowExport(false)}
+      />
+
+      <SharePlanSheet
+        open={!!sharingTemplate}
+        template={sharingTemplate}
+        userId={userId ?? ''}
+        onClose={() => setSharingTemplate(null)}
+      />
+
+      <ImportPlanSheet
+        open={showImport}
+        userId={userId ?? ''}
+        onClose={() => setShowImport(false)}
+        onImported={() => {
+          if (userId) fetchTemplates(userId);
+        }}
       />
     </div>
   );

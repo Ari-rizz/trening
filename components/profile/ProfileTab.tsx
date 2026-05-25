@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, Share, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, Share, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 
@@ -14,6 +14,7 @@ interface Profile {
   gender: string | null;
   fitness_level: string | null;
   training_goal: string | null;
+  username: string | null;
 }
 
 export function ProfileTab() {
@@ -24,6 +25,11 @@ export function ProfileTab() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSaved, setUsernameSaved] = useState(false);
 
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -75,10 +81,42 @@ export function ProfileTab() {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal')
+      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username')
       .eq('id', uid)
       .maybeSingle();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+      setUsernameInput(data.username ?? '');
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    if (!session?.user?.id) return;
+    const trimmed = usernameInput.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (trimmed.length < 3) {
+      setUsernameError('Brukernavn må ha minst 3 tegn');
+      return;
+    }
+    setUsernameSaving(true);
+    setUsernameError(null);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: trimmed })
+      .eq('id', session.user.id);
+
+    if (error?.code === '23505') {
+      setUsernameError('Dette brukernavnet er allerede i bruk');
+    } else if (error) {
+      setUsernameError('Noe gikk galt, prøv igjen');
+    } else {
+      setProfile(prev => prev ? { ...prev, username: trimmed } : prev);
+      setUsernameInput(trimmed);
+      setEditingUsername(false);
+      setUsernameSaved(true);
+      setTimeout(() => setUsernameSaved(false), 2000);
+    }
+    setUsernameSaving(false);
   };
 
   const fetchStats = async (uid: string) => {
@@ -114,7 +152,7 @@ export function ProfileTab() {
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-4">
         {/* User card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-4">
             <div className="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
               <span className="text-red-400 font-bold text-lg">{initials}</span>
             </div>
@@ -122,6 +160,93 @@ export function ProfileTab() {
               <p className="text-white font-bold">{displayName}</p>
               <p className="text-zinc-500 text-sm">{session?.user?.email}</p>
             </div>
+          </div>
+
+          {/* Username section */}
+          <div className="border-t border-zinc-800 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AtSign size={14} className="text-zinc-500" />
+                <span className="text-zinc-400 text-sm font-medium">Brukernavn for deling</span>
+              </div>
+              {!editingUsername && (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setEditingUsername(true);
+                    setUsernameError(null);
+                  }}
+                  className="flex items-center gap-1.5 text-zinc-500 text-xs"
+                >
+                  <Pencil size={12} />
+                  Endre
+                </motion.button>
+              )}
+            </div>
+
+            {editingUsername ? (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={usernameInput}
+                    onChange={e => {
+                      setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20));
+                      setUsernameError(null);
+                    }}
+                    placeholder="brukernavn"
+                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-zinc-500"
+                    maxLength={20}
+                  />
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleSaveUsername}
+                    disabled={usernameSaving}
+                    className="w-10 h-10 bg-blue-500 disabled:bg-zinc-700 rounded-xl flex items-center justify-center flex-shrink-0"
+                  >
+                    {usernameSaving ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Check size={16} className="text-white" />
+                    )}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                      setEditingUsername(false);
+                      setUsernameInput(profile?.username ?? '');
+                      setUsernameError(null);
+                    }}
+                    className="w-10 h-10 bg-zinc-800 rounded-xl flex items-center justify-center flex-shrink-0"
+                  >
+                    <X size={16} className="text-zinc-400" />
+                  </motion.button>
+                </div>
+                {usernameError && (
+                  <p className="text-red-400 text-xs">{usernameError}</p>
+                )}
+                <p className="text-zinc-600 text-xs">Kun bokstaver (a-z), tall og understrek. Vises når du deler planer.</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {profile?.username ? (
+                  <p className="text-white text-sm font-mono bg-zinc-800 px-3 py-1.5 rounded-lg">{profile.username}</p>
+                ) : (
+                  <p className="text-zinc-600 text-sm italic">Ikke satt</p>
+                )}
+                {usernameSaved && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-green-400 text-xs flex items-center gap-1"
+                  >
+                    <Check size={12} />
+                    Lagret
+                  </motion.span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

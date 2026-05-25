@@ -120,6 +120,7 @@ export interface WorkoutTemplate {
   user_id: string;
   name: string;
   description: string;
+  imported_from_username?: string | null;
   created_at: string;
   updated_at: string;
   template_exercises?: TemplateExercise[];
