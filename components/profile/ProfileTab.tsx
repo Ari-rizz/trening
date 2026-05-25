@@ -2,13 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, Bell, BellOff } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
-import { ensurePushSubscription } from '@/components/workout/RestTimerBar';
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 interface Profile {
   full_name: string;
@@ -34,23 +30,9 @@ export function ProfileTab() {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaved, setUsernameSaved] = useState(false);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
-  const [notifLoading, setNotifLoading] = useState(false);
-
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isIOSSafari = isIOS && isSafari;
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      const perm = Notification.permission;
-      setNotifPermission(perm);
-      // Re-register subscription silently on every app load when already granted
-      if (perm === 'granted') {
-        ensurePushSubscription();
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -148,45 +130,6 @@ export function ProfileTab() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-  };
-
-  const handleEnableNotifications = async () => {
-    if (!('Notification' in window)) return;
-    setNotifLoading(true);
-    try {
-      const result = await Notification.requestPermission();
-      setNotifPermission(result);
-      if (result === 'granted') {
-        await ensurePushSubscription();
-      }
-    } catch (_) {}
-    setNotifLoading(false);
-  };
-
-  const handleDisableNotifications = async () => {
-    if (!('serviceWorker' in navigator)) return;
-    setNotifLoading(true);
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        const endpoint = sub.endpoint;
-        await sub.unsubscribe();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await fetch(`${SUPABASE_URL}/functions/v1/subscribe-push`, {
-            method: 'DELETE',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-              Apikey: SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({ endpoint }),
-          });
-        }
-      }
-    } catch (_) {}
-    setNotifLoading(false);
   };
 
   const displayName = profile?.full_name || session?.user?.email?.split('@')[0] || 'Bruker';
@@ -365,49 +308,6 @@ export function ProfileTab() {
           <History size={18} className="text-zinc-400" />
           Treningshistorikk
         </motion.button>
-
-        {/* Notifications */}
-        {'Notification' in (typeof window !== 'undefined' ? window : {}) && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
-            <div className="flex items-center gap-3">
-              {notifPermission === 'granted' ? (
-                <Bell size={18} className="text-blue-400 flex-shrink-0" />
-              ) : (
-                <BellOff size={18} className="text-zinc-500 flex-shrink-0" />
-              )}
-              <div className="flex-1">
-                <p className="text-white font-semibold text-sm">Varsler</p>
-                <p className="text-zinc-500 text-xs mt-0.5">
-                  {notifPermission === 'granted'
-                    ? 'Du mottar varsel nar hvile er ferdig'
-                    : notifPermission === 'denied'
-                    ? 'Varsler er blokkert i nettleserinnstillingene'
-                    : 'Aktiver for a fa varsel nar hvile er ferdig'}
-                </p>
-              </div>
-              {notifPermission !== 'denied' && (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={notifPermission === 'granted' ? handleDisableNotifications : handleEnableNotifications}
-                  disabled={notifLoading}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                    notifPermission === 'granted'
-                      ? 'bg-zinc-800 text-zinc-400'
-                      : 'bg-blue-500 text-white'
-                  }`}
-                >
-                  {notifLoading ? (
-                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                  ) : notifPermission === 'granted' ? (
-                    'Deaktiver'
-                  ) : (
-                    'Aktiver'
-                  )}
-                </motion.button>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Sign out */}
         <motion.button
