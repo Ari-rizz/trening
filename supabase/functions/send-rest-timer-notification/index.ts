@@ -170,13 +170,14 @@ Deno.serve(async (req: Request) => {
 
     // If delay is short enough, send push directly via waitUntil (no cron delay)
     if (delayMs > 0 && delayMs <= MAX_WAIT_MS) {
-      // Mark as sent immediately (we handle delivery ourselves)
+      // Insert as NOT sent; we mark sent only after successful delivery
       const { data: inserted } = await supabase
         .from("rest_timer_scheduled")
-        .insert({ user_id: user.id, fire_at: fireAtTs, sent: true })
+        .insert({ user_id: user.id, fire_at: fireAtTs, sent: false })
         .select("id")
         .maybeSingle();
 
+      const rowId = inserted?.id;
       const userId = user.id;
 
       // Use EdgeRuntime.waitUntil to wait for the delay then send push
@@ -196,9 +197,11 @@ Deno.serve(async (req: Request) => {
             .eq("user_id", userId);
           if (subs && subs.length > 0) {
             const staleEndpoints: string[] = [];
+            let delivered = false;
             await Promise.all(
               subs.map(async (sub) => {
                 const result = await sendWebPush(sub, notification);
+                if (result.ok) delivered = true;
                 if (result.status === 410) staleEndpoints.push(sub.endpoint);
               }),
             );
@@ -209,7 +212,15 @@ Deno.serve(async (req: Request) => {
                 .eq("user_id", userId)
                 .in("endpoint", staleEndpoints);
             }
+            // Only mark sent if at least one push was delivered
+            if (delivered && rowId) {
+              await supabase
+                .from("rest_timer_scheduled")
+                .update({ sent: true })
+                .eq("id", rowId);
+            }
           }
+          // If no subs found, leave sent=false so cron can retry
         })(),
       );
 

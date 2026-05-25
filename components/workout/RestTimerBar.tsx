@@ -133,6 +133,31 @@ async function cancelServerNotification() {
 }
 
 // ---------------------------------------------------------------------------
+// Cleanup: unregister legacy rest-timer-sw.js if present
+// ---------------------------------------------------------------------------
+
+async function unregisterLegacySW() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      if (reg.active?.scriptURL?.includes('rest-timer-sw')) {
+        await reg.unregister();
+      }
+    }
+  } catch (_) {}
+}
+
+// Ensures subscription exists and is saved for the current user
+async function ensurePushSubscriptionSynced() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  const sub = await getOrCreatePushSubscription();
+  if (sub) await savePushSubscription(sub);
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -147,6 +172,22 @@ export function RestTimerBar() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setNotifPermission(Notification.permission);
     }
+  }, []);
+
+  // On mount: unregister legacy SW + sync push subscription for current user
+  useEffect(() => {
+    unregisterLegacySW();
+    ensurePushSubscriptionSynced();
+  }, []);
+
+  // Re-sync push subscription whenever auth state changes (login/logout)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        ensurePushSubscriptionSynced();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Re-render every 500ms for smooth countdown
@@ -203,9 +244,7 @@ export function RestTimerBar() {
       const remaining = getRemainingSeconds();
       if (remaining <= 0) return;
       const fireAt = Date.now() + remaining * 1000;
-      // Local SW notification (fast path, works when app is backgrounded briefly)
       scheduleSwNotification(fireAt);
-      // Server notification (DB-backed + immediate push via EdgeRuntime.waitUntil)
       scheduleServerNotification(fireAt);
     } else {
       cancelSwNotification();
@@ -242,18 +281,6 @@ export function RestTimerBar() {
       }
     }
   };
-
-  // On mount, ensure push subscription is synced to the server
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
-    navigator.serviceWorker.ready.then(reg => {
-      reg.pushManager.getSubscription().then(async (sub) => {
-        if (sub) await savePushSubscription(sub);
-      });
-    }).catch(() => {});
-  }, []);
 
   const handleStop = () => {
     cancelSwNotification();
