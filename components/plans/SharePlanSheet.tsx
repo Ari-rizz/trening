@@ -185,6 +185,3 @@ export function SharePlanSheet({ open, template, userId, onClose }: Props) {
     </AnimatePresence>
   );
 }
-
-
-export { SharePlanSheet }
