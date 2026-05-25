@@ -98,7 +98,7 @@ async function savePushSubscription(sub: PushSubscription) {
 }
 
 // ---------------------------------------------------------------------------
-// Server-side timer scheduling (DB-backed, survives app closure)
+// Server-side push (sends push notification when timer expires)
 // ---------------------------------------------------------------------------
 
 async function scheduleServerNotification(fireAt: number) {
@@ -113,21 +113,6 @@ async function scheduleServerNotification(fireAt: number) {
         Apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({ fireAt }),
-    });
-  } catch (_) {}
-}
-
-async function cancelServerNotification() {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    await fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer-notification`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-        Apikey: SUPABASE_ANON_KEY,
-      },
     });
   } catch (_) {}
 }
@@ -248,7 +233,6 @@ export function RestTimerBar() {
       scheduleServerNotification(fireAt);
     } else {
       cancelSwNotification();
-      cancelServerNotification();
     }
   }, [restTimer.isRunning, restTimer.startedAt, notifPermission, getRemainingSeconds]);
 
@@ -284,7 +268,6 @@ export function RestTimerBar() {
 
   const handleStop = () => {
     cancelSwNotification();
-    cancelServerNotification();
     stopRestTimer();
   };
 
