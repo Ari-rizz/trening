@@ -105,14 +105,14 @@ export function HistoryTab() {
         {!loading && !userId && (
           <div className="text-center py-16">
             <Calendar size={40} className="text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-500">Logg inn for a se historikk</p>
+            <p className="text-zinc-500">Logg inn for å se historikk</p>
           </div>
         )}
 
         {!loading && userId && workouts.length === 0 && (
           <div className="text-center py-16">
             <Dumbbell size={40} className="text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-400 font-medium">Ingen historikk enna</p>
+            <p className="text-zinc-400 font-medium">Ingen historikk ennå</p>
             <p className="text-zinc-600 text-sm mt-1">Fullfør din forste økt</p>
           </div>
         )}
