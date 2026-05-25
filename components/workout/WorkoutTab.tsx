@@ -432,7 +432,7 @@ export function WorkoutTab() {
             <div className="w-24 h-24 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-6">
               <Play size={36} className="text-red-500 ml-1" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Klar til a trene?</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Klar til å trene?</h2>
             <p className="text-zinc-500 text-sm mb-8">Start en ny økt og logg din progresjon</p>
             <motion.button
               data-tour="workout-start"
