@@ -95,7 +95,7 @@ export function ProgressTab() {
   const { isTourMode, tourSelectedExerciseId } = useAppStore();
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [weightPeriod, setWeightPeriod] = useState<30 | 90 | 180>(30);
-  const [weightExpanded, setWeightExpanded] = useState(true);
+  const [weightExpanded, setWeightExpanded] = useState(false);
 
   useEffect(() => {
     if (isTourMode) {
