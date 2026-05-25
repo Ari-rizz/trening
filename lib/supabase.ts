@@ -84,6 +84,7 @@ export interface WorkoutExercise {
   notes: string;
   set_type: SetType;
   is_unilateral: boolean;
+  superset_group: number | null;
   created_at: string;
   exercise?: Exercise;
   workout_sets?: WorkoutSet[];
@@ -134,6 +135,7 @@ export interface TemplateExercise {
   target_weight_kg: number;
   is_unilateral: boolean;
   notes: string;
+  superset_group: number | null;
   created_at: string;
   exercises?: Exercise;
 }

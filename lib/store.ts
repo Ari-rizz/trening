@@ -26,6 +26,7 @@ interface ActiveExercise {
   orderIndex: number;
   isUnilateral: boolean;
   templateExerciseId?: string;
+  supersetGroup?: number;
 }
 
 interface ActiveWorkout {
@@ -74,6 +75,9 @@ interface AppState {
   setExerciseNotes: (exerciseId: string, notes: string) => void;
   setExerciseTrackingType: (exerciseId: string, trackingType: 'reps_weight' | 'time') => void;
   toggleUnilateral: (exerciseId: string) => void;
+  linkSuperset: (exerciseIdA: string, exerciseIdB: string) => void;
+  unlinkSuperset: (exerciseId: string) => void;
+  getSupersetPartner: (exerciseId: string) => ActiveExercise | null;
 
   startRestTimer: (seconds: number) => void;
   tickRestTimer: () => void;
@@ -165,6 +169,7 @@ export const useAppStore = create<AppState>()(
               orderIndex: i,
               isUnilateral: (te as any).is_unilateral ?? false,
               templateExerciseId: te.id,
+              supersetGroup: (te as any).superset_group ?? undefined,
             };
           });
 
@@ -230,14 +235,19 @@ export const useAppStore = create<AppState>()(
       addSetToExercise: (exerciseId: string) => {
         const { activeWorkout } = get();
         if (!activeWorkout) return;
+        const targetEx = activeWorkout.exercises.find(e => e.id === exerciseId);
+        const partnerEx = targetEx?.supersetGroup != null
+          ? activeWorkout.exercises.find(e => e.id !== exerciseId && e.supersetGroup === targetEx.supersetGroup)
+          : null;
+        const idsToAdd = new Set([exerciseId, partnerEx?.id].filter(Boolean) as string[]);
         set({
           activeWorkout: {
             ...activeWorkout,
             exercises: activeWorkout.exercises.map(ex => {
-              if (ex.id !== exerciseId) return ex;
+              if (!idsToAdd.has(ex.id)) return ex;
               const lastSet = ex.sets[ex.sets.length - 1];
               const newSet: ActiveSet = {
-                exerciseId,
+                exerciseId: ex.id,
                 setNumber: ex.sets.length + 1,
                 reps: lastSet?.reps ?? 0,
                 weight: lastSet?.weight ?? 0,
@@ -448,6 +458,46 @@ export const useAppStore = create<AppState>()(
             ),
           },
         });
+      },
+
+      linkSuperset: (exerciseIdA: string, exerciseIdB: string) => {
+        const { activeWorkout } = get();
+        if (!activeWorkout) return;
+        const groupId = Date.now();
+        set({
+          activeWorkout: {
+            ...activeWorkout,
+            exercises: activeWorkout.exercises.map(ex =>
+              ex.id === exerciseIdA || ex.id === exerciseIdB
+                ? { ...ex, supersetGroup: groupId }
+                : ex
+            ),
+          },
+        });
+      },
+
+      unlinkSuperset: (exerciseId: string) => {
+        const { activeWorkout } = get();
+        if (!activeWorkout) return;
+        const ex = activeWorkout.exercises.find(e => e.id === exerciseId);
+        const groupId = ex?.supersetGroup;
+        if (groupId == null) return;
+        set({
+          activeWorkout: {
+            ...activeWorkout,
+            exercises: activeWorkout.exercises.map(e =>
+              e.supersetGroup === groupId ? { ...e, supersetGroup: undefined } : e
+            ),
+          },
+        });
+      },
+
+      getSupersetPartner: (exerciseId: string): ActiveExercise | null => {
+        const { activeWorkout } = get();
+        if (!activeWorkout) return null;
+        const ex = activeWorkout.exercises.find(e => e.id === exerciseId);
+        if (ex?.supersetGroup == null) return null;
+        return activeWorkout.exercises.find(e => e.id !== exerciseId && e.supersetGroup === ex.supersetGroup) ?? null;
       },
 
       startRestTimer: (seconds: number) => {

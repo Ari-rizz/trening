@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Dumbbell, ChevronDown, ChevronUp, Trash2, TriangleAlert as AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Dumbbell, ChevronDown, ChevronUp, Trash2, TriangleAlert as AlertTriangle, Link2 } from 'lucide-react';
 import { supabase, Workout } from '@/lib/supabase';
 import { format, isThisWeek, isThisMonth } from 'date-fns';
 import { nb } from 'date-fns/locale';
@@ -168,34 +168,87 @@ export function HistoryTab() {
                         className="overflow-hidden border-t border-zinc-800"
                       >
                         <div className="p-4 space-y-3">
-                          {workoutDetails[workout.id].map((we: any) => {
-                            const completedSets = (we.workout_sets ?? []).filter((s: any) => s.is_completed);
-                            if (completedSets.length === 0) return null;
-                            return (
-                              <div key={we.id}>
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <p className="text-white text-xs font-bold">{we.exercises?.name ?? 'Ukjent'}</p>
-                                  {we.is_unilateral && (
-                                    <span className="flex items-center gap-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                                      <Dumbbell size={8} />
-                                      Unilateral
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="space-y-1">
-                                  {completedSets.map((s: any, si: number) => (
-                                    <div key={si} className="flex items-center gap-3 text-xs text-zinc-400">
-                                      <span className="text-zinc-600 w-5">{s.set_number}</span>
-                                      <span>{s.weight_kg}kg</span>
-                                      <span>x</span>
-                                      <span>{s.reps} reps</span>
-                                      {s.rpe > 0 && <span className="text-zinc-600">RPE {s.rpe}</span>}
+                          {(() => {
+                            const exercises: any[] = workoutDetails[workout.id];
+                            const rendered = new Set<string>();
+                            return exercises.map((we: any) => {
+                              if (rendered.has(we.id)) return null;
+                              const completedSets = (we.workout_sets ?? []).filter((s: any) => s.is_completed);
+                              if (completedSets.length === 0) return null;
+
+                              const partner = we.superset_group != null
+                                ? exercises.find((e: any) => e.id !== we.id && e.superset_group === we.superset_group)
+                                : null;
+
+                              if (partner) {
+                                rendered.add(we.id);
+                                rendered.add(partner.id);
+                                const partnerSets = (partner.workout_sets ?? []).filter((s: any) => s.is_completed);
+                                return (
+                                  <div key={we.id} className="border-l-2 border-orange-500/40 pl-2.5 space-y-2">
+                                    <div className="flex items-center gap-1 mb-0.5">
+                                      <Link2 size={10} className="text-orange-400" />
+                                      <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Supersett</span>
                                     </div>
-                                  ))}
+                                    {[{ ex: we, sets: completedSets }, { ex: partner, sets: partnerSets }].map(({ ex, sets }) => (
+                                      <div key={ex.id}>
+                                        <p className="text-white text-xs font-bold mb-1">{ex.exercises?.name ?? 'Ukjent'}</p>
+                                        <div className="space-y-1">
+                                          {sets.map((s: any, si: number) => (
+                                            <div key={si} className="flex items-center gap-3 text-xs text-zinc-400">
+                                              <span className="text-zinc-600 w-5">{s.set_number}</span>
+                                              {s.duration_seconds > 0 ? (
+                                                <span>{s.duration_seconds}s</span>
+                                              ) : (
+                                                <>
+                                                  <span>{s.weight_kg}kg</span>
+                                                  <span>x</span>
+                                                  <span>{s.reps} reps</span>
+                                                </>
+                                              )}
+                                              {s.rpe > 0 && <span className="text-zinc-600">RPE {s.rpe}</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+
+                              rendered.add(we.id);
+                              return (
+                                <div key={we.id}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <p className="text-white text-xs font-bold">{we.exercises?.name ?? 'Ukjent'}</p>
+                                    {we.is_unilateral && (
+                                      <span className="flex items-center gap-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                        <Dumbbell size={8} />
+                                        Unilateral
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1">
+                                    {completedSets.map((s: any, si: number) => (
+                                      <div key={si} className="flex items-center gap-3 text-xs text-zinc-400">
+                                        <span className="text-zinc-600 w-5">{s.set_number}</span>
+                                        {s.duration_seconds > 0 ? (
+                                          <span>{s.duration_seconds}s</span>
+                                        ) : (
+                                          <>
+                                            <span>{s.weight_kg}kg</span>
+                                            <span>x</span>
+                                            <span>{s.reps} reps</span>
+                                          </>
+                                        )}
+                                        {s.rpe > 0 && <span className="text-zinc-600">RPE {s.rpe}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()}
 
                           {/* Delete button */}
                           {confirmDelete === workout.id ? (

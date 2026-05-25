@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Trash2, GripVertical, Save, Dumbbell, Repeat2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, GripVertical, Save, Dumbbell, Repeat2, Link2, Link2Off } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor } from '@/lib/exercises-data';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
@@ -25,6 +25,7 @@ interface LocalTemplateExercise {
   warmup_sets: number;
   is_unilateral: boolean;
   notes: string;
+  superset_group: number | null;
 }
 
 export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateEditorProps) {
@@ -33,6 +34,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   const [exercises, setExercises] = useState<LocalTemplateExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [supersetPickerFor, setSupersetPickerFor] = useState<number | null>(null);
 
   useEffect(() => {
     if (template?.template_exercises) {
@@ -50,6 +52,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
             warmup_sets: (te as any).warmup_sets ?? 0,
             is_unilateral: te.is_unilateral ?? false,
             notes: te.notes,
+            superset_group: te.superset_group ?? null,
           }))
       );
     }
@@ -68,9 +71,25 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         warmup_sets: 0,
         is_unilateral: false,
         notes: '',
+        superset_group: null,
       },
     ]);
     setShowPicker(false);
+  };
+
+  const linkTemplateSuperset = (indexA: number, indexB: number) => {
+    const groupId = Date.now();
+    setExercises(prev => prev.map((e, i) => {
+      if (i === indexA || i === indexB) return { ...e, superset_group: groupId };
+      return e;
+    }));
+    setSupersetPickerFor(null);
+  };
+
+  const unlinkTemplateSuperset = (index: number) => {
+    const groupId = exercises[index]?.superset_group;
+    if (groupId == null) return;
+    setExercises(prev => prev.map(e => e.superset_group === groupId ? { ...e, superset_group: null } : e));
   };
 
   const removeExercise = (index: number) => {
@@ -115,6 +134,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
           warmup_sets: e.warmup_sets,
           is_unilateral: e.is_unilateral,
           notes: e.notes,
+          superset_group: e.superset_group ?? null,
         }));
         await supabase.from('template_exercises').insert(rows);
       }
@@ -192,17 +212,69 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         <div>
           <p className="text-xs text-zinc-500 font-medium mb-2">Ovelser ({exercises.length})</p>
           <div className="space-y-2">
+            {/* Superset picker overlay */}
+            {supersetPickerFor !== null && (
+              <div className="bg-zinc-800 border border-orange-500/30 rounded-xl p-3 mb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-orange-400">Velg øvelse å koble med</p>
+                  <button onClick={() => setSupersetPickerFor(null)} className="text-zinc-500 text-xs">Avbryt</button>
+                </div>
+                <p className="text-xs text-zinc-500 mb-2">
+                  Kobler til: <span className="text-white">{exercises[supersetPickerFor]?.exercise.name}</span>
+                </p>
+                <div className="space-y-1.5">
+                  {exercises
+                    .map((e, i) => ({ e, i }))
+                    .filter(({ i }) => i !== supersetPickerFor)
+                    .map(({ e, i }) => {
+                      const c = getMuscleGroupColor(e.exercise.muscle_group);
+                      return (
+                        <motion.button
+                          key={i}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => linkTemplateSuperset(supersetPickerFor!, i)}
+                          className="w-full flex items-center gap-2.5 bg-zinc-900 rounded-lg px-3 py-2.5 text-left active:bg-zinc-700 transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c + '22' }}>
+                            <Dumbbell size={12} style={{ color: c }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{e.exercise.name}</p>
+                            <p className="text-[10px] capitalize" style={{ color: c }}>{e.exercise.muscle_group}</p>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
             <AnimatePresence>
               {exercises.map((ex, index) => {
                 const color = getMuscleGroupColor(ex.exercise.muscle_group);
+                const isInSuperset = ex.superset_group != null;
+                const partnerIndex = isInSuperset
+                  ? exercises.findIndex((e, i) => i !== index && e.superset_group === ex.superset_group)
+                  : -1;
+                const isFirstInPair = isInSuperset && partnerIndex > index;
+                const isSecondInPair = isInSuperset && partnerIndex < index;
                 return (
                   <motion.div
                     key={`${ex.exercise_id}-${index}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -50 }}
-                    className="bg-zinc-900 border border-zinc-800 rounded-xl p-3"
+                    className={`bg-zinc-900 rounded-xl p-3 ${
+                      isInSuperset
+                        ? 'border-l-2 border-orange-500/50 border-t border-r border-b border-zinc-800'
+                        : 'border border-zinc-800'
+                    } ${isFirstInPair ? 'rounded-b-none mb-0' : ''} ${isSecondInPair ? 'rounded-t-none border-t-0 mt-0' : ''}`}
                   >
+                    {isFirstInPair && (
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Supersett</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mb-2">
                       <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -214,6 +286,23 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                         <p className="text-white font-semibold text-sm truncate">{ex.exercise.name}</p>
                         <p className="text-[10px] capitalize" style={{ color }}>{ex.exercise.muscle_group}</p>
                       </div>
+                      {isInSuperset ? (
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => unlinkTemplateSuperset(index)}
+                          className="p-1.5 text-orange-500/60 active:text-orange-400"
+                        >
+                          <Link2Off size={14} />
+                        </motion.button>
+                      ) : (
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          onClick={() => setSupersetPickerFor(index)}
+                          className="p-1.5 text-zinc-600 active:text-orange-400"
+                        >
+                          <Link2 size={14} />
+                        </motion.button>
+                      )}
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => removeExercise(index)}

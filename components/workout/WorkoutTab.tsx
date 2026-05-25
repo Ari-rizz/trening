@@ -12,6 +12,7 @@ import { Exercise } from '@/lib/supabase';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
 import { ExerciseDetail } from '@/components/exercises/ExerciseDetail';
 import { ExerciseSwapSheet } from './ExerciseSwapSheet';
+import { SupersetPickerSheet } from './SupersetPickerSheet';
 import { StartWorkoutSheet } from './StartWorkoutSheet';
 import { RestTimerBar } from './RestTimerBar';
 import { supabase } from '@/lib/supabase';
@@ -48,6 +49,9 @@ export function WorkoutTab() {
     setExerciseNotes,
     setExerciseTrackingType,
     toggleUnilateral,
+    linkSuperset,
+    unlinkSuperset,
+    getSupersetPartner,
     startRestTimer,
     defaultRestSeconds,
   } = useAppStore();
@@ -68,6 +72,7 @@ export function WorkoutTab() {
   const [showHistoryToast, setShowHistoryToast] = useState(false);
   const [confirmDeleteSet, setConfirmDeleteSet] = useState<{ exerciseId: string; setNumber: number } | null>(null);
   const [showSwapSheet, setShowSwapSheet] = useState(false);
+  const [showSupersetPicker, setShowSupersetPicker] = useState(false);
   const [showStartSheet, setShowStartSheet] = useState(false);
   const historyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +147,39 @@ export function WorkoutTab() {
         .update({ exercise_id: newExercise.id })
         .eq('id', currentEx.templateExerciseId);
     }
+  };
+
+  const handleLinkSuperset = async (partnerExId: string, saveToTemplate: boolean) => {
+    if (!activeWorkout) return;
+    const currentEx = activeWorkout.exercises[currentExerciseIndex];
+    if (!currentEx) return;
+    linkSuperset(currentEx.id, partnerExId);
+    if (saveToTemplate && currentEx.templateExerciseId) {
+      const partner = activeWorkout.exercises.find(e => e.id === partnerExId);
+      const groupId = Date.now();
+      await supabase.from('template_exercises').update({ superset_group: groupId }).eq('id', currentEx.templateExerciseId);
+      if (partner?.templateExerciseId) {
+        await supabase.from('template_exercises').update({ superset_group: groupId }).eq('id', partner.templateExerciseId);
+      }
+    }
+    setShowSupersetPicker(false);
+  };
+
+  const handleUnlinkSuperset = async (saveToTemplate: boolean) => {
+    if (!activeWorkout) return;
+    const currentEx = activeWorkout.exercises[currentExerciseIndex];
+    if (!currentEx) return;
+    const partner = getSupersetPartner(currentEx.id);
+    unlinkSuperset(currentEx.id);
+    if (saveToTemplate) {
+      if (currentEx.templateExerciseId) {
+        await supabase.from('template_exercises').update({ superset_group: null }).eq('id', currentEx.templateExerciseId);
+      }
+      if (partner?.templateExerciseId) {
+        await supabase.from('template_exercises').update({ superset_group: null }).eq('id', partner.templateExerciseId);
+      }
+    }
+    setShowSupersetPicker(false);
   };
 
   useEffect(() => {
@@ -273,6 +311,7 @@ export function WorkoutTab() {
           set_type: ex.setType,
           notes: ex.notes,
           is_unilateral: ex.isUnilateral ?? false,
+          superset_group: ex.supersetGroup ?? null,
         }).select().single();
 
         if (weErr || !we) continue;
@@ -508,20 +547,28 @@ export function WorkoutTab() {
             {activeWorkout.exercises.map((ex, i) => {
               const completedCount = ex.sets.filter(s => s.isCompleted).length;
               const allDone = completedCount === ex.sets.length && ex.sets.length > 0;
+              const nextEx = activeWorkout.exercises[i + 1];
+              const linkedToNext = ex.supersetGroup != null && nextEx?.supersetGroup === ex.supersetGroup;
               return (
-                <button
-                  key={ex.id}
-                  onClick={() => setCurrentExerciseIndex(i)}
-                  className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center transition-all ${
-                    i === currentExerciseIndex
-                      ? 'bg-red-500 text-white scale-110'
-                      : allDone
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-zinc-800 text-zinc-500'
-                  }`}
-                >
-                  {i + 1}
-                </button>
+                <div key={ex.id} className="flex items-center flex-shrink-0">
+                  <button
+                    onClick={() => setCurrentExerciseIndex(i)}
+                    className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center transition-all ${
+                      i === currentExerciseIndex
+                        ? 'bg-red-500 text-white scale-110'
+                        : allDone
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : ex.supersetGroup != null
+                        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                  {linkedToNext && (
+                    <div className="w-3 h-0.5 bg-orange-500/50 mx-0.5" />
+                  )}
+                </div>
               );
             })}
             <button
@@ -587,28 +634,41 @@ export function WorkoutTab() {
                 <div className="min-w-0">
                   <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
                   <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
-                  <div className="flex items-center mt-1.5 bg-zinc-900 border border-zinc-800 rounded-full p-0.5 w-fit">
+                  <div className="flex items-center mt-1.5 gap-1.5">
+                    <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full p-0.5">
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                          !currentEx.isUnilateral
+                            ? 'bg-zinc-700 text-white'
+                            : 'text-zinc-500'
+                        }`}
+                      >
+                        Bilateral
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => !currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                          currentEx.isUnilateral
+                            ? 'bg-sky-500/20 text-sky-400'
+                            : 'text-zinc-500'
+                        }`}
+                      >
+                        Unilateral
+                      </motion.button>
+                    </div>
                     <motion.button
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
-                        !currentEx.isUnilateral
-                          ? 'bg-zinc-700 text-white'
-                          : 'text-zinc-500'
+                      onClick={() => setShowSupersetPicker(true)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                        currentEx.supersetGroup != null
+                          ? 'bg-orange-500/15 border-orange-500/30 text-orange-400'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-500'
                       }`}
                     >
-                      Bilateral
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => !currentEx.isUnilateral && toggleUnilateral(currentEx.id)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
-                        currentEx.isUnilateral
-                          ? 'bg-sky-500/20 text-sky-400'
-                          : 'text-zinc-500'
-                      }`}
-                    >
-                      Unilateral
+                      SS
                     </motion.button>
                   </div>
                 </div>
@@ -656,156 +716,301 @@ export function WorkoutTab() {
 
 
             {/* Current sets */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              {/* Sets header */}
-              {(trackingPrefs[currentEx.exerciseId] ?? currentEx.trackingType ?? 'reps_weight') === 'time' ? (
-                <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
-                  <div className="col-span-1">Sett</div>
-                  <div className="col-span-7 text-center">Tid (sek)</div>
-                  <div className="col-span-2 text-center">RPE</div>
-                  <div className="col-span-1"></div>
-                  <div className="col-span-1"></div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
-                  <div className="col-span-1">Sett</div>
-                  <div className="col-span-3 text-center">Vekt (kg)</div>
-                  <div className="col-span-4 text-center">Reps</div>
-                  <div className="col-span-2 text-center">RPE</div>
-                  <div className="col-span-1"></div>
-                  <div className="col-span-1"></div>
-                </div>
-              )}
+            {(() => {
+              const supersetPartner = getSupersetPartner(currentEx.id);
+              const trackingType = trackingPrefs[currentEx.exerciseId] ?? currentEx.trackingType ?? 'reps_weight';
 
-              {/* Sets rows */}
-              <div className="px-3 py-2 space-y-1.5">
-                {currentEx.sets.map((set, setIdx) => (
-                  <motion.div
-                    key={set.setNumber}
-                    data-tour={setIdx === 0 ? 'workout-set-row' : undefined}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`grid grid-cols-12 gap-1 items-center py-2 rounded-xl px-2 transition-colors ${
-                      set.isCompleted
-                        ? set.isWarmup ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-green-500/10 border border-green-500/20'
-                        : set.isWarmup ? 'bg-amber-500/5 border border-amber-500/10' : ''
-                    }`}
-                  >
-                    <div className="col-span-1 flex flex-col items-center justify-center">
-                      {set.isWarmup ? (
-                        <span className="text-[10px] font-bold text-amber-500 leading-none">W{set.setNumber}</span>
-                      ) : (
-                        <span className="text-xs font-bold text-zinc-500">{set.setNumber}</span>
-                      )}
+              return (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                {supersetPartner ? (
+                  /* Superset combined view */
+                  <div className="border-l-2 border-orange-500/50">
+                    <div className="px-4 py-2 border-b border-zinc-800/50">
+                      <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Supersett</p>
                     </div>
-                    {(trackingPrefs[currentEx.exerciseId] ?? currentEx.trackingType ?? 'reps_weight') === 'time' ? (
-                      <div className="col-span-7">
-                        <input
-                          type="number"
-                          value={set.duration || ''}
-                          onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                          className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                          inputMode="numeric"
-                          placeholder="0"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="col-span-3">
+                    <div className="px-3 py-2 space-y-3">
+                      {currentEx.sets.map((set, setIdx) => {
+                        const partnerSet = supersetPartner.sets[setIdx];
+                        const partnerTrackingType = trackingPrefs[supersetPartner.exerciseId] ?? supersetPartner.trackingType ?? 'reps_weight';
+                        return (
+                          <motion.div
+                            key={set.setNumber}
+                            data-tour={setIdx === 0 ? 'workout-set-row' : undefined}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-zinc-800/50 rounded-xl overflow-hidden border border-zinc-700/30"
+                          >
+                            <div className="px-2 py-1 border-b border-zinc-700/30 flex items-center">
+                              <span className="text-[10px] font-bold text-orange-400">
+                                {set.isWarmup ? `W${set.setNumber}` : `Sett ${set.setNumber}`}
+                              </span>
+                            </div>
+                            {/* Row A */}
+                            <div className="px-2 py-1.5 border-b border-zinc-700/20">
+                              <p className="text-[10px] text-zinc-500 mb-1 truncate">{currentEx.exercise.name}</p>
+                              <div className="flex items-center gap-1.5">
+                                {trackingType === 'time' ? (
+                                  <input
+                                    type="number"
+                                    value={set.duration || ''}
+                                    onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
+                                    className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
+                                    inputMode="numeric" placeholder="0 sek"
+                                  />
+                                ) : (
+                                  <>
+                                    <input
+                                      type="number"
+                                      value={set.weight || ''}
+                                      onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                      inputMode="decimal" placeholder="kg"
+                                    />
+                                    <input
+                                      type="number"
+                                      value={set.reps || ''}
+                                      onChange={e => updateSet(currentEx.id, set.setNumber, 'reps', parseInt(e.target.value) || 0)}
+                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                      inputMode="numeric" placeholder="reps"
+                                    />
+                                  </>
+                                )}
+                                <input
+                                  type="number"
+                                  value={set.rpe || ''}
+                                  onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                  className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                  inputMode="decimal" placeholder="RPE" min="1" max="10"
+                                />
+                                <motion.button
+                                  whileTap={{ scale: 0.85 }}
+                                  onClick={() => {
+                                    toggleSetComplete(currentEx.id, set.setNumber);
+                                    if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                                  }}
+                                  className="p-0.5"
+                                >
+                                  {set.isCompleted
+                                    ? <CheckCircle2 size={22} className={set.isWarmup ? 'text-amber-400' : 'text-green-500'} />
+                                    : <Circle size={22} className="text-zinc-700" />
+                                  }
+                                </motion.button>
+                              </div>
+                            </div>
+                            {/* Row B */}
+                            {partnerSet && (
+                              <div className="px-2 py-1.5">
+                                <p className="text-[10px] text-zinc-500 mb-1 truncate">{supersetPartner.exercise.name}</p>
+                                <div className="flex items-center gap-1.5">
+                                  {partnerTrackingType === 'time' ? (
+                                    <input
+                                      type="number"
+                                      value={partnerSet.duration || ''}
+                                      onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'duration', parseInt(e.target.value) || 0)}
+                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
+                                      inputMode="numeric" placeholder="0 sek"
+                                    />
+                                  ) : (
+                                    <>
+                                      <input
+                                        type="number"
+                                        value={partnerSet.weight || ''}
+                                        onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                        className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                        inputMode="decimal" placeholder="kg"
+                                      />
+                                      <input
+                                        type="number"
+                                        value={partnerSet.reps || ''}
+                                        onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'reps', parseInt(e.target.value) || 0)}
+                                        className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                        inputMode="numeric" placeholder="reps"
+                                      />
+                                    </>
+                                  )}
+                                  <input
+                                    type="number"
+                                    value={partnerSet.rpe || ''}
+                                    onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                    className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                    inputMode="decimal" placeholder="RPE" min="1" max="10"
+                                  />
+                                  <motion.button
+                                    whileTap={{ scale: 0.85 }}
+                                    onClick={() => {
+                                      toggleSetComplete(supersetPartner.id, partnerSet.setNumber);
+                                      if (!partnerSet.isCompleted && !partnerSet.isWarmup) startRestTimer(defaultRestSeconds);
+                                    }}
+                                    className="p-0.5"
+                                  >
+                                    {partnerSet.isCompleted
+                                      ? <CheckCircle2 size={22} className={partnerSet.isWarmup ? 'text-amber-400' : 'text-green-500'} />
+                                      : <Circle size={22} className="text-zinc-700" />
+                                    }
+                                  </motion.button>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                  {/* Normal sets header */}
+                  {trackingType === 'time' ? (
+                    <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
+                      <div className="col-span-1">Sett</div>
+                      <div className="col-span-7 text-center">Tid (sek)</div>
+                      <div className="col-span-2 text-center">RPE</div>
+                      <div className="col-span-1"></div>
+                      <div className="col-span-1"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
+                      <div className="col-span-1">Sett</div>
+                      <div className="col-span-3 text-center">Vekt (kg)</div>
+                      <div className="col-span-4 text-center">Reps</div>
+                      <div className="col-span-2 text-center">RPE</div>
+                      <div className="col-span-1"></div>
+                      <div className="col-span-1"></div>
+                    </div>
+                  )}
+
+                  {/* Normal set rows */}
+                  <div className="px-3 py-2 space-y-1.5">
+                    {currentEx.sets.map((set, setIdx) => (
+                      <motion.div
+                        key={set.setNumber}
+                        data-tour={setIdx === 0 ? 'workout-set-row' : undefined}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`grid grid-cols-12 gap-1 items-center py-2 rounded-xl px-2 transition-colors ${
+                          set.isCompleted
+                            ? set.isWarmup ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-green-500/10 border border-green-500/20'
+                            : set.isWarmup ? 'bg-amber-500/5 border border-amber-500/10' : ''
+                        }`}
+                      >
+                        <div className="col-span-1 flex flex-col items-center justify-center">
+                          {set.isWarmup ? (
+                            <span className="text-[10px] font-bold text-amber-500 leading-none">W{set.setNumber}</span>
+                          ) : (
+                            <span className="text-xs font-bold text-zinc-500">{set.setNumber}</span>
+                          )}
+                        </div>
+                        {trackingType === 'time' ? (
+                          <div className="col-span-7">
+                            <input
+                              type="number"
+                              value={set.duration || ''}
+                              onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
+                              className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
+                              inputMode="numeric"
+                              placeholder="0"
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="col-span-3">
+                              <input
+                                type="number"
+                                value={set.weight || ''}
+                                onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                inputMode="decimal"
+                                placeholder="0"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <input
+                                type="number"
+                                value={set.reps || ''}
+                                onChange={e => updateSet(currentEx.id, set.setNumber, 'reps', parseInt(e.target.value) || 0)}
+                                className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                inputMode="numeric"
+                                placeholder="0"
+                              />
+                            </div>
+                          </>
+                        )}
+                        <div className="col-span-2">
                           <input
                             type="number"
-                            value={set.weight || ''}
-                            onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
-                            className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                            value={set.rpe || ''}
+                            onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                            className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                             inputMode="decimal"
-                            placeholder="0"
+                            placeholder="-"
+                            min="1"
+                            max="10"
                           />
                         </div>
-                        <div className="col-span-4">
-                          <input
-                            type="number"
-                            value={set.reps || ''}
-                            onChange={e => updateSet(currentEx.id, set.setNumber, 'reps', parseInt(e.target.value) || 0)}
-                            className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                            inputMode="numeric"
-                            placeholder="0"
-                          />
+                        <div className="col-span-1 flex justify-center">
+                          <motion.button
+                            whileTap={{ scale: 0.85 }}
+                            onClick={() => {
+                              toggleSetComplete(currentEx.id, set.setNumber);
+                              if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                            }}
+                            className="p-0.5"
+                          >
+                            {set.isCompleted
+                              ? <CheckCircle2 size={22} className={set.isWarmup ? 'text-amber-400' : 'text-green-500'} />
+                              : <Circle size={22} className="text-zinc-700" />
+                            }
+                          </motion.button>
                         </div>
-                      </>
-                    )}
-                    <div className="col-span-2">
-                      <input
-                        type="number"
-                        value={set.rpe || ''}
-                        onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
-                        className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                        inputMode="decimal"
-                        placeholder="-"
-                        min="1"
-                        max="10"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      <motion.button
-                        whileTap={{ scale: 0.85 }}
-                        onClick={() => {
-                          toggleSetComplete(currentEx.id, set.setNumber);
-                          if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
-                        }}
-                        className="p-0.5"
-                      >
-                        {set.isCompleted
-                          ? <CheckCircle2 size={22} className={set.isWarmup ? 'text-amber-400' : 'text-green-500'} />
-                          : <Circle size={22} className="text-zinc-700" />
-                        }
-                      </motion.button>
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      <motion.button
-                        whileTap={{ scale: 0.85 }}
-                        onClick={() => setConfirmDeleteSet({ exerciseId: currentEx.id, setNumber: set.setNumber })}
-                        className="p-0.5"
-                      >
-                        <X size={14} className="text-zinc-600 hover:text-zinc-400 transition-colors" />
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                        <div className="col-span-1 flex justify-center">
+                          <motion.button
+                            whileTap={{ scale: 0.85 }}
+                            onClick={() => setConfirmDeleteSet({ exerciseId: currentEx.id, setNumber: set.setNumber })}
+                            className="p-0.5"
+                          >
+                            <X size={14} className="text-zinc-600 hover:text-zinc-400 transition-colors" />
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  </>
+                )}
 
-              {/* Add/remove set */}
-              <div className="px-4 pb-3 pt-1 space-y-1.5">
-                <div className="flex gap-2">
+                {/* Add/remove set */}
+                <div className="px-4 pb-3 pt-1 space-y-1.5">
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => addSetToExercise(currentEx.id)}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-zinc-800 text-zinc-400 text-sm font-medium"
+                    >
+                      <Plus size={14} />
+                      {supersetPartner ? 'Legg til sett (begge)' : 'Legg til sett'}
+                    </motion.button>
+                  </div>
                   <motion.button
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => addSetToExercise(currentEx.id)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-zinc-800 text-zinc-400 text-sm font-medium"
+                    onClick={() => addWarmupSetToExercise(currentEx.id)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium"
                   >
-                    <Plus size={14} />
-                    Legg til sett
+                    <Plus size={12} />
+                    Legg til varmup-sett
                   </motion.button>
                 </div>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => addWarmupSetToExercise(currentEx.id)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium"
-                >
-                  <Plus size={12} />
-                  Legg til varmup-sett
-                </motion.button>
-              </div>
 
-              {/* Exercise notes */}
-              <div className="px-4 pb-4">
-                <textarea
-                  value={currentEx.notes}
-                  onChange={e => setExerciseNotes(currentEx.id, e.target.value)}
-                  placeholder="Notat til deg selv… (lagres til neste gang)"
-                  rows={2}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-600 transition-colors"
-                />
+                {/* Exercise notes */}
+                <div className="px-4 pb-4">
+                  <textarea
+                    value={currentEx.notes}
+                    onChange={e => setExerciseNotes(currentEx.id, e.target.value)}
+                    placeholder="Notat til deg selv… (lagres til neste gang)"
+                    rows={2}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none focus:border-zinc-600 transition-colors"
+                  />
+                </div>
               </div>
-            </div>
+              );
+            })()}
 
             {/* Navigation between exercises */}
             <div className="flex items-center justify-between mt-4">
@@ -970,6 +1175,33 @@ export function WorkoutTab() {
           userId={userId}
           onSwap={handleSwapExercise}
           onClose={() => setShowSwapSheet(false)}
+        />
+      )}
+
+      {currentEx && activeWorkout && (
+        <SupersetPickerSheet
+          open={showSupersetPicker}
+          currentExercise={{
+            id: currentEx.id,
+            name: currentEx.exercise.name,
+            muscleGroup: currentEx.exercise.muscle_group,
+            equipment: currentEx.exercise.equipment,
+            templateExerciseId: currentEx.templateExerciseId,
+          }}
+          currentSupersetPartnerId={getSupersetPartner(currentEx.id)?.id ?? null}
+          availableExercises={activeWorkout.exercises
+            .filter(e => e.id !== currentEx.id)
+            .map(e => ({
+              id: e.id,
+              name: e.exercise.name,
+              muscleGroup: e.exercise.muscle_group,
+              equipment: e.exercise.equipment,
+              templateExerciseId: e.templateExerciseId,
+            }))}
+          hasTemplate={!!currentEx.templateExerciseId}
+          onLink={handleLinkSuperset}
+          onUnlink={handleUnlinkSuperset}
+          onClose={() => setShowSupersetPicker(false)}
         />
       )}
     </div>
