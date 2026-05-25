@@ -585,16 +585,22 @@ export function WorkoutTab() {
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
-                    {currentEx.isUnilateral && (
-                      <span className="flex-shrink-0 flex items-center gap-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        <Dumbbell size={9} />
-                        Unilateral
-                      </span>
-                    )}
+                  <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-zinc-500 capitalize">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => toggleUnilateral(currentEx.id)}
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold transition-colors ${
+                        currentEx.isUnilateral
+                          ? 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                          : 'bg-transparent border-zinc-700 text-zinc-600'
+                      }`}
+                    >
+                      <Dumbbell size={9} />
+                      Unilateral
+                    </motion.button>
                   </div>
-                  <p className="text-xs text-zinc-500 capitalize">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -615,18 +621,6 @@ export function WorkoutTab() {
                   }`}
                 >
                   <Timer size={16} />
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.85 }}
-                  onClick={() => toggleUnilateral(currentEx.id)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    currentEx.isUnilateral
-                      ? 'text-sky-400 bg-sky-500/10'
-                      : 'text-zinc-600 active:text-zinc-400'
-                  }`}
-                  title="Unilateral"
-                >
-                  <Dumbbell size={16} />
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.85 }}
