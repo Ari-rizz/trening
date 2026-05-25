@@ -182,10 +182,10 @@ export function PlansTab() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowImport(true)}
-              className="w-9 h-9 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center"
-              title="Importer plan"
+              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2"
             >
-              <Download size={16} className="text-zinc-400" />
+              <Download size={15} className="text-zinc-400" />
+              <span className="text-zinc-400 text-xs font-medium">Legg til delt plan</span>
             </motion.button>
             {templates.length > 0 && (
               <motion.button
