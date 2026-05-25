@@ -311,29 +311,24 @@ export function ProgressTab() {
 
       {/* Body weight section */}
       {userId && !isTourMode && (
-        <div className="px-4 mb-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-            {/* Section header */}
+        <div className="px-4 mb-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-xl font-bold text-white">Kroppsvekt</h2>
+              <p className="text-zinc-500 text-sm mt-0.5">
+                {currentWeight !== null ? `${String(currentWeight).replace('.', ',')} kg nå` : 'Ingen data ennå'}
+              </p>
+            </div>
             <button
               onClick={() => setWeightExpanded(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3.5"
+              className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center">
-                  <Scale size={15} className="text-blue-400" />
-                </div>
-                <div className="text-left">
-                  <p className="text-white font-semibold text-sm">Kroppsvekt</p>
-                  {currentWeight !== null && (
-                    <p className="text-zinc-500 text-xs">{String(currentWeight).replace('.', ',')} kg nå</p>
-                  )}
-                </div>
-              </div>
               <ChevronDown
                 size={16}
-                className={`text-zinc-600 transition-transform ${weightExpanded ? 'rotate-180' : ''}`}
+                className={`text-zinc-400 transition-transform ${weightExpanded ? 'rotate-180' : ''}`}
               />
             </button>
+          </div>
 
             <AnimatePresence initial={false}>
               {weightExpanded && (
@@ -345,7 +340,7 @@ export function ProgressTab() {
                   transition={{ duration: 0.22 }}
                   className="overflow-hidden"
                 >
-                  <div className="px-4 pb-4">
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl pb-4 pt-3 px-4 mb-4">
                     {/* Period selector */}
                     <div className="flex gap-2 mb-4">
                       {([30, 90, 180] as const).map(p => (
@@ -452,7 +447,6 @@ export function ProgressTab() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
         </div>
       )}
 
