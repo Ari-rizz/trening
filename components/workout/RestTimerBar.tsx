@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, X, Plus, Minus, Bell } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
 function playDoneSound() {
   try {
@@ -34,6 +39,65 @@ function getNotifPermission(): NotificationPermission {
   return Notification.permission;
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// Subscribe to Web Push and persist to Supabase. Returns true if subscription is active.
+async function ensurePushSubscription(): Promise<boolean> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return false;
+    const json = sub.toJSON();
+    await fetch(`${SUPABASE_URL}/functions/v1/subscribe-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        Apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Call edge function that will delay and send push at fireAt timestamp.
+// Returns an abort function.
+function scheduleServerPush(fireAt: number): () => void {
+  let aborted = false;
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session || aborted) return;
+    fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        Apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ fireAt }),
+    }).catch(() => {});
+  });
+  return () => { aborted = true; };
+}
+
+// Also post to SW as fallback for when app stays in foreground
 async function scheduleSwNotification(fireAt: number) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
@@ -55,14 +119,7 @@ export function RestTimerBar() {
   const [, forceUpdate] = useState(0);
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
-  // Track permission in a ref so effects always see the current value without stale closure issues
-  const permissionRef = useRef<NotificationPermission>('default');
-  const [, setPermissionVersion] = useState(0);
-
-  useEffect(() => {
-    permissionRef.current = getNotifPermission();
-    setPermissionVersion(v => v + 1);
-  }, []);
+  const cancelServerPushRef = useRef<(() => void) | null>(null);
 
   // Re-render every 500ms for smooth countdown
   useEffect(() => {
@@ -77,7 +134,7 @@ export function RestTimerBar() {
     return Math.max(0, restTimer.totalSeconds - elapsed);
   }, [restTimer]);
 
-  // Detect timer reaching 0 while app is open
+  // Detect timer reaching 0 while app is in foreground
   useEffect(() => {
     if (!restTimer.isRunning || isTourMode) {
       doneRef.current = false;
@@ -110,20 +167,31 @@ export function RestTimerBar() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [restTimer.isRunning, getRemainingSeconds, stopRestTimer]);
 
-  // Schedule SW notification when timer starts/changes — reads permission directly
+  // Schedule notification (both SW fallback and server push)
   useEffect(() => {
-    if (restTimer.isRunning) {
-      const perm = getNotifPermission();
-      if (perm !== 'granted') return;
-      const remaining = getRemainingSeconds();
-      if (remaining <= 0) return;
-      scheduleSwNotification(Date.now() + remaining * 1000);
-    } else {
+    if (!restTimer.isRunning) {
       cancelSwNotification();
+      if (cancelServerPushRef.current) {
+        cancelServerPushRef.current();
+        cancelServerPushRef.current = null;
+      }
+      return;
     }
+    if (getNotifPermission() !== 'granted') return;
+    const remaining = getRemainingSeconds();
+    if (remaining <= 0) return;
+    const fireAt = Date.now() + remaining * 1000;
+    scheduleSwNotification(fireAt);
+    cancelServerPushRef.current = scheduleServerPush(fireAt);
+    return () => {
+      if (cancelServerPushRef.current) {
+        cancelServerPushRef.current();
+        cancelServerPushRef.current = null;
+      }
+    };
   }, [restTimer.isRunning, restTimer.startedAt, getRemainingSeconds]);
 
-  // Show permission banner on first timer start if not yet decided
+  // Show permission banner on first timer start if not yet granted
   useEffect(() => {
     if (
       restTimer.isRunning &&
@@ -138,20 +206,26 @@ export function RestTimerBar() {
   const handleAllowNotifications = async () => {
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
-    permissionRef.current = result;
-    setPermissionVersion(v => v + 1);
     setShowPermissionBanner(false);
-
-    if (result === 'granted' && restTimer.isRunning) {
-      const remaining = getRemainingSeconds();
-      if (remaining > 0) {
-        scheduleSwNotification(Date.now() + remaining * 1000);
+    if (result === 'granted') {
+      await ensurePushSubscription();
+      if (restTimer.isRunning) {
+        const remaining = getRemainingSeconds();
+        if (remaining > 0) {
+          const fireAt = Date.now() + remaining * 1000;
+          scheduleSwNotification(fireAt);
+          cancelServerPushRef.current = scheduleServerPush(fireAt);
+        }
       }
     }
   };
 
   const handleStop = () => {
     cancelSwNotification();
+    if (cancelServerPushRef.current) {
+      cancelServerPushRef.current();
+      cancelServerPushRef.current = null;
+    }
     stopRestTimer();
   };
 
