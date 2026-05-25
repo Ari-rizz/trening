@@ -433,7 +433,7 @@ export function WorkoutTab() {
               <Play size={36} className="text-red-500 ml-1" />
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">Klar til a trene?</h2>
-            <p className="text-zinc-500 text-sm mb-8">Start en ny okt og logg din progresjon</p>
+            <p className="text-zinc-500 text-sm mb-8">Start en ny økt og logg din progresjon</p>
             <motion.button
               data-tour="workout-start"
               whileTap={{ scale: 0.97 }}
@@ -441,7 +441,7 @@ export function WorkoutTab() {
               className="w-full bg-red-500 text-white py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2"
             >
               <Play size={18} className="fill-current" />
-              Start ny okt
+              Start ny økt
             </motion.button>
           </motion.div>
         </div>
@@ -1034,7 +1034,7 @@ export function WorkoutTab() {
                   }`}
                 >
                   <Square size={12} className="fill-current" />
-                  {savingWorkout ? '...' : saveError ? 'Prov igjen' : 'Fullfor okt'}
+                  {savingWorkout ? '...' : saveError ? 'Prøv igjen' : 'Fullfor økt'}
                 </motion.button>
               ) : (
                 <motion.button
