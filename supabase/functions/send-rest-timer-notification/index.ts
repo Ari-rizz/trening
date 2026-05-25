@@ -66,10 +66,10 @@ async function encryptPayloadAes128gcm(
   ikm_info.set(receiverPublicKeyRaw, infoPrefix.length);
   ikm_info.set(senderPublicKeyRaw, infoPrefix.length + 65);
 
-  const ikmKey = await crypto.subtle.importKey("raw", authSecret, "HKDF", false, ["deriveBits"]);
+  const ikmKey = await crypto.subtle.importKey("raw", sharedSecret, "HKDF", false, ["deriveBits"]);
   const ikm = new Uint8Array(
     await crypto.subtle.deriveBits(
-      { name: "HKDF", hash: "SHA-256", salt: sharedSecret, info: ikm_info }, ikmKey, 256,
+      { name: "HKDF", hash: "SHA-256", salt: authSecret, info: ikm_info }, ikmKey, 256,
     ),
   );
 
