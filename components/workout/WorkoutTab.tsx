@@ -274,7 +274,7 @@ export function WorkoutTab() {
     if (!currentUserId) {
       toast({
         title: 'Ikke innlogget',
-        description: 'Sesjonen din har utlopt. Logg inn igjen for a lagre økten.',
+        description: 'Sesjonen din har utløpt. Logg inn igjen for å lagre økten.',
         variant: 'destructive',
       });
       return;
