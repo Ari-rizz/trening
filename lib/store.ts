@@ -41,6 +41,7 @@ interface RestTimer {
   isRunning: boolean;
   seconds: number;
   totalSeconds: number;
+  startedAt: number;
 }
 
 interface AppState {
@@ -80,7 +81,6 @@ interface AppState {
   getSupersetPartner: (exerciseId: string) => ActiveExercise | null;
 
   startRestTimer: (seconds: number) => void;
-  tickRestTimer: () => void;
   stopRestTimer: () => void;
   setDefaultRestSeconds: (seconds: number) => void;
 
@@ -103,7 +103,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       activeWorkout: null,
-      restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS },
+      restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS, startedAt: 0 },
       defaultRestSeconds: DEFAULT_REST_SECONDS,
       currentTab: 'dashboard',
       selectedMuscleGroup: null,
@@ -501,17 +501,7 @@ export const useAppStore = create<AppState>()(
       },
 
       startRestTimer: (seconds: number) => {
-        set({ restTimer: { isRunning: true, seconds, totalSeconds: seconds } });
-      },
-
-      tickRestTimer: () => {
-        const { restTimer } = get();
-        if (!restTimer.isRunning) return;
-        if (restTimer.seconds <= 0) {
-          set({ restTimer: { ...restTimer, isRunning: false, seconds: 0 } });
-          return;
-        }
-        set({ restTimer: { ...restTimer, seconds: restTimer.seconds - 1 } });
+        set({ restTimer: { isRunning: true, seconds, totalSeconds: seconds, startedAt: Date.now() } });
       },
 
       stopRestTimer: () => {
@@ -592,14 +582,14 @@ export const useAppStore = create<AppState>()(
               },
             ],
           },
-          restTimer: { isRunning: true, seconds: 47, totalSeconds: 90 },
+          restTimer: { isRunning: true, seconds: 47, totalSeconds: 90, startedAt: Date.now() - 43 * 1000 },
         });
       },
 
       clearMockWorkout: () => {
         set({
           activeWorkout: null,
-          restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS },
+          restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS, startedAt: 0 },
           isTourMode: false,
           tourSelectedExerciseId: null,
         });
