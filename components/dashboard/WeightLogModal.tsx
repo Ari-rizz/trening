@@ -78,7 +78,7 @@ export function WeightLogModal({ open, userId, onClose, onSaved }: WeightLogModa
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-          className="fixed inset-0 z-50 bg-zinc-950 flex flex-col"
+          className="fixed inset-0 z-[200] bg-zinc-950 flex flex-col"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-12 pb-5 border-b border-zinc-800/60">
