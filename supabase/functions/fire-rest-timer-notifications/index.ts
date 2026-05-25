@@ -7,11 +7,11 @@ const VAPID_SUBJECT = "mailto:noreply@irongrid.app";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-// --- Crypto helpers (same as send-weight-reminder) ---
+// --- Crypto helpers ---
 
 function b64urlToBytes(b64url: string): Uint8Array {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -104,7 +104,7 @@ async function sendPush(sub: { endpoint: string; p256dh: string; auth: string },
       "Content-Type": "application/octet-stream",
       "Content-Encoding": "aes128gcm",
       "Content-Length": String(requestBody.length),
-      TTL: "3600",
+      TTL: "60",
       Authorization: `vapid t=${jwt}, k=${VAPID_PUBLIC_KEY}`,
     },
     body: requestBody,
@@ -120,86 +120,79 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const anonClient = createClient(
+    const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
-    const { data: { user }, error: userError } = await anonClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+
+    // Find all unsent timers that have passed their fire_at time
+    const { data: dueTimers, error: timersError } = await supabase
+      .from("rest_timer_scheduled")
+      .select("id, user_id, fire_at")
+      .eq("sent", false)
+      .lte("fire_at", new Date().toISOString());
+
+    if (timersError) {
+      return new Response(JSON.stringify({ error: timersError.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (req.method === "POST") {
-      const { fireAt } = await req.json();
-      if (typeof fireAt !== "number") {
-        return new Response(JSON.stringify({ error: "Missing fireAt" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
-
-      const { data: subs } = await supabase
-        .from("push_subscriptions")
-        .select("endpoint, p256dh, auth")
-        .eq("user_id", user.id);
-
-      if (!subs || subs.length === 0) {
-        return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no subscriptions" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Wait until fireAt, then send push to all user's devices
-      const delayMs = Math.max(0, fireAt - Date.now());
-      if (delayMs > 0) {
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-
-      const notification = JSON.stringify({
-        title: "Hvile ferdig!",
-        body: "Tid for neste sett",
-        icon: "/icons/icon-192x192.png",
-        badge: "/icons/icon-96x96.png",
-        tag: "rest-timer",
-      });
-
-      const staleEndpoints: string[] = [];
-      let sent = 0;
-
-      await Promise.all(subs.map(async (sub: any) => {
-        const result = await sendPush(sub, notification);
-        if (result.ok) {
-          sent++;
-        } else if (result.status === 410) {
-          staleEndpoints.push(sub.endpoint);
-        }
-      }));
-
-      if (staleEndpoints.length > 0) {
-        await supabase.from("push_subscriptions").delete().in("endpoint", staleEndpoints);
-      }
-
-      return new Response(JSON.stringify({ ok: true, sent }), {
+    if (!dueTimers || dueTimers.length === 0) {
+      return new Response(JSON.stringify({ ok: true, sent: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Mark all due timers as sent immediately to avoid double-firing
+    const dueIds = dueTimers.map((t: any) => t.id);
+    await supabase
+      .from("rest_timer_scheduled")
+      .update({ sent: true })
+      .in("id", dueIds);
+
+    // Get unique user IDs and fetch their push subscriptions
+    const userIds = [...new Set(dueTimers.map((t: any) => t.user_id))];
+    const { data: allSubs } = await supabase
+      .from("push_subscriptions")
+      .select("user_id, endpoint, p256dh, auth")
+      .in("user_id", userIds);
+
+    if (!allSubs || allSubs.length === 0) {
+      return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no subscriptions" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const notification = JSON.stringify({
+      title: "Hvile ferdig!",
+      body: "Tid for neste sett",
+      icon: "/icons/icon-192x192.png",
+      badge: "/icons/icon-96x96.png",
+      tag: "rest-timer",
+    });
+
+    const staleEndpoints: string[] = [];
+    let sent = 0;
+
+    await Promise.all(allSubs.map(async (sub: any) => {
+      const result = await sendPush(sub, notification);
+      if (result.ok) {
+        sent++;
+      } else if (result.status === 410) {
+        staleEndpoints.push(sub.endpoint);
+      }
+    }));
+
+    if (staleEndpoints.length > 0) {
+      await supabase
+        .from("push_subscriptions")
+        .delete()
+        .in("endpoint", staleEndpoints);
+    }
+
+    return new Response(JSON.stringify({ ok: true, sent, timers: dueTimers.length }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: String(err) }), {

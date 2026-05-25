@@ -1,23 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, Share, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, Bell, BellOff } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, Bell, BellOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
+import { ensurePushSubscription } from '@/components/workout/RestTimerBar';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
 
 interface Profile {
   full_name: string;
@@ -52,7 +43,12 @@ export function ProfileTab() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotifPermission(Notification.permission);
+      const perm = Notification.permission;
+      setNotifPermission(perm);
+      // Re-register subscription silently on every app load when already granted
+      if (perm === 'granted') {
+        ensurePushSubscription();
+      }
     }
   }, []);
 
@@ -155,33 +151,14 @@ export function ProfileTab() {
   };
 
   const handleEnableNotifications = async () => {
-    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('Notification' in window)) return;
     setNotifLoading(true);
     try {
       const result = await Notification.requestPermission();
       setNotifPermission(result);
-      if (result !== 'granted') return;
-
-      const reg = await navigator.serviceWorker.ready;
-      let sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
+      if (result === 'granted') {
+        await ensurePushSubscription();
       }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const json = sub.toJSON();
-      await fetch(`${SUPABASE_URL}/functions/v1/subscribe-push`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-          Apikey: SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
-      });
     } catch (_) {}
     setNotifLoading(false);
   };

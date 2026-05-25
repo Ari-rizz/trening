@@ -48,9 +48,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-// Subscribe to Web Push and persist to Supabase. Returns true if subscription is active.
-async function ensurePushSubscription(): Promise<boolean> {
+export async function ensurePushSubscription(): Promise<boolean> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (getNotifPermission() !== 'granted') return false;
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
@@ -78,26 +78,30 @@ async function ensurePushSubscription(): Promise<boolean> {
   }
 }
 
-// Call edge function that will delay and send push at fireAt timestamp.
-// Returns an abort function.
-function scheduleServerPush(fireAt: number): () => void {
-  let aborted = false;
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (!session || aborted) return;
-    fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-        Apikey: SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ fireAt }),
-    }).catch(() => {});
-  });
-  return () => { aborted = true; };
+// Write a scheduled timer row to Supabase. Returns the row id for later deletion.
+async function scheduleDbTimer(fireAt: number): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    const { data, error } = await supabase
+      .from('rest_timer_scheduled')
+      .insert({ user_id: session.user.id, fire_at: new Date(fireAt).toISOString() })
+      .select('id')
+      .single();
+    if (error || !data) return null;
+    return data.id as string;
+  } catch (_) {
+    return null;
+  }
 }
 
-// Also post to SW as fallback for when app stays in foreground
+async function cancelDbTimer(id: string) {
+  try {
+    await supabase.from('rest_timer_scheduled').delete().eq('id', id);
+  } catch (_) {}
+}
+
+// Fallback: post to SW for foreground/short-delay cases
 async function scheduleSwNotification(fireAt: number) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
@@ -119,7 +123,11 @@ export function RestTimerBar() {
   const [, forceUpdate] = useState(0);
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
-  const cancelServerPushRef = useRef<(() => void) | null>(null);
+  const [showDoneBanner, setShowDoneBanner] = useState(false);
+  // Track the DB row id so we can delete it on cancel
+  const dbTimerIdRef = useRef<string | null>(null);
+  // Track the fireAt we last scheduled to avoid redundant reschedules
+  const scheduledFireAtRef = useRef<number | null>(null);
 
   // Re-render every 500ms for smooth countdown
   useEffect(() => {
@@ -134,7 +142,57 @@ export function RestTimerBar() {
     return Math.max(0, restTimer.totalSeconds - elapsed);
   }, [restTimer]);
 
-  // Detect timer reaching 0 while app is in foreground
+  // Schedule notifications exactly once per timer start (when startedAt changes)
+  useEffect(() => {
+    if (!restTimer.isRunning) {
+      // Timer stopped — cancel everything
+      cancelSwNotification();
+      if (dbTimerIdRef.current) {
+        cancelDbTimer(dbTimerIdRef.current);
+        dbTimerIdRef.current = null;
+      }
+      scheduledFireAtRef.current = null;
+      return;
+    }
+
+    const remaining = getRemainingSeconds();
+    if (remaining <= 0) return;
+    const fireAt = restTimer.startedAt + restTimer.totalSeconds * 1000;
+
+    // Don't reschedule if fireAt hasn't changed
+    if (scheduledFireAtRef.current === fireAt) return;
+    scheduledFireAtRef.current = fireAt;
+
+    // Cancel previous DB timer if any
+    if (dbTimerIdRef.current) {
+      cancelDbTimer(dbTimerIdRef.current);
+      dbTimerIdRef.current = null;
+    }
+
+    // SW fallback (works when app is open on Android/desktop)
+    scheduleSwNotification(fireAt);
+
+    // DB-backed server push (works when app is closed/backgrounded, cron fires every minute)
+    if (getNotifPermission() === 'granted') {
+      scheduleDbTimer(fireAt).then(id => {
+        dbTimerIdRef.current = id;
+      });
+    }
+  }, [restTimer.isRunning, restTimer.startedAt, restTimer.totalSeconds, getRemainingSeconds]);
+
+  // Show permission banner on first timer start
+  useEffect(() => {
+    if (
+      restTimer.isRunning &&
+      getNotifPermission() === 'default' &&
+      typeof window !== 'undefined' &&
+      'Notification' in window
+    ) {
+      setShowPermissionBanner(true);
+    }
+  }, [restTimer.isRunning]);
+
+  // Detect timer reaching zero while app is in foreground
   useEffect(() => {
     if (!restTimer.isRunning || isTourMode) {
       doneRef.current = false;
@@ -146,6 +204,8 @@ export function RestTimerBar() {
       stopRestTimer();
       playDoneSound();
       vibrateDevice();
+      setShowDoneBanner(true);
+      setTimeout(() => setShowDoneBanner(false), 4000);
     }
   });
 
@@ -158,6 +218,8 @@ export function RestTimerBar() {
           stopRestTimer();
           playDoneSound();
           vibrateDevice();
+          setShowDoneBanner(true);
+          setTimeout(() => setShowDoneBanner(false), 4000);
         } else {
           forceUpdate(n => n + 1);
         }
@@ -167,54 +229,21 @@ export function RestTimerBar() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [restTimer.isRunning, getRemainingSeconds, stopRestTimer]);
 
-  // Schedule notification (both SW fallback and server push)
-  useEffect(() => {
-    if (!restTimer.isRunning) {
-      cancelSwNotification();
-      if (cancelServerPushRef.current) {
-        cancelServerPushRef.current();
-        cancelServerPushRef.current = null;
-      }
-      return;
-    }
-    if (getNotifPermission() !== 'granted') return;
-    const remaining = getRemainingSeconds();
-    if (remaining <= 0) return;
-    const fireAt = Date.now() + remaining * 1000;
-    scheduleSwNotification(fireAt);
-    cancelServerPushRef.current = scheduleServerPush(fireAt);
-    return () => {
-      if (cancelServerPushRef.current) {
-        cancelServerPushRef.current();
-        cancelServerPushRef.current = null;
-      }
-    };
-  }, [restTimer.isRunning, restTimer.startedAt, getRemainingSeconds]);
-
-  // Show permission banner on first timer start if not yet granted
-  useEffect(() => {
-    if (
-      restTimer.isRunning &&
-      getNotifPermission() === 'default' &&
-      typeof window !== 'undefined' &&
-      'Notification' in window
-    ) {
-      setShowPermissionBanner(true);
-    }
-  }, [restTimer.isRunning]);
-
   const handleAllowNotifications = async () => {
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
     setShowPermissionBanner(false);
     if (result === 'granted') {
       await ensurePushSubscription();
+      // Schedule DB timer now that we have permission
       if (restTimer.isRunning) {
         const remaining = getRemainingSeconds();
         if (remaining > 0) {
-          const fireAt = Date.now() + remaining * 1000;
-          scheduleSwNotification(fireAt);
-          cancelServerPushRef.current = scheduleServerPush(fireAt);
+          const fireAt = restTimer.startedAt + restTimer.totalSeconds * 1000;
+          if (dbTimerIdRef.current) {
+            cancelDbTimer(dbTimerIdRef.current);
+          }
+          dbTimerIdRef.current = await scheduleDbTimer(fireAt);
         }
       }
     }
@@ -222,10 +251,11 @@ export function RestTimerBar() {
 
   const handleStop = () => {
     cancelSwNotification();
-    if (cancelServerPushRef.current) {
-      cancelServerPushRef.current();
-      cancelServerPushRef.current = null;
+    if (dbTimerIdRef.current) {
+      cancelDbTimer(dbTimerIdRef.current);
+      dbTimerIdRef.current = null;
     }
+    scheduledFireAtRef.current = null;
     stopRestTimer();
   };
 
@@ -247,6 +277,24 @@ export function RestTimerBar() {
 
   return (
     <>
+      {/* Foreground done banner */}
+      <AnimatePresence>
+        {showDoneBanner && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mx-4 mt-2 bg-green-500/15 border border-green-500/30 rounded-xl p-3 flex items-center gap-3">
+              <Timer size={14} className="text-green-400 shrink-0" />
+              <span className="text-sm text-green-400 font-medium">Hvile ferdig! Tid for neste sett.</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Permission banner */}
       <AnimatePresence>
         {showPermissionBanner && restTimer.isRunning && (
           <motion.div
@@ -279,6 +327,7 @@ export function RestTimerBar() {
         )}
       </AnimatePresence>
 
+      {/* Timer bar */}
       <AnimatePresence>
         {restTimer.isRunning && (
           <motion.div
