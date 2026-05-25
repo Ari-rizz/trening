@@ -171,7 +171,7 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-40"
+            className="fixed inset-0 bg-black/60 z-[44]"
             onClick={handleClose}
           />
           <motion.div
@@ -179,7 +179,7 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-5 pt-5 pb-10 max-h-[85vh] overflow-y-auto"
+            className="fixed bottom-0 left-0 right-0 z-[45] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-5 pt-5 pb-24 max-h-[85vh] overflow-y-auto"
           >
             <div className="w-10 h-1 bg-zinc-800 rounded-full mx-auto mb-5" />
 
