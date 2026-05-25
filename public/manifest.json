@@ -1,0 +1,35 @@
+{
+  "name": "IronGrid - Treningsapp",
+  "short_name": "IronGrid",
+  "description": "Progressiv overload treningslogg og sporing",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/561FDBE9-8BBB-49EC-8502-9C434E74EE5E.PNG",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/561FDBE9-8BBB-49EC-8502-9C434E74EE5E.PNG",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "sports"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Start økt",
+      "short_name": "Start økt",
+      "description": "Start en ny treningsøkt",
+      "url": "/workout/new",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}
