@@ -103,7 +103,7 @@ export function RegisterScreen({ onSwitchToLogin }: RegisterScreenProps) {
           </div>
           <span className="text-white font-bold text-2xl tracking-tight">IronGrid</span>
         </div>
-        <p className="text-zinc-500 text-sm mb-8">Opprett en konto for a komme i gang</p>
+        <p className="text-zinc-500 text-sm mb-8">Opprett en konto for å komme i gang</p>
 
         {/* Form */}
         <div className="space-y-4">
