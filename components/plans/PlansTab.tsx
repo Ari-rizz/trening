@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info, Search, ArrowDownAZ, Clock, ArrowUpAZ } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
@@ -28,6 +28,9 @@ export function PlansTab() {
   const [showImport, setShowImport] = useState(false);
   const [warningDialog, setWarningDialog] = useState<UnknownExerciseWarning | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  type SortMode = 'newest' | 'oldest' | 'az';
+  const [sortMode, setSortMode] = useState<SortMode>('newest');
 
   const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
 
@@ -99,6 +102,16 @@ export function PlansTab() {
     setWarningDialog(null);
     setCurrentTab('workout');
   };
+
+  const filteredTemplates = useMemo(() => {
+    let list = templates.filter(t =>
+      !search || t.name.toLowerCase().includes(search.toLowerCase())
+    );
+    if (sortMode === 'newest') list = [...list].sort((a, b) => new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime());
+    else if (sortMode === 'oldest') list = [...list].sort((a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime());
+    else if (sortMode === 'az') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [templates, search, sortMode]);
 
   const fetchLastSessionData = async (uid: string, exerciseIds: string[]) => {
     const result: Record<string, Array<{ weight: number; reps: number; rpe: number }>> = {};
@@ -196,6 +209,50 @@ export function PlansTab() {
         )}
       </div>
 
+      {userId && (
+        <div className="px-4 pb-3 space-y-2">
+          {/* Search */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Søk etter plan..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 transition-colors"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                <X size={14} className="text-zinc-500" />
+              </button>
+            )}
+          </div>
+          {/* Sort pills */}
+          <div className="flex gap-2">
+            {([
+              { key: 'newest', label: 'Nyeste', icon: Clock },
+              { key: 'oldest', label: 'Eldste', icon: Clock },
+              { key: 'az', label: 'A–Å', icon: ArrowDownAZ },
+            ] as { key: 'newest' | 'oldest' | 'az'; label: string; icon: any }[]).map(({ key, label, icon: Icon }) => (
+              <motion.button
+                key={key}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setSortMode(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  sortMode === key
+                    ? 'bg-red-500 border-red-500 text-white'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                }`}
+              >
+                <Icon size={11} />
+                {label}
+              </motion.button>
+            ))}
+          </div>
+          <p className="text-xs text-zinc-600">{filteredTemplates.length} {filteredTemplates.length === 1 ? 'plan' : 'planer'}</p>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
         {loading && (
           <div className="space-y-3">
@@ -239,7 +296,7 @@ export function PlansTab() {
         )}
 
         <AnimatePresence>
-          {templates.map((template, i) => {
+          {filteredTemplates.map((template, i) => {
             const exercises = template.template_exercises ?? [];
             const muscleGroups = Array.from(new Set(exercises.map(te => te.exercises?.muscle_group).filter(Boolean)));
             const importedFrom = (template as any).imported_from_username as string | null;
