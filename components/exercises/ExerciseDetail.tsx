@@ -156,14 +156,14 @@ export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps)
           </div>
 
           {/* Secondary muscles */}
-          {exercise.secondary_muscles.length > 0 && (
+          {(exercise.secondary_muscles ?? []).length > 0 && (
             <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800">
               <div className="flex items-center gap-2 mb-2">
                 <Target size={16} className="text-zinc-400" />
                 <p className="text-sm font-semibold text-white">Sekundære muskler</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {exercise.secondary_muscles.map((m, i) => (
+                {(exercise.secondary_muscles ?? []).map((m, i) => (
                   <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400">
                     {getMuscleGroupLabel(m)}
                   </span>
