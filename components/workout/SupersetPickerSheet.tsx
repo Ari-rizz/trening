@@ -152,7 +152,7 @@ function ExercisePickButton({
           onClick={() => onSelect(false)}
           className="py-2.5 text-xs font-semibold text-zinc-300 active:bg-zinc-800 transition-colors"
         >
-          Bare denne okten
+          Bare denne økten
         </motion.button>
         {hasTemplate && (
           <motion.button
