@@ -38,7 +38,7 @@ export function PlansTab() {
         *,
         template_exercises(
           *,
-          exercises(id, name, muscle_group, equipment)
+          exercises(id, name, muscle_group, equipment, difficulty, instructions, gif_url, image_url, images, secondary_muscles, force, mechanic, category, is_custom)
         )
       `)
       .eq('user_id', uid)
