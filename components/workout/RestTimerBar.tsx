@@ -10,14 +10,6 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
-function isStandalonePWA(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
-  );
-}
-
 function playDoneSound() {
   try {
     const ctx = new AudioContext();
@@ -43,13 +35,12 @@ function vibrateDevice() {
 }
 
 // ---------------------------------------------------------------------------
-// Service-worker local notifications (fallback / Android fast path)
+// Service-worker local notifications (Android fast path)
 // ---------------------------------------------------------------------------
 
 let restTimerSwReg: ServiceWorkerRegistration | null = null;
 
 async function getRestTimerSW(): Promise<ServiceWorkerRegistration | null> {
-  if (!isStandalonePWA()) return null;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
   if (restTimerSwReg) return restTimerSwReg;
   try {
@@ -61,7 +52,6 @@ async function getRestTimerSW(): Promise<ServiceWorkerRegistration | null> {
 }
 
 async function scheduleSwNotification(fireAt: number) {
-  if (!isStandalonePWA()) return;
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
     await getRestTimerSW();
@@ -122,7 +112,7 @@ async function savePushSubscription(sub: PushSubscription) {
 }
 
 // ---------------------------------------------------------------------------
-// Server-push scheduling
+// Server-side timer scheduling (DB-backed, survives app closure)
 // ---------------------------------------------------------------------------
 
 async function scheduleServerNotification(fireAt: number) {
@@ -141,6 +131,21 @@ async function scheduleServerNotification(fireAt: number) {
   } catch (_) {}
 }
 
+async function cancelServerNotification() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer-notification`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        Apikey: SUPABASE_ANON_KEY,
+      },
+    });
+  } catch (_) {}
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -151,7 +156,6 @@ export function RestTimerBar() {
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
-  // true once we've successfully saved a push subscription to the server
   const pushSubscribedRef = useRef(false);
 
   useEffect(() => {
@@ -208,25 +212,27 @@ export function RestTimerBar() {
 
   // Schedule / cancel notifications when timer state changes
   useEffect(() => {
-    if (!isStandalonePWA()) return;
-    if (restTimer.isRunning && notifPermission === 'granted') {
+    if (notifPermission !== 'granted') return;
+
+    if (restTimer.isRunning) {
       const remaining = getRemainingSeconds();
       if (remaining <= 0) return;
       const fireAt = Date.now() + remaining * 1000;
-      // Always schedule SW as immediate fallback (works well on Android)
+      // SW notification: fast local path (works well when app is in background on Android)
       scheduleSwNotification(fireAt);
-      // Also schedule server-push if we have a push subscription (iOS reliable path)
+      // Server notification: DB-backed, survives app close and phone lock
       if (pushSubscribedRef.current) {
         scheduleServerNotification(fireAt);
       }
-    } else if (!restTimer.isRunning) {
+    } else {
       cancelSwNotification();
+      cancelServerNotification();
     }
   }, [restTimer.isRunning, restTimer.startedAt, notifPermission, getRemainingSeconds]);
 
-  // Show permission banner on first timer start (PWA only)
+  // Show permission banner on first timer start
   useEffect(() => {
-    if (restTimer.isRunning && isStandalonePWA() && notifPermission === 'default') {
+    if (restTimer.isRunning && notifPermission === 'default' && typeof window !== 'undefined' && 'Notification' in window) {
       setShowPermissionBanner(true);
     }
   }, [restTimer.isRunning, notifPermission]);
@@ -238,7 +244,6 @@ export function RestTimerBar() {
     setShowPermissionBanner(false);
 
     if (result === 'granted') {
-      // Register push subscription and save to server
       const sub = await getOrCreatePushSubscription();
       if (sub) {
         await savePushSubscription(sub);
@@ -256,16 +261,14 @@ export function RestTimerBar() {
     }
   };
 
-  // On mount, sync any existing browser push subscription to the server.
-  // Covers users who granted permission before the push_subscriptions table existed.
+  // On mount, sync any existing push subscription to the server and set pushSubscribedRef.
+  // This fixes the race condition where pushSubscribedRef was false when timer starts.
   useEffect(() => {
-    if (!isStandalonePWA()) return;
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
     navigator.serviceWorker.ready.then(reg => {
       reg.pushManager.getSubscription().then(async (sub) => {
         if (!sub) return;
         pushSubscribedRef.current = true;
-        // Always upsert to ensure the row exists in the database
         await savePushSubscription(sub);
       });
     }).catch(() => {});
@@ -273,6 +276,7 @@ export function RestTimerBar() {
 
   const handleStop = () => {
     cancelSwNotification();
+    cancelServerNotification();
     stopRestTimer();
   };
 
