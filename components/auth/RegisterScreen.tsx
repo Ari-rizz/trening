@@ -74,7 +74,7 @@ export function RegisterScreen({ onSwitchToLogin }: RegisterScreenProps) {
           <h2 className="text-xl font-bold text-white mb-3">Sjekk e-posten din</h2>
           <p className="text-zinc-400 text-sm mb-8 leading-relaxed">
             Vi har sendt en bekreftelseslenke til <span className="text-white font-medium">{email}</span>.
-            Klikk pa lenken for a aktivere kontoen din.
+            Klikk på lenken for å aktivere kontoen din.
           </p>
           <motion.button
             whileTap={{ scale: 0.97 }}
