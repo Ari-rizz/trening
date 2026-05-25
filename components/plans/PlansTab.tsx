@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info, Search, ArrowDownAZ, Clock, ArrowUpAZ } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info, Search } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
-import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
+import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
 import { TemplateEditor } from './TemplateEditor';
 import { SharePlanSheet } from './SharePlanSheet';
@@ -29,8 +29,7 @@ export function PlansTab() {
   const [warningDialog, setWarningDialog] = useState<UnknownExerciseWarning | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  type SortMode = 'newest' | 'oldest' | 'az';
-  const [sortMode, setSortMode] = useState<SortMode>('newest');
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
 
   const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
 
@@ -104,14 +103,15 @@ export function PlansTab() {
   };
 
   const filteredTemplates = useMemo(() => {
-    let list = templates.filter(t =>
-      !search || t.name.toLowerCase().includes(search.toLowerCase())
-    );
-    if (sortMode === 'newest') list = [...list].sort((a, b) => new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime());
-    else if (sortMode === 'oldest') list = [...list].sort((a, b) => new Date(a.updated_at ?? 0).getTime() - new Date(b.updated_at ?? 0).getTime());
-    else if (sortMode === 'az') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  }, [templates, search, sortMode]);
+    return templates.filter(t => {
+      if (search && !t.name.toLowerCase().includes(search.toLowerCase())) return false;
+      if (selectedMuscle) {
+        const muscles = (t.template_exercises ?? []).map(te => te.exercises?.muscle_group).filter(Boolean);
+        if (!muscles.includes(selectedMuscle as any)) return false;
+      }
+      return true;
+    });
+  }, [templates, search, selectedMuscle]);
 
   const fetchLastSessionData = async (uid: string, exerciseIds: string[]) => {
     const result: Record<string, Array<{ weight: number; reps: number; rpe: number }>> = {};
@@ -227,25 +227,21 @@ export function PlansTab() {
               </button>
             )}
           </div>
-          {/* Sort pills */}
-          <div className="flex gap-2">
-            {([
-              { key: 'newest', label: 'Nyeste', icon: Clock },
-              { key: 'oldest', label: 'Eldste', icon: Clock },
-              { key: 'az', label: 'A–Å', icon: ArrowDownAZ },
-            ] as { key: 'newest' | 'oldest' | 'az'; label: string; icon: any }[]).map(({ key, label, icon: Icon }) => (
+          {/* Muscle group pills */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {MUSCLE_GROUPS.map(mg => (
               <motion.button
-                key={key}
+                key={mg.value}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setSortMode(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  sortMode === key
-                    ? 'bg-red-500 border-red-500 text-white'
-                    : 'bg-zinc-900 border-zinc-800 text-zinc-400'
-                }`}
+                onClick={() => setSelectedMuscle(selectedMuscle === mg.value ? null : mg.value)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                style={
+                  selectedMuscle === mg.value
+                    ? { backgroundColor: mg.color, borderColor: mg.color, color: 'white' }
+                    : { backgroundColor: 'transparent', borderColor: mg.color + '44', color: mg.color }
+                }
               >
-                <Icon size={11} />
-                {label}
+                {mg.label}
               </motion.button>
             ))}
           </div>
