@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Trash2, GripVertical, Save, Dumbbell } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, GripVertical, Save, Dumbbell, Repeat2 } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor } from '@/lib/exercises-data';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
@@ -23,6 +23,7 @@ interface LocalTemplateExercise {
   target_reps: number;
   target_weight_kg: number;
   warmup_sets: number;
+  is_unilateral: boolean;
   notes: string;
 }
 
@@ -47,6 +48,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
             target_reps: te.target_reps,
             target_weight_kg: te.target_weight_kg,
             warmup_sets: (te as any).warmup_sets ?? 0,
+            is_unilateral: te.is_unilateral ?? false,
             notes: te.notes,
           }))
       );
@@ -64,6 +66,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         target_reps: 10,
         target_weight_kg: 0,
         warmup_sets: 0,
+        is_unilateral: false,
         notes: '',
       },
     ]);
@@ -110,6 +113,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
           target_reps: e.target_reps,
           target_weight_kg: e.target_weight_kg,
           warmup_sets: e.warmup_sets,
+          is_unilateral: e.is_unilateral,
           notes: e.notes,
         }));
         await supabase.from('template_exercises').insert(rows);
@@ -263,6 +267,21 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                         />
                       </div>
                     </div>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => updateExercise(index, 'is_unilateral', !ex.is_unilateral)}
+                      className={`mt-2 w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
+                        ex.is_unilateral
+                          ? 'bg-sky-500/15 border-sky-500/30 text-sky-400'
+                          : 'bg-zinc-800 border-transparent text-zinc-500'
+                      }`}
+                    >
+                      <Repeat2 size={13} />
+                      Unilateral (en arm/ett bein om gangen)
+                      <div className={`ml-auto w-7 h-4 rounded-full transition-colors flex items-center px-0.5 ${ex.is_unilateral ? 'bg-sky-500' : 'bg-zinc-700'}`}>
+                        <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform ${ex.is_unilateral ? 'translate-x-3' : 'translate-x-0'}`} />
+                      </div>
+                    </motion.button>
                   </motion.div>
                 );
               })}

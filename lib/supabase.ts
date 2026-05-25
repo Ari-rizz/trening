@@ -83,6 +83,7 @@ export interface WorkoutExercise {
   order_index: number;
   notes: string;
   set_type: SetType;
+  is_unilateral: boolean;
   created_at: string;
   exercise?: Exercise;
   workout_sets?: WorkoutSet[];
@@ -131,6 +132,7 @@ export interface TemplateExercise {
   target_sets: number;
   target_reps: number;
   target_weight_kg: number;
+  is_unilateral: boolean;
   notes: string;
   created_at: string;
   exercises?: Exercise;

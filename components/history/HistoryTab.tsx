@@ -173,7 +173,15 @@ export function HistoryTab() {
                             if (completedSets.length === 0) return null;
                             return (
                               <div key={we.id}>
-                                <p className="text-white text-xs font-bold mb-1.5">{we.exercises?.name ?? 'Ukjent'}</p>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <p className="text-white text-xs font-bold">{we.exercises?.name ?? 'Ukjent'}</p>
+                                  {we.is_unilateral && (
+                                    <span className="flex items-center gap-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                      <Dumbbell size={8} />
+                                      Unilateral
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="space-y-1">
                                   {completedSets.map((s: any, si: number) => (
                                     <div key={si} className="flex items-center gap-3 text-xs text-zinc-400">

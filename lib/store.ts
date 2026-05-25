@@ -24,6 +24,7 @@ interface ActiveExercise {
   trackingType: 'reps_weight' | 'time';
   notes: string;
   orderIndex: number;
+  isUnilateral: boolean;
   templateExerciseId?: string;
 }
 
@@ -72,6 +73,7 @@ interface AppState {
   setWorkoutName: (name: string) => void;
   setExerciseNotes: (exerciseId: string, notes: string) => void;
   setExerciseTrackingType: (exerciseId: string, trackingType: 'reps_weight' | 'time') => void;
+  toggleUnilateral: (exerciseId: string) => void;
 
   startRestTimer: (seconds: number) => void;
   tickRestTimer: () => void;
@@ -161,6 +163,7 @@ export const useAppStore = create<AppState>()(
               trackingType: 'reps_weight' as const,
               notes: lastNotesData[te.exercise_id] ?? te.notes ?? '',
               orderIndex: i,
+              isUnilateral: (te as any).is_unilateral ?? false,
               templateExerciseId: te.id,
             };
           });
@@ -203,6 +206,7 @@ export const useAppStore = create<AppState>()(
           trackingType: 'reps_weight',
           notes: previousNotes ?? '',
           orderIndex: activeWorkout.exercises.length,
+          isUnilateral: false,
         };
         set({
           activeWorkout: {
@@ -433,6 +437,19 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      toggleUnilateral: (exerciseId: string) => {
+        const { activeWorkout } = get();
+        if (!activeWorkout) return;
+        set({
+          activeWorkout: {
+            ...activeWorkout,
+            exercises: activeWorkout.exercises.map(ex =>
+              ex.id === exerciseId ? { ...ex, isUnilateral: !ex.isUnilateral } : ex
+            ),
+          },
+        });
+      },
+
       startRestTimer: (seconds: number) => {
         set({ restTimer: { isRunning: true, seconds, totalSeconds: seconds } });
       },
@@ -500,6 +517,7 @@ export const useAppStore = create<AppState>()(
                 setType: 'standard',
                 notes: '',
                 orderIndex: 0,
+                isUnilateral: false,
                 sets: [
                   { exerciseId: mockExId1, setNumber: 1, weight: 60, reps: 10, rpe: 0, duration: 0, isWarmup: true, isCompleted: true },
                   { exerciseId: mockExId1, setNumber: 2, weight: 80, reps: 8, rpe: 7, duration: 0, isWarmup: false, isCompleted: true },
@@ -515,6 +533,7 @@ export const useAppStore = create<AppState>()(
                 setType: 'standard',
                 notes: '',
                 orderIndex: 1,
+                isUnilateral: false,
                 sets: [
                   { exerciseId: mockExId2, setNumber: 1, weight: 50, reps: 8, rpe: 0, duration: 0, isWarmup: false, isCompleted: false },
                   { exerciseId: mockExId2, setNumber: 2, weight: 50, reps: 8, rpe: 0, duration: 0, isWarmup: false, isCompleted: false },
