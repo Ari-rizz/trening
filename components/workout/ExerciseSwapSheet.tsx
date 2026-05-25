@@ -116,7 +116,7 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
               </div>
 
               <p className="text-zinc-400 text-sm text-center mb-4">
-                Vil du bytte denne ovelsen permanent i planen, eller bare for denne okten?
+                Vil du bytte denne øvelsen permanent i planen, eller bare for denne økten?
               </p>
 
               <div className="space-y-2">
@@ -125,7 +125,7 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
                   onClick={() => handleConfirm(false)}
                   className="w-full flex items-center justify-center gap-2 bg-zinc-100 text-black font-bold py-3.5 rounded-2xl text-sm"
                 >
-                  Bare denne okten
+                  Bare denne økten
                 </motion.button>
                 {templateExerciseId && (
                   <motion.button
