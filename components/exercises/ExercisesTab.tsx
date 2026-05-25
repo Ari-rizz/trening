@@ -104,7 +104,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
       initial={{ x: '-100%' }}
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
-      transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      transition={{ type: 'spring', damping: 35, stiffness: 500 }}
       className="flex flex-col h-full"
     >
       {/* Header */}
