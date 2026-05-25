@@ -81,7 +81,7 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900 flex-shrink-0">
             <div>
-              <h3 className="text-base font-bold text-white">Bytt ovelse</h3>
+              <h3 className="text-base font-bold text-white">Bytt øvelse</h3>
               <p className="text-zinc-500 text-xs mt-0.5">
                 Erstatter: {currentExercise.name}
               </p>
