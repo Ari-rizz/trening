@@ -90,7 +90,7 @@ export function ManualEntrySheet({ open, userId, onClose, onSaved }: Props) {
     setError('');
 
     if (trackingType === 'reps_weight') {
-      const w = parseFloat(weight);
+      const w = parseFloat(weight.replace(',', '.'));
       const r = parseInt(reps, 10);
       if (!weight || isNaN(w) || w <= 0) { setError('Skriv inn gyldig vekt'); return; }
       if (!reps || isNaN(r) || r <= 0) { setError('Skriv inn gyldig antall reps'); return; }
@@ -113,7 +113,7 @@ export function ManualEntrySheet({ open, userId, onClose, onSaved }: Props) {
           is_completed: true,
           is_manual: true,
           duration_seconds: 0,
-          total_volume_kg: trackingType === 'reps_weight' ? parseFloat(weight) * parseInt(reps, 10) : 0,
+          total_volume_kg: trackingType === 'reps_weight' ? parseFloat(weight.replace(',', '.')) * parseInt(reps, 10) : 0,
         })
         .select('id')
         .single();
@@ -143,7 +143,7 @@ export function ManualEntrySheet({ open, userId, onClose, onSaved }: Props) {
           workout_exercise_id: we.id,
           set_number: 1,
           reps: trackingType === 'reps_weight' ? parseInt(reps, 10) : 0,
-          weight_kg: trackingType === 'reps_weight' ? parseFloat(weight) : 0,
+          weight_kg: trackingType === 'reps_weight' ? parseFloat(weight.replace(',', '.')) : 0,
           duration_seconds: durationSeconds,
           is_completed: true,
         });
@@ -312,7 +312,7 @@ export function ManualEntrySheet({ open, userId, onClose, onSaved }: Props) {
                         inputMode="decimal"
                         placeholder="0"
                         value={weight}
-                        onChange={e => setWeight(e.target.value.replace(',', '.'))}
+                        onChange={e => setWeight(e.target.value.replace(/[^0-9.,]/g, ''))}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-lg font-bold outline-none focus:border-blue-500/60 transition-colors"
                       />
                     </div>

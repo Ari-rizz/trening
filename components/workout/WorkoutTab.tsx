@@ -74,8 +74,47 @@ export function WorkoutTab() {
   const [showSwapSheet, setShowSwapSheet] = useState(false);
   const [showSupersetPicker, setShowSupersetPicker] = useState(false);
   const [showStartSheet, setShowStartSheet] = useState(false);
+  const [weightInputs, setWeightInputs] = useState<Record<string, string>>({});
+  const [rpeInputs, setRpeInputs] = useState<Record<string, string>>({});
   const historyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const weightInputKey = (exerciseId: string, setNumber: number) => `${exerciseId}-${setNumber}`;
+  const getWeightDisplay = (exerciseId: string, setNumber: number, storedWeight: number) => {
+    const key = weightInputKey(exerciseId, setNumber);
+    return key in weightInputs ? weightInputs[key] : (storedWeight || '');
+  };
+  const handleWeightChange = (exerciseId: string, setNumber: number, raw: string) => {
+    const filtered = raw.replace(/[^0-9.,]/g, '');
+    setWeightInputs(prev => ({ ...prev, [weightInputKey(exerciseId, setNumber)]: filtered }));
+  };
+  const handleWeightBlur = (exerciseId: string, setNumber: number) => {
+    const key = weightInputKey(exerciseId, setNumber);
+    const raw = weightInputs[key];
+    if (raw !== undefined) {
+      const parsed = parseFloat(raw.replace(',', '.')) || 0;
+      updateSet(exerciseId, setNumber, 'weight', parsed);
+      setWeightInputs(prev => { const next = { ...prev }; delete next[key]; return next; });
+    }
+  };
+
+  const getRpeDisplay = (exerciseId: string, setNumber: number, storedRpe: number) => {
+    const key = weightInputKey(exerciseId, setNumber);
+    return key in rpeInputs ? rpeInputs[key] : (storedRpe || '');
+  };
+  const handleRpeChange = (exerciseId: string, setNumber: number, raw: string) => {
+    const filtered = raw.replace(/[^0-9.,]/g, '');
+    setRpeInputs(prev => ({ ...prev, [weightInputKey(exerciseId, setNumber)]: filtered }));
+  };
+  const handleRpeBlur = (exerciseId: string, setNumber: number) => {
+    const key = weightInputKey(exerciseId, setNumber);
+    const raw = rpeInputs[key];
+    if (raw !== undefined) {
+      const parsed = parseFloat(raw.replace(',', '.')) || 0;
+      updateSet(exerciseId, setNumber, 'rpe', parsed);
+      setRpeInputs(prev => { const next = { ...prev }; delete next[key]; return next; });
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -761,8 +800,9 @@ export function WorkoutTab() {
                                   <>
                                     <input
                                       type="text"
-                                      value={set.weight || ''}
-                                      onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                      value={getWeightDisplay(currentEx.id, set.setNumber, set.weight)}
+                                      onChange={e => handleWeightChange(currentEx.id, set.setNumber, e.target.value)}
+                                      onBlur={() => handleWeightBlur(currentEx.id, set.setNumber)}
                                       className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                                       inputMode="decimal" placeholder="kg"
                                     />
@@ -777,8 +817,9 @@ export function WorkoutTab() {
                                 )}
                                 <input
                                   type="text"
-                                  value={set.rpe || ''}
-                                  onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                  value={getRpeDisplay(currentEx.id, set.setNumber, set.rpe)}
+                                  onChange={e => handleRpeChange(currentEx.id, set.setNumber, e.target.value)}
+                                  onBlur={() => handleRpeBlur(currentEx.id, set.setNumber)}
                                   className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                                   inputMode="decimal" placeholder="RPE"
                                 />
@@ -814,8 +855,9 @@ export function WorkoutTab() {
                                     <>
                                       <input
                                         type="text"
-                                        value={partnerSet.weight || ''}
-                                        onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                        value={getWeightDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.weight)}
+                                        onChange={e => handleWeightChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
+                                        onBlur={() => handleWeightBlur(supersetPartner.id, partnerSet.setNumber)}
                                         className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                                         inputMode="decimal" placeholder="kg"
                                       />
@@ -830,8 +872,9 @@ export function WorkoutTab() {
                                   )}
                                   <input
                                     type="text"
-                                    value={partnerSet.rpe || ''}
-                                    onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                    value={getRpeDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.rpe)}
+                                    onChange={e => handleRpeChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
+                                    onBlur={() => handleRpeBlur(supersetPartner.id, partnerSet.setNumber)}
                                     className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                                     inputMode="decimal" placeholder="RPE"
                                   />
@@ -915,8 +958,9 @@ export function WorkoutTab() {
                             <div className="col-span-3">
                               <input
                                 type="text"
-                                value={set.weight || ''}
-                                onChange={e => updateSet(currentEx.id, set.setNumber, 'weight', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                                value={getWeightDisplay(currentEx.id, set.setNumber, set.weight)}
+                                onChange={e => handleWeightChange(currentEx.id, set.setNumber, e.target.value)}
+                                onBlur={() => handleWeightBlur(currentEx.id, set.setNumber)}
                                 className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                                 inputMode="decimal"
                                 placeholder="0"
@@ -937,8 +981,9 @@ export function WorkoutTab() {
                         <div className="col-span-2">
                           <input
                             type="text"
-                            value={set.rpe || ''}
-                            onChange={e => updateSet(currentEx.id, set.setNumber, 'rpe', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                            value={getRpeDisplay(currentEx.id, set.setNumber, set.rpe)}
+                            onChange={e => handleRpeChange(currentEx.id, set.setNumber, e.target.value)}
+                            onBlur={() => handleRpeBlur(currentEx.id, set.setNumber)}
                             className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                             inputMode="decimal"
                             placeholder="-"
