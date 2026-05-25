@@ -212,43 +212,6 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         <div>
           <p className="text-xs text-zinc-500 font-medium mb-2">Ovelser ({exercises.length})</p>
           <div className="space-y-2">
-            {/* Superset picker overlay */}
-            {supersetPickerFor !== null && (
-              <div className="bg-zinc-800 border border-orange-500/30 rounded-xl p-3 mb-2">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-orange-400">Velg øvelse å koble med</p>
-                  <button onClick={() => setSupersetPickerFor(null)} className="text-zinc-500 text-xs">Avbryt</button>
-                </div>
-                <p className="text-xs text-zinc-500 mb-2">
-                  Kobler til: <span className="text-white">{exercises[supersetPickerFor]?.exercise.name}</span>
-                </p>
-                <div className="space-y-1.5">
-                  {exercises
-                    .map((e, i) => ({ e, i }))
-                    .filter(({ i }) => i !== supersetPickerFor)
-                    .map(({ e, i }) => {
-                      const c = getMuscleGroupColor(e.exercise.muscle_group);
-                      return (
-                        <motion.button
-                          key={i}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => linkTemplateSuperset(supersetPickerFor!, i)}
-                          className="w-full flex items-center gap-2.5 bg-zinc-900 rounded-lg px-3 py-2.5 text-left active:bg-zinc-700 transition-colors"
-                        >
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c + '22' }}>
-                            <Dumbbell size={12} style={{ color: c }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{e.exercise.name}</p>
-                            <p className="text-[10px] capitalize" style={{ color: c }}>{e.exercise.muscle_group}</p>
-                          </div>
-                        </motion.button>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
             <AnimatePresence>
               {exercises.map((ex, index) => {
                 const color = getMuscleGroupColor(ex.exercise.muscle_group);
@@ -258,9 +221,10 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                   : -1;
                 const isFirstInPair = isInSuperset && partnerIndex > index;
                 const isSecondInPair = isInSuperset && partnerIndex < index;
+                const showPicker = supersetPickerFor === index;
                 return (
+                  <div key={`${ex.exercise_id}-${index}`}>
                   <motion.div
-                    key={`${ex.exercise_id}-${index}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -50 }}
@@ -372,6 +336,47 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                       </div>
                     </motion.button>
                   </motion.div>
+
+                  <AnimatePresence>
+                    {showPicker && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="bg-zinc-800 border border-orange-500/30 border-t-0 rounded-b-xl p-3 space-y-1.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-semibold text-orange-400">Velg øvelse å koble med</p>
+                            <button onClick={() => setSupersetPickerFor(null)} className="text-zinc-500 text-xs">Avbryt</button>
+                          </div>
+                          {exercises
+                            .map((e, i) => ({ e, i }))
+                            .filter(({ i }) => i !== index)
+                            .map(({ e, i }) => {
+                              const c = getMuscleGroupColor(e.exercise.muscle_group);
+                              return (
+                                <motion.button
+                                  key={i}
+                                  whileTap={{ scale: 0.97 }}
+                                  onClick={() => linkTemplateSuperset(index, i)}
+                                  className="w-full flex items-center gap-2.5 bg-zinc-900 rounded-lg px-3 py-2.5 text-left active:bg-zinc-700 transition-colors"
+                                >
+                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c + '22' }}>
+                                    <Dumbbell size={12} style={{ color: c }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white text-sm font-medium truncate">{e.exercise.name}</p>
+                                    <p className="text-[10px] capitalize" style={{ color: c }}>{e.exercise.muscle_group}</p>
+                                  </div>
+                                </motion.button>
+                              );
+                            })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  </div>
                 );
               })}
             </AnimatePresence>
