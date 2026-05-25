@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, FileDown, Share2, Download, User, TriangleAlert as AlertTriangle, Info } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
 import { TemplateEditor } from './TemplateEditor';
-import { PlanExportSheet } from './PlanExportSheet';
 import { SharePlanSheet } from './SharePlanSheet';
 import { ImportPlanSheet } from './ImportPlanSheet';
 
@@ -24,8 +23,6 @@ export function PlansTab() {
   const [userId, setUserId] = useState<string | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [creating, setCreating] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
 
   const [sharingTemplate, setSharingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -37,7 +34,6 @@ export function PlansTab() {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id ?? null;
       setUserId(uid);
-      setUserEmail(data.session?.user?.email);
       if (uid) fetchTemplates(uid);
       else setLoading(false);
     });
@@ -187,15 +183,6 @@ export function PlansTab() {
               <Download size={15} className="text-zinc-400" />
               <span className="text-zinc-400 text-xs font-medium">Legg til delt plan</span>
             </motion.button>
-            {templates.length > 0 && (
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowExport(true)}
-                className="w-9 h-9 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center"
-              >
-                <FileDown size={16} className="text-zinc-400" />
-              </motion.button>
-            )}
             <motion.button
               data-tour="plans-new-button"
               whileTap={{ scale: 0.9 }}
@@ -417,13 +404,6 @@ export function PlansTab() {
         )}
       </AnimatePresence>
 
-      <PlanExportSheet
-        open={showExport}
-        templates={templates}
-        userName={userEmail}
-        userId={userId}
-        onClose={() => setShowExport(false)}
-      />
 
       <SharePlanSheet
         open={!!sharingTemplate}
