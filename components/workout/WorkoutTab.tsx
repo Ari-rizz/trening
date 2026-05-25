@@ -352,7 +352,7 @@ export function WorkoutTab() {
       }
 
       toast({
-        title: 'Okt lagret!',
+        title: 'Økt lagret!',
         description: `${activeWorkout.name} - ${formatTime(elapsed)}`,
       });
       endWorkout();
