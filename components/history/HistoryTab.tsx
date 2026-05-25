@@ -254,7 +254,7 @@ export function HistoryTab() {
                           {confirmDelete === workout.id ? (
                             <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
                               <AlertTriangle size={14} className="text-red-400 flex-shrink-0" />
-                              <p className="text-xs text-zinc-400 flex-1">Slett denne okten?</p>
+                              <p className="text-xs text-zinc-400 flex-1">Slett denne økten?</p>
                               <motion.button
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => setConfirmDelete(null)}
@@ -278,7 +278,7 @@ export function HistoryTab() {
                               className="flex items-center gap-1.5 pt-2 border-t border-zinc-800 text-zinc-600 text-xs active:text-red-400"
                             >
                               <Trash2 size={12} />
-                              Slett okt
+                              Slett økt
                             </motion.button>
                           )}
                         </div>
