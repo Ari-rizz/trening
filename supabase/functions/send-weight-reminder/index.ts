@@ -136,7 +136,7 @@ async function sendPush(
       "Content-Encoding": "aes128gcm",
       "Content-Length": String(requestBody.length),
       TTL: "3600",
-      Authorization: `vapid t=${jwt}, k=${VAPID_PUBLIC_KEY}`,
+      Authorization: `vapid t=${jwt},k=${VAPID_PUBLIC_KEY}`,
     },
     body: requestBody,
   });
