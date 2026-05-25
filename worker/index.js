@@ -1,5 +1,5 @@
-// Custom service worker for rest timer notifications
-// Uses event.waitUntil to keep the SW alive until the notification fires.
+// Custom worker code merged into the main Workbox SW by next-pwa.
+// Handles Web Push events and local rest timer scheduling.
 
 let cancelPending = null;
 
@@ -7,18 +7,16 @@ self.addEventListener('message', (event) => {
   if (!event.data) return;
 
   if (event.data.type === 'SCHEDULE_NOTIFICATION') {
-    // Cancel any previously pending notification
     if (cancelPending) {
       cancelPending();
       cancelPending = null;
     }
 
-    const fireAt = event.data.fireAt; // absolute ms timestamp
+    const fireAt = event.data.fireAt;
     if (typeof fireAt !== 'number') return;
 
     const delayMs = Math.max(0, fireAt - Date.now());
 
-    // event.waitUntil keeps the SW alive until the promise settles
     event.waitUntil(
       new Promise((resolve) => {
         const id = setTimeout(async () => {
@@ -34,9 +32,7 @@ self.addEventListener('message', (event) => {
               requireInteraction: false,
               silent: false,
             });
-          } catch (_) {
-            // Permission may have been revoked
-          }
+          } catch (_) {}
           resolve();
         }, delayMs);
 
@@ -56,7 +52,6 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Handle server-sent Web Push events
 self.addEventListener('push', (event) => {
   let data = { title: 'Hvile ferdig!', body: 'Tid for neste sett' };
   try {
@@ -69,7 +64,7 @@ self.addEventListener('push', (event) => {
       icon: data.icon || '/icons/icon-192x192.png',
       badge: data.badge || '/icons/icon-96x96.png',
       vibrate: [200, 100, 200],
-      tag: 'rest-timer',
+      tag: data.tag || 'rest-timer',
       renotify: true,
       requireInteraction: false,
       silent: false,

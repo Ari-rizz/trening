@@ -35,26 +35,12 @@ function vibrateDevice() {
 }
 
 // ---------------------------------------------------------------------------
-// Service-worker local notifications (Android fast path)
+// Service-worker messaging (uses the main SW registered by next-pwa)
 // ---------------------------------------------------------------------------
-
-let restTimerSwReg: ServiceWorkerRegistration | null = null;
-
-async function getRestTimerSW(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
-  if (restTimerSwReg) return restTimerSwReg;
-  try {
-    restTimerSwReg = await navigator.serviceWorker.register('/rest-timer-sw.js', { scope: '/' });
-    return restTimerSwReg;
-  } catch (_) {
-    return null;
-  }
-}
 
 async function scheduleSwNotification(fireAt: number) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
-    await getRestTimerSW();
     const reg = await navigator.serviceWorker.ready;
     reg.active?.postMessage({ type: 'SCHEDULE_NOTIFICATION', fireAt });
   } catch (_) {}
@@ -156,7 +142,6 @@ export function RestTimerBar() {
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
-  const pushSubscribedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -218,12 +203,10 @@ export function RestTimerBar() {
       const remaining = getRemainingSeconds();
       if (remaining <= 0) return;
       const fireAt = Date.now() + remaining * 1000;
-      // SW notification: fast local path (works well when app is in background on Android)
+      // Local SW notification (fast path, works when app is backgrounded briefly)
       scheduleSwNotification(fireAt);
-      // Server notification: DB-backed, survives app close and phone lock
-      if (pushSubscribedRef.current) {
-        scheduleServerNotification(fireAt);
-      }
+      // Server notification (DB-backed + immediate push via EdgeRuntime.waitUntil)
+      scheduleServerNotification(fireAt);
     } else {
       cancelSwNotification();
       cancelServerNotification();
@@ -247,7 +230,6 @@ export function RestTimerBar() {
       const sub = await getOrCreatePushSubscription();
       if (sub) {
         await savePushSubscription(sub);
-        pushSubscribedRef.current = true;
       }
 
       if (restTimer.isRunning) {
@@ -255,21 +237,20 @@ export function RestTimerBar() {
         if (remaining > 0) {
           const fireAt = Date.now() + remaining * 1000;
           scheduleSwNotification(fireAt);
-          if (pushSubscribedRef.current) scheduleServerNotification(fireAt);
+          scheduleServerNotification(fireAt);
         }
       }
     }
   };
 
-  // On mount, sync any existing push subscription to the server and set pushSubscribedRef.
-  // This fixes the race condition where pushSubscribedRef was false when timer starts.
+  // On mount, ensure push subscription is synced to the server
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
     navigator.serviceWorker.ready.then(reg => {
       reg.pushManager.getSubscription().then(async (sub) => {
-        if (!sub) return;
-        pushSubscribedRef.current = true;
-        await savePushSubscription(sub);
+        if (sub) await savePushSubscription(sub);
       });
     }).catch(() => {});
   }, []);
@@ -309,7 +290,7 @@ export function RestTimerBar() {
             <div className="mx-4 mt-2 bg-zinc-900 border border-zinc-700 rounded-xl p-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <Bell size={14} className="text-blue-400 shrink-0" />
-                <span className="text-xs text-zinc-400 leading-tight">Varsling når hvilen er ferdig?</span>
+                <span className="text-xs text-zinc-400 leading-tight">Varsling nar hvilen er ferdig?</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
