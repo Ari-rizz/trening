@@ -97,18 +97,26 @@ async function sendPush(sub: { endpoint: string; p256dh: string; auth: string },
   const { body: encrypted, salt, localPublicKey } = await encryptPayload(sub.p256dh, sub.auth, payloadBytes);
   const requestBody = buildAes128gcmBody(encrypted, salt, localPublicKey);
   const endpoint = new URL(sub.endpoint);
-  const jwt = await createVapidJwt(`${endpoint.protocol}//${endpoint.host}`);
-  const response = await fetch(sub.endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/octet-stream",
-      "Content-Encoding": "aes128gcm",
-      "Content-Length": String(requestBody.length),
-      TTL: "60",
-      Authorization: `vapid t=${jwt},k=${VAPID_PUBLIC_KEY}`,
-    },
-    body: requestBody,
-  });
+  const audience = `${endpoint.protocol}//${endpoint.host}`;
+  const jwt = await createVapidJwt(audience);
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/octet-stream",
+    "Content-Encoding": "aes128gcm",
+    "Content-Length": String(requestBody.length),
+    TTL: "60",
+    Authorization: `vapid t=${jwt},k=${VAPID_PUBLIC_KEY}`,
+  };
+
+  // Apple requires apns-topic for web push
+  if (endpoint.host.includes("apple.com")) {
+    headers["apns-topic"] = endpoint.pathname.split("/")[1] ?? endpoint.host;
+    headers["apns-push-type"] = "alert";
+  }
+
+  const response = await fetch(sub.endpoint, { method: "POST", headers, body: requestBody });
+  const responseText = await response.text().catch(() => "");
+  console.log(`[push] endpoint=${endpoint.host} status=${response.status} body=${responseText}`);
   return { ok: response.ok, status: response.status };
 }
 
