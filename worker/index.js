@@ -1,54 +1,49 @@
 // Custom worker code merged into the main Workbox SW by next-pwa.
-// Handles Web Push events and local rest timer scheduling.
+// Handles local rest timer notification scheduling.
 
+let scheduledFireAt = null;
 let cancelPending = null;
+
+// Keeps the SW alive by chaining short-lived promises until fireAt is reached.
+function waitUntilFireAt(fireAt, event) {
+  const tick = () => {
+    const now = Date.now();
+    if (scheduledFireAt !== fireAt) {
+      // Cancelled or replaced
+      return Promise.resolve();
+    }
+    if (now >= fireAt) {
+      return self.registration.showNotification('Hvile ferdig!', {
+        body: 'Tid for neste sett',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-96x96.png',
+        vibrate: [200, 100, 200],
+        tag: 'rest-timer',
+        renotify: true,
+        requireInteraction: false,
+        silent: false,
+      }).catch(() => {});
+    }
+    // Sleep for up to 10s chunks to stay alive, then check again
+    const sleepMs = Math.min(10000, fireAt - now);
+    return new Promise(resolve => setTimeout(resolve, sleepMs)).then(tick);
+  };
+
+  event.waitUntil(tick());
+}
 
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
   if (event.data.type === 'SCHEDULE_NOTIFICATION') {
-    if (cancelPending) {
-      cancelPending();
-      cancelPending = null;
-    }
-
     const fireAt = event.data.fireAt;
     if (typeof fireAt !== 'number') return;
-
-    const delayMs = Math.max(0, fireAt - Date.now());
-
-    event.waitUntil(
-      new Promise((resolve) => {
-        const id = setTimeout(async () => {
-          cancelPending = null;
-          try {
-            await self.registration.showNotification('Hvile ferdig!', {
-              body: 'Tid for neste sett',
-              icon: '/icons/icon-192x192.png',
-              badge: '/icons/icon-96x96.png',
-              vibrate: [200, 100, 200],
-              tag: 'rest-timer',
-              renotify: true,
-              requireInteraction: false,
-              silent: false,
-            });
-          } catch (_) {}
-          resolve();
-        }, delayMs);
-
-        cancelPending = () => {
-          clearTimeout(id);
-          resolve();
-        };
-      })
-    );
+    scheduledFireAt = fireAt;
+    waitUntilFireAt(fireAt, event);
   }
 
   if (event.data.type === 'CANCEL_NOTIFICATION') {
-    if (cancelPending) {
-      cancelPending();
-      cancelPending = null;
-    }
+    scheduledFireAt = null;
   }
 });
 

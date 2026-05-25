@@ -29,6 +29,11 @@ function vibrateDevice() {
   }
 }
 
+function getNotifPermission(): NotificationPermission {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
+  return Notification.permission;
+}
+
 async function scheduleSwNotification(fireAt: number) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
   try {
@@ -50,12 +55,13 @@ export function RestTimerBar() {
   const [, forceUpdate] = useState(0);
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+  // Track permission in a ref so effects always see the current value without stale closure issues
+  const permissionRef = useRef<NotificationPermission>('default');
+  const [, setPermissionVersion] = useState(0);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotifPermission(Notification.permission);
-    }
+    permissionRef.current = getNotifPermission();
+    setPermissionVersion(v => v + 1);
   }, []);
 
   // Re-render every 500ms for smooth countdown
@@ -104,30 +110,36 @@ export function RestTimerBar() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [restTimer.isRunning, getRemainingSeconds, stopRestTimer]);
 
-  // Schedule SW notification when timer starts/changes
+  // Schedule SW notification when timer starts/changes — reads permission directly
   useEffect(() => {
-    if (notifPermission !== 'granted') return;
-
     if (restTimer.isRunning) {
+      const perm = getNotifPermission();
+      if (perm !== 'granted') return;
       const remaining = getRemainingSeconds();
       if (remaining <= 0) return;
       scheduleSwNotification(Date.now() + remaining * 1000);
     } else {
       cancelSwNotification();
     }
-  }, [restTimer.isRunning, restTimer.startedAt, notifPermission, getRemainingSeconds]);
+  }, [restTimer.isRunning, restTimer.startedAt, getRemainingSeconds]);
 
-  // Show permission banner on first timer start
+  // Show permission banner on first timer start if not yet decided
   useEffect(() => {
-    if (restTimer.isRunning && notifPermission === 'default' && typeof window !== 'undefined' && 'Notification' in window) {
+    if (
+      restTimer.isRunning &&
+      getNotifPermission() === 'default' &&
+      typeof window !== 'undefined' &&
+      'Notification' in window
+    ) {
       setShowPermissionBanner(true);
     }
-  }, [restTimer.isRunning, notifPermission]);
+  }, [restTimer.isRunning]);
 
   const handleAllowNotifications = async () => {
     if (!('Notification' in window)) return;
     const result = await Notification.requestPermission();
-    setNotifPermission(result);
+    permissionRef.current = result;
+    setPermissionVersion(v => v + 1);
     setShowPermissionBanner(false);
 
     if (result === 'granted' && restTimer.isRunning) {
