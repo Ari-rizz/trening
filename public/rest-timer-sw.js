@@ -56,6 +56,27 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Handle server-sent Web Push events
+self.addEventListener('push', (event) => {
+  let data = { title: 'Hvile ferdig!', body: 'Tid for neste sett' };
+  try {
+    if (event.data) data = { ...data, ...JSON.parse(event.data.text()) };
+  } catch (_) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || '/icons/icon-192x192.png',
+      badge: data.badge || '/icons/icon-96x96.png',
+      vibrate: [200, 100, 200],
+      tag: 'rest-timer',
+      renotify: true,
+      requireInteraction: false,
+      silent: false,
+    })
+  );
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(

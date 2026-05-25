@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, X, Plus, Minus, Bell } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
 function isStandalonePWA(): boolean {
   if (typeof window === 'undefined') return false;
@@ -37,6 +42,10 @@ function vibrateDevice() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Service-worker local notifications (fallback / Android fast path)
+// ---------------------------------------------------------------------------
+
 let restTimerSwReg: ServiceWorkerRegistration | null = null;
 
 async function getRestTimerSW(): Promise<ServiceWorkerRegistration | null> {
@@ -69,12 +78,81 @@ async function cancelSwNotification() {
   } catch (_) {}
 }
 
+// ---------------------------------------------------------------------------
+// Web Push subscription helpers
+// ---------------------------------------------------------------------------
+
+function b64urlToUint8(b64: string): Uint8Array {
+  const padded = b64.replace(/-/g, '+').replace(/_/g, '/').padEnd(
+    b64.length + (4 - (b64.length % 4)) % 4, '='
+  );
+  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+}
+
+async function getOrCreatePushSubscription(): Promise<PushSubscription | null> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: b64urlToUint8(VAPID_PUBLIC_KEY),
+      });
+    }
+    return sub;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function savePushSubscription(sub: PushSubscription) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const keys = sub.toJSON().keys as { p256dh: string; auth: string };
+  await fetch(`${SUPABASE_URL}/functions/v1/subscribe-push`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+      Apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ endpoint: sub.endpoint, keys }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Server-push scheduling
+// ---------------------------------------------------------------------------
+
+async function scheduleServerNotification(fireAt: number) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await fetch(`${SUPABASE_URL}/functions/v1/send-rest-timer-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+        Apikey: SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ fireAt }),
+    });
+  } catch (_) {}
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function RestTimerBar() {
   const { restTimer, stopRestTimer, startRestTimer, isTourMode } = useAppStore();
   const [, forceUpdate] = useState(0);
   const doneRef = useRef(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+  // true once we've successfully saved a push subscription to the server
+  const pushSubscribedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -128,12 +206,19 @@ export function RestTimerBar() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [restTimer.isRunning, getRemainingSeconds, stopRestTimer]);
 
-  // Schedule / cancel SW notification
+  // Schedule / cancel notifications when timer state changes
   useEffect(() => {
     if (!isStandalonePWA()) return;
     if (restTimer.isRunning && notifPermission === 'granted') {
       const remaining = getRemainingSeconds();
-      if (remaining > 0) scheduleSwNotification(Date.now() + remaining * 1000);
+      if (remaining <= 0) return;
+      const fireAt = Date.now() + remaining * 1000;
+      // Always schedule SW as immediate fallback (works well on Android)
+      scheduleSwNotification(fireAt);
+      // Also schedule server-push if we have a push subscription (iOS reliable path)
+      if (pushSubscribedRef.current) {
+        scheduleServerNotification(fireAt);
+      }
     } else if (!restTimer.isRunning) {
       cancelSwNotification();
     }
@@ -151,11 +236,36 @@ export function RestTimerBar() {
     const result = await Notification.requestPermission();
     setNotifPermission(result);
     setShowPermissionBanner(false);
-    if (result === 'granted' && restTimer.isRunning) {
-      const remaining = getRemainingSeconds();
-      if (remaining > 0) scheduleSwNotification(Date.now() + remaining * 1000);
+
+    if (result === 'granted') {
+      // Register push subscription and save to server
+      const sub = await getOrCreatePushSubscription();
+      if (sub) {
+        await savePushSubscription(sub);
+        pushSubscribedRef.current = true;
+      }
+
+      if (restTimer.isRunning) {
+        const remaining = getRemainingSeconds();
+        if (remaining > 0) {
+          const fireAt = Date.now() + remaining * 1000;
+          scheduleSwNotification(fireAt);
+          if (pushSubscribedRef.current) scheduleServerNotification(fireAt);
+        }
+      }
     }
   };
+
+  // On mount, check if we already have a saved push subscription
+  useEffect(() => {
+    if (!isStandalonePWA()) return;
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(sub => {
+        if (sub) pushSubscribedRef.current = true;
+      });
+    }).catch(() => {});
+  }, []);
 
   const handleStop = () => {
     cancelSwNotification();
