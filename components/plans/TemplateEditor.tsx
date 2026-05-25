@@ -153,7 +153,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowPicker(false)} className="text-zinc-400 text-sm">
             Avbryt
           </motion.button>
-          <h2 className="text-base font-bold text-white flex-1 text-center">Velg ovelse</h2>
+          <h2 className="text-base font-bold text-white flex-1 text-center">Velg øvelse</h2>
           <div className="w-12" />
         </div>
         <div className="flex-1 overflow-hidden">
@@ -210,7 +210,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
 
         {/* Exercise list */}
         <div>
-          <p className="text-xs text-zinc-500 font-medium mb-2">Ovelser ({exercises.length})</p>
+          <p className="text-xs text-zinc-500 font-medium mb-2">Øvelser ({exercises.length})</p>
           <div className="space-y-2">
             <AnimatePresence>
               {exercises.map((ex, index) => {
@@ -388,7 +388,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
             className="w-full mt-3 py-3 rounded-xl border-2 border-dashed border-zinc-800 text-zinc-500 text-sm font-medium flex items-center justify-center gap-2 active:bg-zinc-900"
           >
             <Plus size={16} />
-            Legg til ovelse
+            Legg til øvelse
           </motion.button>
         </div>
       </div>
