@@ -334,7 +334,7 @@ export function PlansTab() {
         </AnimatePresence>
       </div>
 
-      {/* Warning dialog for imported plans with unknown exercises */}
+      {/* Warning modal for imported plans with unknown exercises */}
       <AnimatePresence>
         {warningDialog && (
           <>
@@ -342,58 +342,73 @@ export function PlansTab() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/70 z-[60]"
+              className="fixed inset-0 bg-black/80 z-[60]"
               onClick={() => setWarningDialog(null)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed left-4 right-4 z-[61] bg-zinc-950 border border-zinc-800 rounded-2xl p-5 overflow-y-auto" style={{ top: '50%', transform: 'translateY(-50%)', maxHeight: 'calc(100vh - 140px)' }}
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed inset-0 z-[61] bg-zinc-950 flex flex-col"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle size={18} className="text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-white font-bold">Sjekk vektene</p>
-                  <p className="text-zinc-500 text-xs">Noen øvelser er forhåndsutfylt med eierens vekt</p>
-                </div>
-              </div>
-
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 mb-4">
-                <div className="flex items-start gap-2">
-                  <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-amber-400/90 text-xs leading-relaxed">
-                    Du har ingen treningshistorikk på {warningDialog.unknownExercises.length === 1 ? 'denne øvelsen' : 'disse øvelsene'}. Vekten er hentet fra den opprinnelige planen og er kanskje ikke tilpasset deg — juster den under oppvarmingen.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-5">
-                {warningDialog.unknownExercises.map((ex, i) => (
-                  <div key={i} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <Dumbbell size={12} className="text-zinc-600" />
-                      <span className="text-white text-sm font-medium">{ex.name}</span>
-                    </div>
-                    <span className="text-amber-400 text-sm font-bold">{ex.weight > 0 ? `${ex.weight} kg` : '—'}</span>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-14 pb-5 border-b border-zinc-800/60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle size={18} className="text-amber-400" />
                   </div>
-                ))}
+                  <div>
+                    <p className="text-white font-bold text-lg">Sjekk vektene</p>
+                    <p className="text-zinc-500 text-xs">Noen øvelser er forhåndsutfylt med eierens vekt</p>
+                  </div>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setWarningDialog(null)}
+                  className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center"
+                >
+                  <X size={14} className="text-zinc-400" />
+                </motion.button>
               </div>
 
-              <div className="flex gap-2">
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <Info size={13} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-amber-400/90 text-sm leading-relaxed">
+                      Du har ingen treningshistorikk på {warningDialog.unknownExercises.length === 1 ? 'denne øvelsen' : 'disse øvelsene'}. Vekten er hentet fra den opprinnelige planen og er kanskje ikke tilpasset deg — juster den under oppvarmingen.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {warningDialog.unknownExercises.map((ex, i) => (
+                    <div key={i} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Dumbbell size={13} className="text-zinc-500" />
+                        <span className="text-white text-sm font-medium">{ex.name}</span>
+                      </div>
+                      <span className="text-amber-400 text-sm font-bold">{ex.weight > 0 ? `${ex.weight} kg` : '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-5 pb-10 pt-4 border-t border-zinc-800/60 flex gap-3">
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setWarningDialog(null)}
-                  className="flex-1 py-3 rounded-xl border border-zinc-800 text-zinc-400 text-sm font-bold"
+                  className="flex-1 py-4 rounded-2xl border border-zinc-800 text-zinc-400 text-sm font-bold"
                 >
                   Avbryt
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={confirmStartWithWarning}
-                  className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
+                  className="flex-1 py-4 rounded-2xl bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2"
                 >
                   <Play size={14} className="fill-current" />
                   Forstått, start
