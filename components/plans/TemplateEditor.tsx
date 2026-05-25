@@ -254,17 +254,19 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                         <motion.button
                           whileTap={{ scale: 0.85 }}
                           onClick={() => unlinkTemplateSuperset(index)}
-                          className="p-1.5 text-orange-500/60 active:text-orange-400"
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-orange-500/15 border border-orange-500/30 text-orange-400 active:text-orange-300"
                         >
-                          <Link2Off size={14} />
+                          <Link2Off size={12} />
+                          Supersett
                         </motion.button>
                       ) : (
                         <motion.button
                           whileTap={{ scale: 0.85 }}
                           onClick={() => setSupersetPickerFor(index)}
-                          className="p-1.5 text-zinc-600 active:text-orange-400"
+                          className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-500 active:text-orange-400"
                         >
-                          <Link2 size={14} />
+                          <Link2 size={12} />
+                          Supersett
                         </motion.button>
                       )}
                       <motion.button
