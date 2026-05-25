@@ -298,7 +298,7 @@ export function ProgressTab() {
         <div className="px-4 mb-2">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-xl font-bold text-white">Kroppsvekt</h2>
+              <h2 className="text-2xl font-bold text-white">Kroppsvekt</h2>
               <p className="text-zinc-500 text-sm mt-0.5">
                 {currentWeight !== null ? `${String(currentWeight).replace('.', ',')} kg nå` : 'Ingen data ennå'}
               </p>
