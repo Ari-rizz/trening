@@ -83,8 +83,7 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
             superset_group,
             exercises(id, name, muscle_group)
           )
-        ),
-        profiles!shared_templates_owner_user_id_fkey(username)
+        )
       `)
       .eq('share_code', trimmed)
       .maybeSingle();
@@ -92,7 +91,17 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
     if (fetchError || !data) {
       setError('Ingen plan funnet med denne koden. Sjekk at du har skrevet riktig.');
     } else {
-      setPreview(data as unknown as SharedTemplateRow);
+      // Fetch owner username from the public_profiles view (id + username only)
+      const { data: profileData } = await supabase
+        .from('public_profiles')
+        .select('username')
+        .eq('id', data.owner_user_id)
+        .maybeSingle();
+
+      setPreview({
+        ...data,
+        profiles: profileData ? { username: profileData.username } : null,
+      } as unknown as SharedTemplateRow);
     }
     setLoading(false);
   };
