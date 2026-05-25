@@ -293,22 +293,6 @@ export function ProgressTab() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 pt-5 pb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Fremgang</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Alle øvelser du har trent</p>
-        </div>
-        {userId && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setShowManualEntry(true)}
-            className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center"
-          >
-            <Plus size={18} className="text-white" />
-          </motion.button>
-        )}
-      </div>
-
       {/* Body weight section */}
       {userId && !isTourMode && (
         <div className="px-4 mb-2">
@@ -449,6 +433,22 @@ export function ProgressTab() {
             </AnimatePresence>
         </div>
       )}
+
+      <div className="px-4 pt-5 pb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Fremgang</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">Alle øvelser du har trent</p>
+        </div>
+        {userId && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowManualEntry(true)}
+            className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center"
+          >
+            <Plus size={18} className="text-white" />
+          </motion.button>
+        )}
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-2">
         {loading && (
