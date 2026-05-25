@@ -113,7 +113,7 @@ export function HistoryTab() {
           <div className="text-center py-16">
             <Dumbbell size={40} className="text-zinc-700 mx-auto mb-3" />
             <p className="text-zinc-400 font-medium">Ingen historikk enna</p>
-            <p className="text-zinc-600 text-sm mt-1">Fullfør din forste okt</p>
+            <p className="text-zinc-600 text-sm mt-1">Fullfør din forste økt</p>
           </div>
         )}
 
