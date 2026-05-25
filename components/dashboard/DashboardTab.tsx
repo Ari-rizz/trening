@@ -221,32 +221,18 @@ export function DashboardTab() {
       {userId && !isTourMode && (
         <div className="px-4 mb-4">
           <motion.button
-            whileTap={{ scale: 0.97 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowWeightModal(true)}
-            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-colors ${
+            className={`w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-colors ${
               todayWeight !== null
-                ? 'bg-green-500/10 border-green-500/25'
-                : 'bg-zinc-900 border-zinc-800'
+                ? 'bg-green-500 text-white'
+                : 'bg-zinc-800 text-white'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                todayWeight !== null ? 'bg-green-500/20' : 'bg-zinc-800'
-              }`}>
-                <Scale size={16} className={todayWeight !== null ? 'text-green-400' : 'text-zinc-400'} />
-              </div>
-              <div className="text-left">
-                <p className={`text-sm font-semibold ${todayWeight !== null ? 'text-green-400' : 'text-white'}`}>
-                  {todayWeight !== null
-                    ? `${String(todayWeight).replace('.', ',')} kg registrert`
-                    : 'Legg inn vekt'}
-                </p>
-                <p className="text-xs text-zinc-600 mt-0.5">
-                  {todayWeight !== null ? 'Trykk for å oppdatere' : 'Dagens kroppsvekt'}
-                </p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-zinc-700" />
+            <Scale size={20} />
+            {todayWeight !== null
+              ? `${String(todayWeight).replace('.', ',')} kg registrert`
+              : 'Legg inn vekt'}
           </motion.button>
         </div>
       )}
