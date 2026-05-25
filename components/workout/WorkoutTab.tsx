@@ -1034,7 +1034,7 @@ export function WorkoutTab() {
                   }`}
                 >
                   <Square size={12} className="fill-current" />
-                  {savingWorkout ? '...' : saveError ? 'Prøv igjen' : 'Fullfor økt'}
+                  {savingWorkout ? '...' : saveError ? 'Prøv igjen' : 'Fullfør økt'}
                 </motion.button>
               ) : (
                 <motion.button
