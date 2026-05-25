@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { Workout } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
+import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -32,7 +33,8 @@ export function DashboardTab() {
   });
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const { startWorkout, activeWorkout, setCurrentTab, isTourMode } = useAppStore();
+  const { activeWorkout, setCurrentTab, isTourMode } = useAppStore();
+  const [showStartSheet, setShowStartSheet] = useState(false);
 
   const MOCK_STATS: DashboardStats = {
     weekSessions: 3,
@@ -234,7 +236,7 @@ export function DashboardTab() {
         <div className="px-4 mb-4">
           <motion.button
             whileTap={{ scale: 0.98 }}
-            onClick={() => { startWorkout(); setCurrentTab('workout'); }}
+            onClick={() => setShowStartSheet(true)}
             className="w-full bg-red-500 text-white py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2"
           >
             <Play size={20} className="fill-current" />
@@ -325,6 +327,8 @@ export function DashboardTab() {
           <p className="text-zinc-500 text-sm">Fullfør din første økt for å se statistikk</p>
         </div>
       )}
+
+      <StartWorkoutSheet open={showStartSheet} onClose={() => setShowStartSheet(false)} />
     </div>
   );
 }
