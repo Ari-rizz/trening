@@ -256,13 +256,17 @@ export function RestTimerBar() {
     }
   };
 
-  // On mount, check if we already have a saved push subscription
+  // On mount, sync any existing browser push subscription to the server.
+  // Covers users who granted permission before the push_subscriptions table existed.
   useEffect(() => {
     if (!isStandalonePWA()) return;
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
     navigator.serviceWorker.ready.then(reg => {
-      reg.pushManager.getSubscription().then(sub => {
-        if (sub) pushSubscribedRef.current = true;
+      reg.pushManager.getSubscription().then(async (sub) => {
+        if (!sub) return;
+        pushSubscribedRef.current = true;
+        // Always upsert to ensure the row exists in the database
+        await savePushSubscription(sub);
       });
     }).catch(() => {});
   }, []);
