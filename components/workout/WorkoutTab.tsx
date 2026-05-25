@@ -274,7 +274,7 @@ export function WorkoutTab() {
     if (!currentUserId) {
       toast({
         title: 'Ikke innlogget',
-        description: 'Sesjonen din har utlopt. Logg inn igjen for a lagre okten.',
+        description: 'Sesjonen din har utlopt. Logg inn igjen for a lagre økten.',
         variant: 'destructive',
       });
       return;
@@ -301,7 +301,7 @@ export function WorkoutTab() {
         total_volume_kg: totalVolume,
       }).select().single();
 
-      if (wErr || !workout) throw wErr || new Error('Kunne ikke opprette okt');
+      if (wErr || !workout) throw wErr || new Error('Kunne ikke opprette økt');
 
       for (const ex of activeWorkout.exercises) {
         const { data: we, error: weErr } = await supabase.from('workout_exercises').insert({
@@ -361,7 +361,7 @@ export function WorkoutTab() {
       setSaveError(true);
       toast({
         title: 'Lagring mislyktes',
-        description: 'Okten ble ikke lagret. Tren igjen-knappen for a prove pa nytt.',
+        description: 'Økten ble ikke lagret. Tren igjen-knappen for å prøve på nytt.',
         variant: 'destructive',
       });
     } finally {
