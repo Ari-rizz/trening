@@ -15,6 +15,7 @@ import { ExerciseSwapSheet } from './ExerciseSwapSheet';
 import { SupersetPickerSheet } from './SupersetPickerSheet';
 import { StartWorkoutSheet } from './StartWorkoutSheet';
 import { RestTimerBar } from './RestTimerBar';
+import { AddExerciseSaveSheet } from './AddExerciseSaveSheet';
 import { supabase } from '@/lib/supabase';
 import { calculate1RM, getMuscleGroupColor } from '@/lib/exercises-data';
 import { useToast } from '@/hooks/use-toast';
@@ -74,6 +75,12 @@ export function WorkoutTab() {
   const [showSwapSheet, setShowSwapSheet] = useState(false);
   const [showSupersetPicker, setShowSupersetPicker] = useState(false);
   const [showStartSheet, setShowStartSheet] = useState(false);
+  const [pendingAddExercise, setPendingAddExercise] = useState<{
+    exercise: Exercise;
+    prevSets?: Array<{ weight: number; reps: number; rpe: number }>;
+    prevNotes?: string;
+    targetIndex: number;
+  } | null>(null);
   const [weightInputs, setWeightInputs] = useState<Record<string, string>>({});
   const [rpeInputs, setRpeInputs] = useState<Record<string, string>>({});
   const historyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -435,11 +442,52 @@ export function WorkoutTab() {
       }
     }
 
+    const targetIndex = activeWorkout ? activeWorkout.exercises.length : 0;
+
+    // If this workout is based on a template, ask whether to save to the plan too
+    if (activeWorkout?.templateId) {
+      setShowExercisePicker(false);
+      setPendingAddExercise({ exercise, prevSets, prevNotes, targetIndex });
+      return;
+    }
+
     addExerciseToWorkout(exercise, prevSets, prevNotes);
     setShowExercisePicker(false);
-    if (activeWorkout) {
-      setCurrentExerciseIndex(activeWorkout.exercises.length);
+    setCurrentExerciseIndex(targetIndex);
+  };
+
+  const handleConfirmAddExercise = async (saveToTemplate: boolean) => {
+    if (!pendingAddExercise) return;
+    const { exercise, prevSets, prevNotes, targetIndex } = pendingAddExercise;
+    setPendingAddExercise(null);
+
+    let templateExerciseId: string | undefined;
+
+    if (saveToTemplate && activeWorkout?.templateId && userId) {
+      const orderIndex = activeWorkout.exercises.length;
+      const { data, error } = await supabase
+        .from('template_exercises')
+        .insert({
+          template_id: activeWorkout.templateId,
+          exercise_id: exercise.id,
+          order_index: orderIndex,
+          target_sets: prevSets?.length ?? 1,
+          target_reps: prevSets?.[0]?.reps ?? 0,
+          target_weight_kg: prevSets?.[0]?.weight ?? 0,
+          notes: prevNotes ?? '',
+          is_unilateral: false,
+          warmup_sets: 0,
+        })
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        templateExerciseId = data.id;
+      }
     }
+
+    addExerciseToWorkout(exercise, prevSets, prevNotes, templateExerciseId);
+    setCurrentExerciseIndex(targetIndex);
   };
 
   if (showExercisePicker) {
@@ -1349,6 +1397,13 @@ export function WorkoutTab() {
           onClose={() => setShowSupersetPicker(false)}
         />
       )}
+
+      <AddExerciseSaveSheet
+        open={!!pendingAddExercise}
+        exercise={pendingAddExercise?.exercise ?? null}
+        onSelect={handleConfirmAddExercise}
+        onClose={() => setPendingAddExercise(null)}
+      />
     </div>
   );
 }

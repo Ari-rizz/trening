@@ -35,6 +35,7 @@ interface ActiveWorkout {
   startTime: number;
   exercises: ActiveExercise[];
   notes: string;
+  templateId?: string;
 }
 
 interface RestTimer {
@@ -63,7 +64,7 @@ interface AppState {
   startWorkout: (name?: string) => void;
   startWorkoutFromTemplate: (template: WorkoutTemplate, lastSessionData: Record<string, Array<{ weight: number; reps: number; rpe: number }>>, lastNotesData?: Record<string, string>) => void;
   endWorkout: () => void;
-  addExerciseToWorkout: (exercise: Exercise, previousSets?: Array<{ weight: number; reps: number; rpe: number }>, previousNotes?: string) => void;
+  addExerciseToWorkout: (exercise: Exercise, previousSets?: Array<{ weight: number; reps: number; rpe: number }>, previousNotes?: string, templateExerciseId?: string) => void;
   removeExerciseFromWorkout: (exerciseId: string) => void;
   addSetToExercise: (exerciseId: string) => void;
   addWarmupSetToExercise: (exerciseId: string) => void;
@@ -179,6 +180,7 @@ export const useAppStore = create<AppState>()(
             startTime: Date.now(),
             exercises,
             notes: '',
+            templateId: template.id,
           },
         });
       },
@@ -187,7 +189,7 @@ export const useAppStore = create<AppState>()(
         set({ activeWorkout: null });
       },
 
-      addExerciseToWorkout: (exercise: Exercise, previousSets?: Array<{ weight: number; reps: number; rpe: number }>, previousNotes?: string) => {
+      addExerciseToWorkout: (exercise: Exercise, previousSets?: Array<{ weight: number; reps: number; rpe: number }>, previousNotes?: string, templateExerciseId?: string) => {
         const { activeWorkout } = get();
         if (!activeWorkout) return;
         const exerciseId = `ex-${Date.now()}-${Math.random()}`;
@@ -212,6 +214,7 @@ export const useAppStore = create<AppState>()(
           notes: previousNotes ?? '',
           orderIndex: activeWorkout.exercises.length,
           isUnilateral: false,
+          templateExerciseId,
         };
         set({
           activeWorkout: {
