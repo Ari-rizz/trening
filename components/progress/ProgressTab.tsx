@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown } from 'lucide-react';
+import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown, Link2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM } from '@/lib/exercises-data';
 import { format, subDays } from 'date-fns';
@@ -22,6 +22,7 @@ interface SessionData {
   oneRM: number;
   isTimeBased: boolean;
   maxDuration: number;
+  supersetGroup: number | null;
 }
 
 interface ExerciseHistory {
@@ -41,9 +42,9 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     isTimeBased: false,
     pr: { weight: 90, reps: 5, oneRM: 101 },
     sessions: [
-      { workoutId: 'm1', date: '2026-05-05', workoutName: 'Push A', isManual: false, maxWeight: 80, totalVolume: 1920, sets: [{ weight_kg: 80, reps: 8, rpe: 7, set_number: 1, duration_seconds: 0 }], oneRM: 96, isTimeBased: false, maxDuration: 0 },
-      { workoutId: 'm2', date: '2026-05-12', workoutName: 'Push A', isManual: false, maxWeight: 85, totalVolume: 2040, sets: [{ weight_kg: 85, reps: 8, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 102, isTimeBased: false, maxDuration: 0 },
-      { workoutId: 'm3', date: '2026-05-19', workoutName: 'Push A', isManual: false, maxWeight: 90, totalVolume: 2160, sets: [{ weight_kg: 90, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 101, isTimeBased: false, maxDuration: 0 },
+      { workoutId: 'm1', date: '2026-05-05', workoutName: 'Push A', isManual: false, maxWeight: 80, totalVolume: 1920, sets: [{ weight_kg: 80, reps: 8, rpe: 7, set_number: 1, duration_seconds: 0 }], oneRM: 96, isTimeBased: false, maxDuration: 0, supersetGroup: null },
+      { workoutId: 'm2', date: '2026-05-12', workoutName: 'Push A', isManual: false, maxWeight: 85, totalVolume: 2040, sets: [{ weight_kg: 85, reps: 8, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 102, isTimeBased: false, maxDuration: 0, supersetGroup: null },
+      { workoutId: 'm3', date: '2026-05-19', workoutName: 'Push A', isManual: false, maxWeight: 90, totalVolume: 2160, sets: [{ weight_kg: 90, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 101, isTimeBased: false, maxDuration: 0, supersetGroup: null },
     ],
   },
   {
@@ -53,8 +54,8 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     isTimeBased: false,
     pr: { weight: 120, reps: 5, oneRM: 135 },
     sessions: [
-      { workoutId: 'm4', date: '2026-05-06', workoutName: 'Bein', isManual: false, maxWeight: 110, totalVolume: 3300, sets: [{ weight_kg: 110, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 124, isTimeBased: false, maxDuration: 0 },
-      { workoutId: 'm5', date: '2026-05-13', workoutName: 'Bein', isManual: false, maxWeight: 120, totalVolume: 3600, sets: [{ weight_kg: 120, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 135, isTimeBased: false, maxDuration: 0 },
+      { workoutId: 'm4', date: '2026-05-06', workoutName: 'Bein', isManual: false, maxWeight: 110, totalVolume: 3300, sets: [{ weight_kg: 110, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 124, isTimeBased: false, maxDuration: 0, supersetGroup: null },
+      { workoutId: 'm5', date: '2026-05-13', workoutName: 'Bein', isManual: false, maxWeight: 120, totalVolume: 3600, sets: [{ weight_kg: 120, reps: 5, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 135, isTimeBased: false, maxDuration: 0, supersetGroup: null },
     ],
   },
   {
@@ -64,8 +65,8 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     isTimeBased: false,
     pr: { weight: 140, reps: 3, oneRM: 151 },
     sessions: [
-      { workoutId: 'm6', date: '2026-05-07', workoutName: 'Pull', isManual: false, maxWeight: 130, totalVolume: 2340, sets: [{ weight_kg: 130, reps: 3, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 140, isTimeBased: false, maxDuration: 0 },
-      { workoutId: 'm7', date: '2026-05-14', workoutName: 'Pull', isManual: false, maxWeight: 140, totalVolume: 2520, sets: [{ weight_kg: 140, reps: 3, rpe: 9, set_number: 1, duration_seconds: 0 }], oneRM: 151, isTimeBased: false, maxDuration: 0 },
+      { workoutId: 'm6', date: '2026-05-07', workoutName: 'Pull', isManual: false, maxWeight: 130, totalVolume: 2340, sets: [{ weight_kg: 130, reps: 3, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 140, isTimeBased: false, maxDuration: 0, supersetGroup: null },
+      { workoutId: 'm7', date: '2026-05-14', workoutName: 'Pull', isManual: false, maxWeight: 140, totalVolume: 2520, sets: [{ weight_kg: 140, reps: 3, rpe: 9, set_number: 1, duration_seconds: 0 }], oneRM: 151, isTimeBased: false, maxDuration: 0, supersetGroup: null },
     ],
   },
   {
@@ -75,8 +76,8 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     isTimeBased: false,
     pr: { weight: 60, reps: 6, oneRM: 70 },
     sessions: [
-      { workoutId: 'm8', date: '2026-05-08', workoutName: 'Push B', isManual: false, maxWeight: 55, totalVolume: 990, sets: [{ weight_kg: 55, reps: 6, rpe: 7, set_number: 1, duration_seconds: 0 }], oneRM: 64, isTimeBased: false, maxDuration: 0 },
-      { workoutId: 'm9', date: '2026-05-15', workoutName: 'Push B', isManual: false, maxWeight: 60, totalVolume: 1080, sets: [{ weight_kg: 60, reps: 6, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 70, isTimeBased: false, maxDuration: 0 },
+      { workoutId: 'm8', date: '2026-05-08', workoutName: 'Push B', isManual: false, maxWeight: 55, totalVolume: 990, sets: [{ weight_kg: 55, reps: 6, rpe: 7, set_number: 1, duration_seconds: 0 }], oneRM: 64, isTimeBased: false, maxDuration: 0, supersetGroup: null },
+      { workoutId: 'm9', date: '2026-05-15', workoutName: 'Push B', isManual: false, maxWeight: 60, totalVolume: 1080, sets: [{ weight_kg: 60, reps: 6, rpe: 8, set_number: 1, duration_seconds: 0 }], oneRM: 70, isTimeBased: false, maxDuration: 0, supersetGroup: null },
     ],
   },
 ];
@@ -143,7 +144,7 @@ export function ProgressTab() {
         .select(`
           id, date, name, is_manual,
           workout_exercises(
-            exercise_id,
+            exercise_id, superset_group,
             exercises(id, name, muscle_group),
             workout_sets(set_number, reps, weight_kg, rpe, duration_seconds, is_completed)
           )
@@ -204,6 +205,7 @@ export function ProgressTab() {
             oneRM,
             isTimeBased,
             maxDuration,
+            supersetGroup: (we as any).superset_group ?? null,
           });
 
           if (!exerciseMap[ex.id].pr || oneRM > exerciseMap[ex.id].pr!.oneRM) {
@@ -718,9 +720,17 @@ function ExerciseProgressDetail({
               <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-white text-sm font-medium">
-                      {format(new Date(s.date), 'EEE d. MMM yyyy', { locale: nb })}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-white text-sm font-medium">
+                        {format(new Date(s.date), 'EEE d. MMM yyyy', { locale: nb })}
+                      </p>
+                      {s.supersetGroup != null && (
+                        <span className="flex items-center gap-0.5 bg-orange-500/15 border border-orange-500/30 text-orange-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                          <Link2 size={8} />
+                          SS
+                        </span>
+                      )}
+                    </div>
                     {s.isManual ? (
                       <span className="inline-block text-[10px] text-zinc-400 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-0.5 mt-0.5 font-medium">
                         Manuell
