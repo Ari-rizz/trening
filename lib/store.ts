@@ -466,7 +466,7 @@ export const useAppStore = create<AppState>()(
       linkSuperset: (exerciseIdA: string, exerciseIdB: string) => {
         const { activeWorkout } = get();
         if (!activeWorkout) return;
-        const groupId = Date.now();
+        const groupId = Math.floor(Math.random() * 2_000_000_000);
         set({
           activeWorkout: {
             ...activeWorkout,

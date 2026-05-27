@@ -79,7 +79,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   };
 
   const linkSuperset = (indexA: number, indexB: number) => {
-    const groupId = Date.now();
+    const groupId = Math.floor(Math.random() * 2_000_000_000);
     setExercises(prev => prev.map((e, i) => {
       if (i === indexA || i === indexB) return { ...e, superset_group: groupId };
       return e;
