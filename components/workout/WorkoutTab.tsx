@@ -529,7 +529,17 @@ export function WorkoutTab() {
     );
   }
 
-  const currentEx = activeWorkout.exercises[currentExerciseIndex];
+  // If we land on a superset partner index, jump to the primary (first of pair)
+  const rawCurrentEx = activeWorkout.exercises[currentExerciseIndex];
+  const primaryIndexForSuperset = rawCurrentEx?.supersetGroup != null
+    ? activeWorkout.exercises.findIndex(e => e.supersetGroup === rawCurrentEx.supersetGroup)
+    : currentExerciseIndex;
+  const effectiveIndex = primaryIndexForSuperset !== -1 ? primaryIndexForSuperset : currentExerciseIndex;
+  if (effectiveIndex !== currentExerciseIndex) {
+    // Redirect to primary — set state asynchronously to avoid render loop
+    setTimeout(() => setCurrentExerciseIndex(effectiveIndex), 0);
+  }
+  const currentEx = activeWorkout.exercises[effectiveIndex];
   const totalExercises = activeWorkout.exercises.length;
   const prevHistory = currentEx ? previousSessions[currentEx.exerciseId] : undefined;
 
@@ -583,33 +593,43 @@ export function WorkoutTab() {
         {/* Exercise navigation */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-hide">
-            {activeWorkout.exercises.map((ex, i) => {
-              const completedCount = ex.sets.filter(s => s.isCompleted).length;
-              const allDone = completedCount === ex.sets.length && ex.sets.length > 0;
-              const nextEx = activeWorkout.exercises[i + 1];
-              const linkedToNext = ex.supersetGroup != null && nextEx?.supersetGroup === ex.supersetGroup;
-              return (
-                <div key={ex.id} className="flex items-center flex-shrink-0">
-                  <button
-                    onClick={() => setCurrentExerciseIndex(i)}
-                    className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center transition-all ${
-                      i === currentExerciseIndex
-                        ? 'bg-red-500 text-white scale-110'
-                        : allDone
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : ex.supersetGroup != null
-                        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                        : 'bg-zinc-800 text-zinc-500'
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                  {linkedToNext && (
-                    <div className="w-3 h-0.5 bg-orange-500/50 mx-0.5" />
-                  )}
-                </div>
-              );
-            })}
+            {(() => {
+              const seenGroups = new Set<number>();
+              let navIndex = 0;
+              return activeWorkout.exercises.map((ex, i) => {
+                // Skip superset partners (only show the first of a pair)
+                if (ex.supersetGroup != null) {
+                  if (seenGroups.has(ex.supersetGroup)) return null;
+                  seenGroups.add(ex.supersetGroup);
+                }
+                const myNavIndex = navIndex++;
+                const partner = ex.supersetGroup != null
+                  ? activeWorkout.exercises.find((e, j) => j !== i && e.supersetGroup === ex.supersetGroup)
+                  : null;
+                const allDoneA = ex.sets.length > 0 && ex.sets.every(s => s.isCompleted);
+                const allDoneB = !partner || (partner.sets.length > 0 && partner.sets.every(s => s.isCompleted));
+                const allDone = allDoneA && allDoneB;
+                const isActive = i === currentExerciseIndex || (partner && activeWorkout.exercises.indexOf(partner) === currentExerciseIndex);
+                return (
+                  <div key={ex.id} className="flex items-center flex-shrink-0">
+                    <button
+                      onClick={() => setCurrentExerciseIndex(i)}
+                      className={`flex-shrink-0 w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center transition-all ${
+                        isActive
+                          ? 'bg-red-500 text-white scale-110'
+                          : allDone
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : ex.supersetGroup != null
+                          ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                          : 'bg-zinc-800 text-zinc-500'
+                      }`}
+                    >
+                      {myNavIndex + 1}
+                    </button>
+                  </div>
+                );
+              });
+            })()}
             <button
               onClick={() => setShowExercisePicker(true)}
               className="flex-shrink-0 w-7 h-7 rounded-lg bg-zinc-800 border border-dashed border-zinc-700 text-zinc-500 flex items-center justify-center"
@@ -671,8 +691,27 @@ export function WorkoutTab() {
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
-                  <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
+                  {(() => {
+                    const partner = getSupersetPartner(currentEx.id);
+                    if (partner) {
+                      return (
+                        <>
+                          <h3 className="text-white font-bold text-base leading-tight truncate">
+                            {currentEx.exercise.name}
+                            <span className="text-zinc-500 font-normal"> + </span>
+                            {partner.exercise.name}
+                          </h3>
+                          <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.muscle_group} · {partner.exercise.muscle_group}</p>
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
+                        <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
+                      </>
+                    );
+                  })()}
                   <div className="flex items-center mt-1.5 gap-1.5">
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-full p-0.5">
                       <motion.button
@@ -762,143 +801,188 @@ export function WorkoutTab() {
               return (
               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                 {supersetPartner ? (
-                  /* Superset combined view */
-                  <div className="border-l-2 border-orange-500/50">
-                    <div className="px-4 py-2 border-b border-zinc-800/50">
-                      <p className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Supersett</p>
-                    </div>
-                    <div className="px-3 py-2 space-y-3">
-                      {currentEx.sets.map((set, setIdx) => {
-                        const partnerSet = supersetPartner.sets[setIdx];
-                        const partnerTrackingType = trackingPrefs[supersetPartner.exerciseId] ?? supersetPartner.trackingType ?? 'reps_weight';
-                        return (
-                          <motion.div
-                            key={set.setNumber}
-                            data-tour={setIdx === 0 ? 'workout-set-row' : undefined}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-zinc-800/50 rounded-xl overflow-hidden border border-zinc-700/30"
-                          >
-                            <div className="px-2 py-1 border-b border-zinc-700/30 flex items-center">
-                              <span className="text-[10px] font-bold text-orange-400">
-                                {set.isWarmup ? `W${set.setNumber}` : `Sett ${set.setNumber}`}
-                              </span>
+                  /* Superset view — same grid as normal, two sub-rows per set */
+                  <>
+                  <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
+                    <div className="col-span-1">Sett</div>
+                    <div className="col-span-3 text-center">Vekt (kg)</div>
+                    <div className="col-span-4 text-center">Reps</div>
+                    <div className="col-span-2 text-center">RPE</div>
+                    <div className="col-span-1"></div>
+                    <div className="col-span-1"></div>
+                  </div>
+                  <div className="px-3 py-2 space-y-1.5">
+                    {currentEx.sets.map((set, setIdx) => {
+                      const partnerSet = supersetPartner.sets[setIdx];
+                      const partnerTrackingType = trackingPrefs[supersetPartner.exerciseId] ?? supersetPartner.trackingType ?? 'reps_weight';
+                      const bothDone = set.isCompleted && (partnerSet?.isCompleted ?? false);
+                      return (
+                        <motion.div
+                          key={set.setNumber}
+                          data-tour={setIdx === 0 ? 'workout-set-row' : undefined}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`rounded-xl px-2 pt-1.5 pb-1 transition-colors ${
+                            bothDone
+                              ? set.isWarmup ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-green-500/10 border border-green-500/20'
+                              : set.isWarmup ? 'bg-amber-500/5 border border-amber-500/10' : ''
+                          }`}
+                        >
+                          {/* Row A */}
+                          <div className="grid grid-cols-12 gap-1 items-center py-1">
+                            <div className="col-span-1 flex flex-col items-center justify-center">
+                              {set.isWarmup ? (
+                                <span className="text-[10px] font-bold text-amber-500 leading-none">W{set.setNumber}</span>
+                              ) : (
+                                <span className="text-xs font-bold text-zinc-500">{set.setNumber}</span>
+                              )}
                             </div>
-                            {/* Row A */}
-                            <div className="px-2 py-1.5 border-b border-zinc-700/20">
-                              <p className="text-[10px] text-zinc-500 mb-1 truncate">{currentEx.exercise.name}</p>
-                              <div className="flex items-center gap-1.5">
-                                {trackingType === 'time' ? (
+                            {trackingType === 'time' ? (
+                              <div className="col-span-7">
+                                <input
+                                  type="number"
+                                  value={set.duration || ''}
+                                  onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
+                                  className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
+                                  inputMode="numeric" placeholder="0"
+                                />
+                              </div>
+                            ) : (
+                              <>
+                                <div className="col-span-3">
+                                  <input
+                                    type="text"
+                                    value={getWeightDisplay(currentEx.id, set.setNumber, set.weight)}
+                                    onChange={e => handleWeightChange(currentEx.id, set.setNumber, e.target.value)}
+                                    onBlur={() => handleWeightBlur(currentEx.id, set.setNumber)}
+                                    className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                    inputMode="decimal" placeholder="0"
+                                  />
+                                </div>
+                                <div className="col-span-4">
                                   <input
                                     type="number"
-                                    value={set.duration || ''}
-                                    onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                                    className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                                    inputMode="numeric" placeholder="0 sek"
+                                    value={set.reps || ''}
+                                    onChange={e => updateSet(currentEx.id, set.setNumber, 'reps', parseInt(e.target.value) || 0)}
+                                    className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                    inputMode="numeric" placeholder="0"
                                   />
-                                ) : (
-                                  <>
+                                </div>
+                              </>
+                            )}
+                            <div className="col-span-2">
+                              <input
+                                type="text"
+                                value={getRpeDisplay(currentEx.id, set.setNumber, set.rpe)}
+                                onChange={e => handleRpeChange(currentEx.id, set.setNumber, e.target.value)}
+                                onBlur={() => handleRpeBlur(currentEx.id, set.setNumber)}
+                                className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                inputMode="decimal" placeholder="-"
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <motion.button
+                                whileTap={{ scale: 0.85 }}
+                                onClick={() => {
+                                  toggleSetComplete(currentEx.id, set.setNumber);
+                                  if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                                }}
+                                className="p-0.5"
+                              >
+                                {set.isCompleted
+                                  ? <CheckCircle2 size={22} className={set.isWarmup ? 'text-amber-400' : 'text-green-500'} />
+                                  : <Circle size={22} className="text-zinc-700" />
+                                }
+                              </motion.button>
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              <motion.button
+                                whileTap={{ scale: 0.85 }}
+                                onClick={() => setConfirmDeleteSet({ exerciseId: currentEx.id, setNumber: set.setNumber })}
+                                className="p-0.5"
+                              >
+                                <X size={14} className="text-zinc-600" />
+                              </motion.button>
+                            </div>
+                          </div>
+                          {/* Exercise A label */}
+                          <p className="text-[10px] text-zinc-600 pl-6 pb-0.5 truncate">{currentEx.exercise.name}</p>
+                          {/* Divider */}
+                          <div className="h-px bg-zinc-800/60 mx-1 my-1" />
+                          {/* Row B */}
+                          {partnerSet && (
+                            <>
+                            <div className="grid grid-cols-12 gap-1 items-center py-1">
+                              <div className="col-span-1" />
+                              {partnerTrackingType === 'time' ? (
+                                <div className="col-span-7">
+                                  <input
+                                    type="number"
+                                    value={partnerSet.duration || ''}
+                                    onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'duration', parseInt(e.target.value) || 0)}
+                                    className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
+                                    inputMode="numeric" placeholder="0"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="col-span-3">
                                     <input
                                       type="text"
-                                      value={getWeightDisplay(currentEx.id, set.setNumber, set.weight)}
-                                      onChange={e => handleWeightChange(currentEx.id, set.setNumber, e.target.value)}
-                                      onBlur={() => handleWeightBlur(currentEx.id, set.setNumber)}
-                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                      inputMode="decimal" placeholder="kg"
+                                      value={getWeightDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.weight)}
+                                      onChange={e => handleWeightChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
+                                      onBlur={() => handleWeightBlur(supersetPartner.id, partnerSet.setNumber)}
+                                      className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                      inputMode="decimal" placeholder="0"
                                     />
+                                  </div>
+                                  <div className="col-span-4">
                                     <input
                                       type="number"
-                                      value={set.reps || ''}
-                                      onChange={e => updateSet(currentEx.id, set.setNumber, 'reps', parseInt(e.target.value) || 0)}
-                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                      inputMode="numeric" placeholder="reps"
+                                      value={partnerSet.reps || ''}
+                                      onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'reps', parseInt(e.target.value) || 0)}
+                                      className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                      inputMode="numeric" placeholder="0"
                                     />
-                                  </>
-                                )}
+                                  </div>
+                                </>
+                              )}
+                              <div className="col-span-2">
                                 <input
                                   type="text"
-                                  value={getRpeDisplay(currentEx.id, set.setNumber, set.rpe)}
-                                  onChange={e => handleRpeChange(currentEx.id, set.setNumber, e.target.value)}
-                                  onBlur={() => handleRpeBlur(currentEx.id, set.setNumber)}
-                                  className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                  inputMode="decimal" placeholder="RPE"
+                                  value={getRpeDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.rpe)}
+                                  onChange={e => handleRpeChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
+                                  onBlur={() => handleRpeBlur(supersetPartner.id, partnerSet.setNumber)}
+                                  className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
+                                  inputMode="decimal" placeholder="-"
                                 />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
                                 <motion.button
                                   whileTap={{ scale: 0.85 }}
                                   onClick={() => {
-                                    toggleSetComplete(currentEx.id, set.setNumber);
-                                    if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                                    toggleSetComplete(supersetPartner.id, partnerSet.setNumber);
+                                    if (!partnerSet.isCompleted && !partnerSet.isWarmup) startRestTimer(defaultRestSeconds);
                                   }}
                                   className="p-0.5"
                                 >
-                                  {set.isCompleted
-                                    ? <CheckCircle2 size={22} className={set.isWarmup ? 'text-amber-400' : 'text-green-500'} />
+                                  {partnerSet.isCompleted
+                                    ? <CheckCircle2 size={22} className={partnerSet.isWarmup ? 'text-amber-400' : 'text-green-500'} />
                                     : <Circle size={22} className="text-zinc-700" />
                                   }
                                 </motion.button>
                               </div>
+                              <div className="col-span-1" />
                             </div>
-                            {/* Row B */}
-                            {partnerSet && (
-                              <div className="px-2 py-1.5">
-                                <p className="text-[10px] text-zinc-500 mb-1 truncate">{supersetPartner.exercise.name}</p>
-                                <div className="flex items-center gap-1.5">
-                                  {partnerTrackingType === 'time' ? (
-                                    <input
-                                      type="number"
-                                      value={partnerSet.duration || ''}
-                                      onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                                      className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                                      inputMode="numeric" placeholder="0 sek"
-                                    />
-                                  ) : (
-                                    <>
-                                      <input
-                                        type="text"
-                                        value={getWeightDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.weight)}
-                                        onChange={e => handleWeightChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
-                                        onBlur={() => handleWeightBlur(supersetPartner.id, partnerSet.setNumber)}
-                                        className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                        inputMode="decimal" placeholder="kg"
-                                      />
-                                      <input
-                                        type="number"
-                                        value={partnerSet.reps || ''}
-                                        onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'reps', parseInt(e.target.value) || 0)}
-                                        className="flex-1 bg-zinc-800 text-white text-center rounded-lg py-2 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                        inputMode="numeric" placeholder="reps"
-                                      />
-                                    </>
-                                  )}
-                                  <input
-                                    type="text"
-                                    value={getRpeDisplay(supersetPartner.id, partnerSet.setNumber, partnerSet.rpe)}
-                                    onChange={e => handleRpeChange(supersetPartner.id, partnerSet.setNumber, e.target.value)}
-                                    onBlur={() => handleRpeBlur(supersetPartner.id, partnerSet.setNumber)}
-                                    className="w-12 bg-zinc-800 text-white text-center rounded-lg py-2 text-xs font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                                    inputMode="decimal" placeholder="RPE"
-                                  />
-                                  <motion.button
-                                    whileTap={{ scale: 0.85 }}
-                                    onClick={() => {
-                                      toggleSetComplete(supersetPartner.id, partnerSet.setNumber);
-                                      if (!partnerSet.isCompleted && !partnerSet.isWarmup) startRestTimer(defaultRestSeconds);
-                                    }}
-                                    className="p-0.5"
-                                  >
-                                    {partnerSet.isCompleted
-                                      ? <CheckCircle2 size={22} className={partnerSet.isWarmup ? 'text-amber-400' : 'text-green-500'} />
-                                      : <Circle size={22} className="text-zinc-700" />
-                                    }
-                                  </motion.button>
-                                </div>
-                              </div>
-                            )}
-                          </motion.div>
-                        );
-                      })}
-                    </div>
+                            {/* Exercise B label */}
+                            <p className="text-[10px] text-zinc-600 pl-6 pb-1 truncate">{supersetPartner.exercise.name}</p>
+                            </>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
+                  </>
                 ) : (
                   <>
                   {/* Normal sets header */}
@@ -1055,19 +1139,35 @@ export function WorkoutTab() {
               );
             })()}
 
-            {/* Navigation between exercises */}
+            {/* Navigation between exercises — skip superset partners */}
+            {(() => {
+              // Build list of primary indices (first of each superset pair, or solo)
+              const primaryIndices: number[] = [];
+              const seen = new Set<number>();
+              activeWorkout.exercises.forEach((ex, i) => {
+                if (ex.supersetGroup != null) {
+                  if (seen.has(ex.supersetGroup)) return;
+                  seen.add(ex.supersetGroup);
+                }
+                primaryIndices.push(i);
+              });
+              const posInNav = primaryIndices.indexOf(effectiveIndex);
+              const prevPrimary = posInNav > 0 ? primaryIndices[posInNav - 1] : null;
+              const nextPrimary = posInNav < primaryIndices.length - 1 ? primaryIndices[posInNav + 1] : null;
+              const isLast = nextPrimary === null;
+              return (
             <div className="flex items-center justify-between mt-4">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setCurrentExerciseIndex(Math.max(0, currentExerciseIndex - 1))}
-                disabled={currentExerciseIndex === 0}
+                onClick={() => prevPrimary !== null && setCurrentExerciseIndex(prevPrimary)}
+                disabled={prevPrimary === null}
                 className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium disabled:opacity-30"
               >
                 <ChevronLeft size={16} />
                 Forrige
               </motion.button>
-              <span className="text-xs text-zinc-600 font-mono">{currentExerciseIndex + 1} / {totalExercises}</span>
-              {currentExerciseIndex === totalExercises - 1 ? (
+              <span className="text-xs text-zinc-600 font-mono">{posInNav + 1} / {primaryIndices.length}</span>
+              {isLast ? (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={handleFinishWorkout}
@@ -1082,7 +1182,7 @@ export function WorkoutTab() {
               ) : (
                 <motion.button
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setCurrentExerciseIndex(Math.min(totalExercises - 1, currentExerciseIndex + 1))}
+                  onClick={() => nextPrimary !== null && setCurrentExerciseIndex(nextPrimary)}
                   className="flex items-center gap-1 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 text-sm font-medium"
                 >
                   Neste
@@ -1090,6 +1190,8 @@ export function WorkoutTab() {
                 </motion.button>
               )}
             </div>
+              );
+            })()}
 
             {/* Add exercise button */}
             <motion.button
