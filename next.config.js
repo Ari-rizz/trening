@@ -27,6 +27,10 @@ const withPWA = require('next-pwa')({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
+  // output: 'export' generates a static out/ folder for Capacitor native builds.
+  // Netlify deployment continues to use the .next folder via @netlify/plugin-nextjs.
+  // To build for native: set NEXT_EXPORT=true in your shell, then run npm run build:app
+  ...(process.env.NEXT_EXPORT === 'true' ? { output: 'export', trailingSlash: true } : {}),
   images: {
     unoptimized: true,
     domains: ['raw.githubusercontent.com'],

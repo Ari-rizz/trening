@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Timer, X, Plus, Minus } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import {
+  scheduleRestTimerNotification,
+  cancelNotification,
+  hapticWarning,
+} from '@/lib/native';
 
 function playDoneSound() {
   try {
@@ -34,6 +39,7 @@ export function RestTimerBar() {
   const [, forceUpdate] = useState(0);
   const doneRef = useRef(false);
   const [showDoneBanner, setShowDoneBanner] = useState(false);
+  const notificationIdRef = useRef<number | null>(null);
 
   // Re-render every 500ms for smooth countdown
   useEffect(() => {
@@ -41,6 +47,20 @@ export function RestTimerBar() {
     const id = setInterval(() => forceUpdate(n => n + 1), 500);
     return () => clearInterval(id);
   }, [restTimer.isRunning, isTourMode]);
+
+  // Schedule / cancel native local notification when timer starts or stops
+  useEffect(() => {
+    if (restTimer.isRunning && !isTourMode) {
+      const remaining = Math.max(1, Math.floor((restTimer.startedAt + restTimer.totalSeconds * 1000 - Date.now()) / 1000));
+      scheduleRestTimerNotification(remaining).then(id => {
+        notificationIdRef.current = id;
+      });
+    } else {
+      cancelNotification(notificationIdRef.current);
+      notificationIdRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restTimer.isRunning]);
 
   const getRemainingSeconds = useCallback(() => {
     if (!restTimer.isRunning) return restTimer.seconds;
@@ -60,6 +80,7 @@ export function RestTimerBar() {
       stopRestTimer();
       playDoneSound();
       vibrateDevice();
+      hapticWarning();
       setShowDoneBanner(true);
       setTimeout(() => setShowDoneBanner(false), 4000);
     }

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { Exercise } from '@/lib/supabase';
+import { hapticMedium, hapticLight } from '@/lib/native';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
 import { ExerciseDetail } from '@/components/exercises/ExerciseDetail';
 import { ExerciseSwapSheet } from './ExerciseSwapSheet';
@@ -934,7 +935,7 @@ export function WorkoutTab() {
                                 whileTap={{ scale: 0.85 }}
                                 onClick={() => {
                                   toggleSetComplete(currentEx.id, set.setNumber);
-                                  if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                                  if (!set.isCompleted && !set.isWarmup) { startRestTimer(defaultRestSeconds); hapticMedium(); } else { hapticLight(); }
                                 }}
                                 className="p-0.5"
                               >
@@ -1011,7 +1012,7 @@ export function WorkoutTab() {
                                   whileTap={{ scale: 0.85 }}
                                   onClick={() => {
                                     toggleSetComplete(supersetPartner.id, partnerSet.setNumber);
-                                    if (!partnerSet.isCompleted && !partnerSet.isWarmup) startRestTimer(defaultRestSeconds);
+                                    if (!partnerSet.isCompleted && !partnerSet.isWarmup) { startRestTimer(defaultRestSeconds); hapticMedium(); } else { hapticLight(); }
                                   }}
                                   className="p-0.5"
                                 >
@@ -1126,7 +1127,7 @@ export function WorkoutTab() {
                             whileTap={{ scale: 0.85 }}
                             onClick={() => {
                               toggleSetComplete(currentEx.id, set.setNumber);
-                              if (!set.isCompleted && !set.isWarmup) startRestTimer(defaultRestSeconds);
+                              if (!set.isCompleted && !set.isWarmup) { startRestTimer(defaultRestSeconds); hapticMedium(); } else { hapticLight(); }
                             }}
                             className="p-0.5"
                           >

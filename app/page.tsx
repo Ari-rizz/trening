@@ -15,12 +15,19 @@ import { PlansTab } from '@/components/plans/PlansTab';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
+import { initStatusBar, hideSplash, requestNotificationPermission } from '@/lib/native';
 
 export default function Home() {
   const currentTab = useAppStore(s => s.currentTab);
   const setCurrentTab = useAppStore(s => s.setCurrentTab);
   const [initials, setInitials] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+
+  useEffect(() => {
+    initStatusBar();
+    hideSplash();
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     const loadInitials = async () => {
