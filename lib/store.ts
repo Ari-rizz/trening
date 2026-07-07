@@ -45,10 +45,28 @@ interface RestTimer {
   startedAt: number;
 }
 
+interface SetTimer {
+  exerciseId: string | null;
+  setNumber: number | null;
+  mode: 'stopwatch' | 'countdown';
+  isRunning: boolean;
+  isPaused: boolean;
+  startedAt: number;
+  accumulatedSeconds: number;
+  countdownFrom: number;
+}
+
+interface ExerciseTimerPref {
+  mode: 'stopwatch' | 'countdown';
+  countdownFrom: number;
+}
+
 interface AppState {
   // Active workout
   activeWorkout: ActiveWorkout | null;
   restTimer: RestTimer;
+  setTimer: SetTimer;
+  exerciseTimerPrefs: Record<string, ExerciseTimerPref>;
 
   // Settings
   defaultRestSeconds: number;
@@ -85,6 +103,13 @@ interface AppState {
   stopRestTimer: () => void;
   setDefaultRestSeconds: (seconds: number) => void;
 
+  startSetTimer: (exerciseId: string, setNumber: number, mode: 'stopwatch' | 'countdown', countdownFrom?: number) => void;
+  pauseSetTimer: () => void;
+  resumeSetTimer: () => void;
+  stopSetTimer: () => void;
+  completeSetTimer: (duration: number) => void;
+  setExerciseTimerPref: (exerciseDbId: string, pref: ExerciseTimerPref) => void;
+
   setCurrentTab: (tab: string) => void;
   setSelectedMuscleGroup: (group: string | null) => void;
   setCachedExercises: (exercises: Exercise[]) => void;
@@ -100,11 +125,24 @@ interface AppState {
 
 const DEFAULT_REST_SECONDS = 90;
 
+const DEFAULT_SET_TIMER: SetTimer = {
+  exerciseId: null,
+  setNumber: null,
+  mode: 'stopwatch',
+  isRunning: false,
+  isPaused: false,
+  startedAt: 0,
+  accumulatedSeconds: 0,
+  countdownFrom: 60,
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       activeWorkout: null,
       restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS, startedAt: 0 },
+      setTimer: { ...DEFAULT_SET_TIMER },
+      exerciseTimerPrefs: {},
       defaultRestSeconds: DEFAULT_REST_SECONDS,
       currentTab: 'dashboard',
       selectedMuscleGroup: null,
@@ -186,7 +224,7 @@ export const useAppStore = create<AppState>()(
       },
 
       endWorkout: () => {
-        set({ activeWorkout: null });
+        set({ activeWorkout: null, setTimer: { ...DEFAULT_SET_TIMER } });
       },
 
       addExerciseToWorkout: (exercise: Exercise, previousSets?: Array<{ weight: number; reps: number; rpe: number }>, previousNotes?: string, templateExerciseId?: string) => {
@@ -273,7 +311,6 @@ export const useAppStore = create<AppState>()(
             ...activeWorkout,
             exercises: activeWorkout.exercises.map(ex => {
               if (ex.id !== exerciseId) return ex;
-              // Insert warmup set before the first working set, or at end if all are warmup
               const lastWarmup = [...ex.sets].reverse().find(s => s.isWarmup);
               const firstWorking = ex.sets.find(s => !s.isWarmup);
               const refWeight = firstWorking?.weight ?? lastWarmup?.weight ?? 0;
@@ -514,6 +551,74 @@ export const useAppStore = create<AppState>()(
 
       setDefaultRestSeconds: (seconds: number) => set({ defaultRestSeconds: seconds }),
 
+      startSetTimer: (exerciseId, setNumber, mode, countdownFrom = 60) => {
+        set({
+          setTimer: {
+            exerciseId,
+            setNumber,
+            mode,
+            isRunning: true,
+            isPaused: false,
+            startedAt: Date.now(),
+            accumulatedSeconds: 0,
+            countdownFrom,
+          },
+        });
+      },
+
+      pauseSetTimer: () => {
+        const { setTimer } = get();
+        if (!setTimer.isRunning || setTimer.isPaused) return;
+        const live = Math.floor((Date.now() - setTimer.startedAt) / 1000);
+        set({
+          setTimer: {
+            ...setTimer,
+            isPaused: true,
+            accumulatedSeconds: setTimer.accumulatedSeconds + live,
+          },
+        });
+      },
+
+      resumeSetTimer: () => {
+        const { setTimer } = get();
+        if (!setTimer.isRunning || !setTimer.isPaused) return;
+        set({
+          setTimer: {
+            ...setTimer,
+            isPaused: false,
+            startedAt: Date.now(),
+          },
+        });
+      },
+
+      stopSetTimer: () => {
+        set({ setTimer: { ...DEFAULT_SET_TIMER } });
+      },
+
+      completeSetTimer: (duration: number) => {
+        const { setTimer } = get();
+        if (!setTimer.exerciseId || setTimer.setNumber === null) return;
+        const exerciseId = setTimer.exerciseId;
+        const setNumber = setTimer.setNumber;
+
+        set({ setTimer: { ...DEFAULT_SET_TIMER } });
+
+        get().updateSet(exerciseId, setNumber, 'duration', duration);
+
+        const aw = get().activeWorkout;
+        const exercise = aw?.exercises.find(e => e.id === exerciseId);
+        const theSet = exercise?.sets.find(s => s.setNumber === setNumber);
+        if (theSet && !theSet.isCompleted) {
+          get().toggleSetComplete(exerciseId, setNumber);
+        }
+      },
+
+      setExerciseTimerPref: (exerciseDbId, pref) => {
+        set(state => ({
+          exerciseTimerPrefs: { ...state.exerciseTimerPrefs, [exerciseDbId]: pref },
+        }));
+      },
+
       setCurrentTab: (tab: string) => set({ currentTab: tab }),
       setSelectedMuscleGroup: (group: string | null) => set({ selectedMuscleGroup: group }),
       setCachedExercises: (exercises: Exercise[]) => set({ cachedExercises: exercises }),
@@ -593,6 +698,7 @@ export const useAppStore = create<AppState>()(
         set({
           activeWorkout: null,
           restTimer: { isRunning: false, seconds: 0, totalSeconds: DEFAULT_REST_SECONDS, startedAt: 0 },
+          setTimer: { ...DEFAULT_SET_TIMER },
           isTourMode: false,
           tourSelectedExerciseId: null,
         });
@@ -605,6 +711,8 @@ export const useAppStore = create<AppState>()(
         activeWorkout: state.activeWorkout,
         cachedExercises: state.cachedExercises,
         defaultRestSeconds: state.defaultRestSeconds,
+        setTimer: state.setTimer,
+        exerciseTimerPrefs: state.exerciseTimerPrefs,
       }),
     }
   )

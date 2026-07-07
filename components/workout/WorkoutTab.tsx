@@ -15,6 +15,7 @@ import { ExerciseSwapSheet } from './ExerciseSwapSheet';
 import { SupersetPickerSheet } from './SupersetPickerSheet';
 import { StartWorkoutSheet } from './StartWorkoutSheet';
 import { RestTimerBar } from './RestTimerBar';
+import { SetTimerControls } from './SetTimerControls';
 import { AddExerciseSaveSheet } from './AddExerciseSaveSheet';
 import { supabase } from '@/lib/supabase';
 import { calculate1RM, getMuscleGroupColor } from '@/lib/exercises-data';
@@ -887,12 +888,12 @@ export function WorkoutTab() {
                             </div>
                             {trackingType === 'time' ? (
                               <div className="col-span-7">
-                                <input
-                                  type="number"
-                                  value={set.duration || ''}
-                                  onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                                  className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                                  inputMode="numeric" placeholder="0"
+                                <SetTimerControls
+                                  exerciseId={currentEx.id}
+                                  exerciseDbId={currentEx.exerciseId}
+                                  setNumber={set.setNumber}
+                                  savedDuration={set.duration}
+                                  isCompleted={set.isCompleted}
                                 />
                               </div>
                             ) : (
@@ -964,12 +965,12 @@ export function WorkoutTab() {
                               <div className="col-span-1" />
                               {partnerTrackingType === 'time' ? (
                                 <div className="col-span-7">
-                                  <input
-                                    type="number"
-                                    value={partnerSet.duration || ''}
-                                    onChange={e => updateSet(supersetPartner.id, partnerSet.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                                    className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                                    inputMode="numeric" placeholder="0"
+                                  <SetTimerControls
+                                    exerciseId={supersetPartner.id}
+                                    exerciseDbId={supersetPartner.exerciseId}
+                                    setNumber={partnerSet.setNumber}
+                                    savedDuration={partnerSet.duration}
+                                    isCompleted={partnerSet.isCompleted}
                                   />
                                 </div>
                               ) : (
@@ -1037,7 +1038,7 @@ export function WorkoutTab() {
                   {trackingType === 'time' ? (
                     <div className="grid grid-cols-12 gap-1 px-4 py-2.5 text-xs text-zinc-600 font-medium border-b border-zinc-800/50">
                       <div className="col-span-1">Sett</div>
-                      <div className="col-span-7 text-center">Tid (sek)</div>
+                      <div className="col-span-7 text-center">Tid</div>
                       <div className="col-span-2 text-center">RPE</div>
                       <div className="col-span-1"></div>
                       <div className="col-span-1"></div>
@@ -1076,13 +1077,12 @@ export function WorkoutTab() {
                         </div>
                         {trackingType === 'time' ? (
                           <div className="col-span-7">
-                            <input
-                              type="number"
-                              value={set.duration || ''}
-                              onChange={e => updateSet(currentEx.id, set.setNumber, 'duration', parseInt(e.target.value) || 0)}
-                              className="w-full bg-zinc-800 text-white text-center rounded-lg py-2.5 text-sm font-semibold border border-transparent focus:border-blue-500 focus:outline-none"
-                              inputMode="numeric"
-                              placeholder="0"
+                            <SetTimerControls
+                              exerciseId={currentEx.id}
+                              exerciseDbId={currentEx.exerciseId}
+                              setNumber={set.setNumber}
+                              savedDuration={set.duration}
+                              isCompleted={set.isCompleted}
                             />
                           </div>
                         ) : (
