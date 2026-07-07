@@ -1250,6 +1250,66 @@ export function WorkoutTab() {
               <Plus size={16} />
               Legg til øvelse
             </motion.button>
+
+            {/* Previous sessions history */}
+            {(() => {
+              const sessions = previousSessions[currentEx.exerciseId];
+              const isLoading = sessions === undefined;
+              const isEmpty = sessions !== undefined && sessions.length === 0;
+              return (
+                <div className="mt-6 mb-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex-1 h-px bg-zinc-800" />
+                    <div className="flex items-center gap-1.5 text-zinc-600 text-xs font-semibold">
+                      <History size={12} />
+                      Historikk
+                    </div>
+                    <div className="flex-1 h-px bg-zinc-800" />
+                  </div>
+
+                  {isLoading && (
+                    <div className="space-y-2">
+                      {[1, 2].map(i => (
+                        <div key={i} className="h-14 bg-zinc-900 rounded-xl animate-pulse" />
+                      ))}
+                    </div>
+                  )}
+
+                  {isEmpty && (
+                    <p className="text-zinc-600 text-xs text-center py-4">Ingen historikk ennå</p>
+                  )}
+
+                  {!isLoading && !isEmpty && sessions.map((session, si) => {
+                    const d = new Date(session.date);
+                    const dateLabel = d.toLocaleDateString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short' });
+                    const workingSets = session.sets.filter(s => s.weight_kg > 0 || s.reps > 0);
+                    if (workingSets.length === 0) return null;
+                    return (
+                      <div key={si} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-3 mb-2">
+                        <p className="text-[11px] font-semibold text-zinc-500 mb-2 capitalize">{dateLabel}</p>
+                        <div className="space-y-1">
+                          {workingSets.map((s, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              <span className="w-5 text-zinc-600 font-mono text-center">{i + 1}</span>
+                              <span className="font-semibold text-white tabular-nums">
+                                {s.weight_kg > 0 ? `${s.weight_kg} kg` : '—'}
+                              </span>
+                              <span className="text-zinc-500">×</span>
+                              <span className="font-semibold text-white tabular-nums">
+                                {s.reps > 0 ? `${s.reps} reps` : '—'}
+                              </span>
+                              {s.rpe > 0 && (
+                                <span className="ml-auto text-zinc-600 text-[10px]">RPE {s.rpe}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         ) : null}
       </div>

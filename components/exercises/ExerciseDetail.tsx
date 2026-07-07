@@ -100,7 +100,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps)
       className="flex flex-col h-full bg-black"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-3 flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 pt-12 pb-3 flex-shrink-0">
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onBack}
@@ -111,7 +111,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps)
         <h2 className="text-base font-bold text-white flex-1 truncate">{exercise.name}</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-32">
+      <div className="flex-1 overflow-y-auto pb-40">
         {/* Image gallery */}
         {hasImages ? (
           <div className="mx-4 rounded-2xl overflow-hidden mb-4 border border-zinc-800">
@@ -196,7 +196,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps)
 
       {/* Add button */}
       {onAdd && (
-        <div className="fixed bottom-20 left-0 right-0 px-4 pb-safe">
+        <div className="fixed bottom-28 left-0 right-0 px-4 pb-safe">
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={onAdd}
