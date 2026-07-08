@@ -8,6 +8,7 @@ import { RegisterScreen } from './RegisterScreen';
 import { ForgotPasswordScreen } from './ForgotPasswordScreen';
 import { OnboardingFlow } from './OnboardingFlow';
 import { IntroTour } from './IntroTour';
+import { SubscriptionGate } from './SubscriptionGate';
 
 type AuthScreen = 'login' | 'register' | 'forgot-password';
 
@@ -109,7 +110,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   // Show intro tour overlay on top of the app the first time
   return (
-    <>
+    <SubscriptionGate userId={session.user.id}>
       {children}
       {onboardingDone === true && introTourDone === false && (
         <IntroTour
@@ -117,6 +118,6 @@ export function AuthGate({ children }: AuthGateProps) {
           onComplete={() => setIntroTourDone(true)}
         />
       )}
-    </>
+    </SubscriptionGate>
   );
 }

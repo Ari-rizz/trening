@@ -2,9 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2 } from 'lucide-react';
+import { format, fromUnixTime } from 'date-fns';
+import { nb } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
+import { cancelSubscription, createCheckoutSession } from '@/lib/stripe';
 import { useAppStore } from '@/lib/store';
+
+const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
 
 interface Profile {
   full_name: string;
@@ -15,11 +20,21 @@ interface Profile {
   fitness_level: string | null;
   training_goal: string | null;
   username: string | null;
+  trial_ends_at: string | null;
+}
+
+interface SubscriptionInfo {
+  subscription_status: string | null;
+  cancel_at_period_end: boolean | null;
+  current_period_end: number | null;
+  payment_method_brand: string | null;
+  payment_method_last4: string | null;
 }
 
 export function ProfileTab() {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [stats, setStats] = useState({ workouts: 0, volume: 0, prs: 0 });
   const { defaultRestSeconds, setDefaultRestSeconds } = useAppStore();
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -30,6 +45,10 @@ export function ProfileTab() {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaved, setUsernameSaved] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isIOSSafari = isIOS && isSafari;
@@ -65,28 +84,38 @@ export function ProfileTab() {
       if (data.session?.user?.id) {
         fetchProfile(data.session.user.id);
         fetchStats(data.session.user.id);
+        fetchSubscription();
       }
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user?.id) {
         fetchProfile(session.user.id);
         fetchStats(session.user.id);
+        fetchSubscription();
       }
     });
-    return () => subscription.unsubscribe();
+    return () => authSub.unsubscribe();
   }, []);
 
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username')
+      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username, trial_ends_at')
       .eq('id', uid)
       .maybeSingle();
     if (data) {
       setProfile(data);
       setUsernameInput(data.username ?? '');
     }
+  };
+
+  const fetchSubscription = async () => {
+    const { data } = await supabase
+      .from('stripe_user_subscriptions')
+      .select('subscription_status, cancel_at_period_end, current_period_end, payment_method_brand, payment_method_last4')
+      .maybeSingle();
+    setSubscription(data as SubscriptionInfo | null);
   };
 
   const handleSaveUsername = async () => {
@@ -132,6 +161,35 @@ export function ProfileTab() {
     await supabase.auth.signOut();
   };
 
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    setCancelError('');
+    try {
+      await cancelSubscription();
+      setShowCancelConfirm(false);
+      await fetchSubscription();
+    } catch (err: any) {
+      setCancelError(err.message ?? 'Noe gikk galt. Prøv igjen.');
+    }
+    setCancelLoading(false);
+  };
+
+  const handleSubscribe = async () => {
+    setSubscribeLoading(true);
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = await createCheckoutSession(
+        PRICE_ID,
+        `${origin}/?payment=success`,
+        `${origin}/?payment=cancel`,
+      );
+      window.location.href = url;
+    } catch (err: any) {
+      setCancelError(err.message ?? 'Noe gikk galt.');
+      setSubscribeLoading(false);
+    }
+  };
+
   const displayName = profile?.full_name || session?.user?.email?.split('@')[0] || 'Bruker';
 
   const initials = displayName
@@ -140,6 +198,18 @@ export function ProfileTab() {
     .map((w: string) => w[0].toUpperCase())
     .slice(0, 2)
     .join('');
+
+  const subStatus = subscription?.subscription_status ?? null;
+  const isSubscribed = subStatus === 'active' || subStatus === 'trialing';
+  const isCanceling = isSubscribed && subscription?.cancel_at_period_end;
+  const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const trialActive = trialEndsAt && trialEndsAt > new Date();
+  const trialDaysLeft = trialActive
+    ? Math.ceil((trialEndsAt!.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const periodEndDate = subscription?.current_period_end
+    ? format(fromUnixTime(subscription.current_period_end), 'd. MMMM yyyy', { locale: nb })
+    : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -268,6 +338,116 @@ export function ProfileTab() {
           </div>
         </div>
 
+        {/* Subscription card */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard size={16} className="text-zinc-400" />
+            <span className="text-white font-semibold text-sm">Mitt abonnement</span>
+          </div>
+
+          {trialActive && !isSubscribed && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                <Clock size={16} className="text-amber-400 flex-shrink-0" />
+                <div>
+                  <p className="text-amber-300 text-sm font-semibold">
+                    {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
+                  </p>
+                  <p className="text-amber-400/70 text-xs mt-0.5">
+                    Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
+                  </p>
+                </div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSubscribe}
+                disabled={subscribeLoading}
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                {subscribeLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Abonner nå — 30 kr/mnd'
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {isSubscribed && !isCanceling && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-green-300 text-sm font-semibold">Aktivt abonnement</p>
+                  {periodEndDate && (
+                    <p className="text-green-400/70 text-xs mt-0.5">Fornyes {periodEndDate}</p>
+                  )}
+                </div>
+              </div>
+              {subscription?.payment_method_brand && (
+                <p className="text-zinc-500 text-xs">
+                  Betaler med {subscription.payment_method_brand.charAt(0).toUpperCase() + subscription.payment_method_brand.slice(1)}
+                  {subscription.payment_method_last4 ? ` ···· ${subscription.payment_method_last4}` : ''}
+                </p>
+              )}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => { setShowCancelConfirm(true); setCancelError(''); }}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm transition-colors"
+              >
+                Avbryt abonnement
+              </motion.button>
+            </div>
+          )}
+
+          {isCanceling && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3">
+                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
+                <div>
+                  <p className="text-zinc-200 text-sm font-semibold">Kansellert</p>
+                  {periodEndDate && (
+                    <p className="text-zinc-400 text-xs mt-0.5">Tilgang til {periodEndDate}</p>
+                  )}
+                </div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSubscribe}
+                disabled={subscribeLoading}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                {subscribeLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <RefreshCw size={14} />
+                    Gjenaktiver abonnement
+                  </>
+                )}
+              </motion.button>
+            </div>
+          )}
+
+          {!trialActive && !isSubscribed && (
+            <div className="space-y-3">
+              <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleSubscribe}
+                disabled={subscribeLoading}
+                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                {subscribeLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Abonner — 30 kr/mnd'
+                )}
+              </motion.button>
+            </div>
+          )}
+        </div>
+
         {/* Rest timer setting */}
         <div data-tour="profile-rest-timer" className="bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
           <div className="flex items-center gap-3 mb-3">
@@ -331,6 +511,64 @@ export function ProfileTab() {
           </motion.button>
         )}
       </div>
+
+      {/* Cancel subscription confirmation sheet */}
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60"
+              onClick={() => setShowCancelConfirm(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
+            >
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle size={22} className="text-amber-400" />
+              </div>
+              <h2 className="text-white font-bold text-xl text-center mb-2">Avbryt abonnement?</h2>
+              <p className="text-zinc-400 text-sm text-center leading-relaxed mb-6">
+                Du beholder full tilgang til IronGrid frem til slutten av inneværende
+                fakturaperiode{periodEndDate ? ` (${periodEndDate})` : ''}. Etter det vil kontoen din blokkeres.
+              </p>
+              {cancelError && (
+                <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4 text-center">
+                  {cancelError}
+                </p>
+              )}
+              <div className="space-y-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleCancelSubscription}
+                  disabled={cancelLoading}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-4 rounded-2xl font-semibold text-base flex items-center justify-center gap-2 transition-colors"
+                >
+                  {cancelLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Ja, avbryt abonnementet'
+                  )}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowCancelConfirm(false)}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white py-4 rounded-2xl font-bold text-base transition-colors"
+                >
+                  Behold abonnementet
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Install modal — fullscreen overlay above bottom nav */}
       <AnimatePresence>
