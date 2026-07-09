@@ -200,34 +200,32 @@ export function DashboardTab() {
                 <span className="text-[10px] text-zinc-600">Ingen økt logget ennå</span>
               )}
             </div>
-            <div className="flex gap-4">
-              {/* Figure — fixed pixel size so aspect ratio is preserved */}
-              <div className="flex-shrink-0" style={{ width: 108, height: 274 }}>
-                <MuscleMap
-                  trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles}
-                  gender={gender}
-                />
-              </div>
+            <div className="flex flex-col gap-3">
+              {/* Body diagram — full width, landscape (front + back views) */}
+              <MuscleMap
+                trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles}
+                gender={gender}
+              />
               {/* Legend */}
-              <div className="flex-1 flex flex-col justify-center gap-2">
-                {stats.weekMuscles.length === 0 && !loading ? (
-                  <p className="text-zinc-600 text-xs leading-relaxed">
-                    Start en økt for å se hvilke muskler du har trent denne uken.
-                  </p>
-                ) : (
-                  (isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles).map(m => (
-                    <div key={m} className="flex items-center gap-2">
+              {stats.weekMuscles.length === 0 && !loading ? (
+                <p className="text-zinc-600 text-xs leading-relaxed">
+                  Start en økt for å se hvilke muskler du har trent denne uken.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {(isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles).map(m => (
+                    <div key={m} className="flex items-center gap-1.5">
                       <div
-                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: getMuscleGroupColor(m), boxShadow: `0 0 6px ${getMuscleGroupColor(m)}88` }}
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: getMuscleGroupColor(m), boxShadow: `0 0 5px ${getMuscleGroupColor(m)}88` }}
                       />
                       <span className="text-zinc-300 text-xs font-medium">
                         {getMuscleGroupLabel(m)}
                       </span>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
