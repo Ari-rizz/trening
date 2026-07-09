@@ -77,13 +77,18 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
         <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l10-16 l-4-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-10-16 l4-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
-      {/* Glutes — smaller two-lobe shapes */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 18px)', top: 91, ...partStyle('glutes', trained) }}
+      {/* Lower back — two erector spinae strips */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 10px)', top: 89, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="20" height="16" viewBox="0 0 30 24">
+        <path d="M9 0 L14 0 L13 24 L7 24 Z M16 0 L21 0 L23 24 L17 24 Z" />
+      </svg>
+      {/* Glutes — two-lobe shapes, moved lower */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 18px)', top: 104, ...partStyle('glutes', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="36" height="22" viewBox="0 0 76 48">
         <path d="M36 4 L22 0 L6 8 L0 24 L4 40 L18 48 L34 46 L38 32 Z M40 4 L54 0 L70 8 L76 24 L72 40 L58 48 L42 46 L38 32 Z" />
       </svg>
       {/* Hamstrings */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 116, ...partStyle('legs', trained) }}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 122, ...partStyle('legs', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
         <path d={LEGS_PATH} />
       </svg>
