@@ -9,6 +9,9 @@ import { useAppStore } from '@/lib/store';
 import { TemplateEditor } from './TemplateEditor';
 import { SharePlanSheet } from './SharePlanSheet';
 import { ImportPlanSheet } from './ImportPlanSheet';
+import { ProgramsTab } from './ProgramsTab';
+import { ProgramDetail } from './ProgramDetail';
+import { Program, ProgramDay } from '@/lib/programs-data';
 
 interface UnknownExerciseWarning {
   template: WorkoutTemplate;
@@ -30,6 +33,14 @@ export function PlansTab() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+
+  // IronGrid programs view state
+  type MainView = 'my-plans' | 'programs';
+  const [mainView, setMainView] = useState<MainView>('my-plans');
+  const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+  const [addingAll, setAddingAll] = useState(false);
+  // when opening TemplateEditor from a program day, remember to return to programs
+  const [fromProgram, setFromProgram] = useState(false);
 
   const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
 
@@ -113,6 +124,103 @@ export function PlansTab() {
     });
   }, [templates, search, selectedMuscle]);
 
+  // Resolve exercise names to DB rows for program import
+  const resolveExercises = async (names: string[]): Promise<Record<string, Exercise>> => {
+    const { data } = await supabase
+      .from('exercises')
+      .select('*')
+      .in('name', names);
+    const map: Record<string, Exercise> = {};
+    for (const ex of data ?? []) map[ex.name] = ex as Exercise;
+    return map;
+  };
+
+  const handleAddDay = async (day: ProgramDay, program: Program) => {
+    if (!userId) return;
+    const names = day.exercises.map(e => e.exerciseName);
+    const exerciseMap = await resolveExercises(names);
+
+    const templateExercises = day.exercises
+      .map((ex, idx) => {
+        const resolved = exerciseMap[ex.exerciseName];
+        if (!resolved) return null;
+        return {
+          id: `preview-${idx}`,
+          template_id: '',
+          exercise_id: resolved.id,
+          order_index: idx,
+          target_sets: ex.sets,
+          target_reps: ex.reps,
+          target_weight_kg: 0,
+          is_unilateral: false as const,
+          notes: ex.notes ?? (ex.durationSeconds ? `${ex.durationSeconds} sek` : ''),
+          superset_group: null,
+          created_at: '',
+          exercises: resolved,
+        } as TemplateExercise;
+      })
+      .filter((te): te is TemplateExercise => te !== null);
+
+    const fakeTemplate: WorkoutTemplate = {
+      id: '',
+      user_id: userId,
+      name: `${program.name} — ${day.name}`,
+      description: program.shortDescription,
+      created_at: '',
+      updated_at: '',
+      template_exercises: templateExercises,
+    };
+
+    setFromProgram(true);
+    setEditingTemplate(fakeTemplate);
+  };
+
+  const handleAddAll = async (program: Program) => {
+    if (!userId) return;
+    setAddingAll(true);
+    try {
+      const allNames = Array.from(new Set(program.days.flatMap(d => d.exercises.map(e => e.exerciseName))));
+      const exerciseMap = await resolveExercises(allNames);
+
+      for (const day of program.days) {
+        const { data: tmpl, error: tmplErr } = await supabase
+          .from('workout_templates')
+          .insert({ user_id: userId, name: `${program.name} — ${day.name}`, description: program.shortDescription })
+          .select()
+          .single();
+        if (tmplErr || !tmpl) continue;
+
+        const rows = day.exercises
+          .map((ex, idx) => {
+            const resolved = exerciseMap[ex.exerciseName];
+            if (!resolved) return null;
+            return {
+              template_id: tmpl.id,
+              exercise_id: resolved.id,
+              order_index: idx,
+              target_sets: ex.sets,
+              target_reps: ex.reps,
+              target_weight_kg: 0,
+              is_unilateral: false,
+              notes: ex.notes ?? (ex.durationSeconds ? `${ex.durationSeconds} sek` : ''),
+              superset_group: null,
+            };
+          })
+          .filter(Boolean);
+
+        if (rows.length > 0) {
+          await supabase.from('template_exercises').insert(rows);
+        }
+      }
+
+      if (userId) fetchTemplates(userId);
+      setSelectedProgram(null);
+      setMainView('my-plans');
+    } finally {
+      setAddingAll(false);
+    }
+  };
+
   const fetchLastSessionData = async (uid: string, exerciseIds: string[]) => {
     const result: Record<string, Array<{ weight: number; reps: number; rpe: number }>> = {};
 
@@ -168,13 +276,19 @@ export function PlansTab() {
         template={editingTemplate}
         userId={userId!}
         onSave={() => {
+          const wasFromProgram = fromProgram;
           setCreating(false);
           setEditingTemplate(null);
+          setFromProgram(false);
           if (userId) fetchTemplates(userId);
+          if (wasFromProgram) setMainView('programs');
         }}
         onCancel={() => {
+          const wasFromProgram = fromProgram;
           setCreating(false);
           setEditingTemplate(null);
+          setFromProgram(false);
+          if (wasFromProgram) setMainView('programs');
         }}
       />
     );
@@ -182,12 +296,37 @@ export function PlansTab() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* ProgramDetail overlay */}
+      <AnimatePresence>
+        {selectedProgram && (
+          <motion.div
+            key="program-detail"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed inset-0 z-40"
+          >
+            <ProgramDetail
+              program={selectedProgram}
+              onBack={() => setSelectedProgram(null)}
+              onAddDay={(day, program) => {
+                setSelectedProgram(null);
+                handleAddDay(day, program);
+              }}
+              onAddAll={handleAddAll}
+              addingAll={addingAll}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="px-4 pt-5 pb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Planer</h1>
           <p className="text-zinc-500 text-sm mt-0.5">Planlegg dine treningsøkter</p>
         </div>
-        {userId && (
+        {userId && mainView === 'my-plans' && (
           <div className="flex items-center gap-2">
             <motion.button
               whileTap={{ scale: 0.9 }}
@@ -209,7 +348,32 @@ export function PlansTab() {
         )}
       </div>
 
-      {userId && (
+      {/* Toggle: Mine planer / IronGrid-planer */}
+      <div className="px-4 pb-3">
+        <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl p-1 gap-1">
+          {(['my-plans', 'programs'] as const).map(view => (
+            <motion.button
+              key={view}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setMainView(view)}
+              className="flex-1 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={
+                mainView === view
+                  ? { backgroundColor: '#ef4444', color: 'white' }
+                  : { backgroundColor: 'transparent', color: '#71717a' }
+              }
+            >
+              {view === 'my-plans' ? 'Mine planer' : 'IronGrid-planer'}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {mainView === 'programs' && (
+        <ProgramsTab onSelectProgram={prog => setSelectedProgram(prog)} />
+      )}
+
+      {mainView === 'my-plans' && userId && (
         <div className="px-4 pb-3 space-y-2">
           {/* Search */}
           <div className="relative">
@@ -249,7 +413,7 @@ export function PlansTab() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
+      {mainView === 'my-plans' && <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
         {loading && (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
@@ -386,7 +550,7 @@ export function PlansTab() {
             );
           })}
         </AnimatePresence>
-      </div>
+      </div>}
 
       {/* Warning modal for imported plans with unknown exercises */}
       <AnimatePresence>
