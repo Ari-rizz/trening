@@ -83,12 +83,12 @@ function BackBody({ trained }: { trained: Set<string> }) {
         <path d="M5 0 L22 0 L18 24 L8 24 Z M28 0 L45 0 L42 24 L32 24 Z" />
       </svg>
       {/* Glutes — wider, angular lineto style matching chest, highlights on legs too */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 104, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
         xmlns="http://www.w3.org/2000/svg" width="44" height="26" viewBox="0 0 76 48">
         <path d="M36 4 l-14-4 l-16 8 l-6 16 l4 16 l14 8 l16-2 l4-14 Z M40 4 l14-4 l16 8 l6 16 l-4 16 l-14 8 l-16-2 l-4-14 Z" />
       </svg>
       {/* Hamstrings */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 126, ...partStyle('legs', trained) }}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 129, ...partStyle('legs', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
         <path d={LEGS_PATH} />
       </svg>
