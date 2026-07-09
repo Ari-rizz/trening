@@ -8,6 +8,7 @@ import { Workout } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { WeightLogModal } from './WeightLogModal';
+import { MuscleMap } from './MuscleMap';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -17,6 +18,7 @@ interface DashboardStats {
   totalSessions: number;
   streak: number;
   topMuscleGroup: string | null;
+  weekMuscles: string[];
   recentWorkouts: Workout[];
   prs: Array<{ exercise_name: string; weight_kg: number; reps: number; one_rep_max: number; achieved_at: string }>;
 }
@@ -28,6 +30,7 @@ export function DashboardTab() {
     totalSessions: 0,
     streak: 0,
     topMuscleGroup: null,
+    weekMuscles: [],
     recentWorkouts: [],
     prs: [],
   });
@@ -45,6 +48,7 @@ export function DashboardTab() {
     totalSessions: 24,
     streak: 5,
     topMuscleGroup: 'chest',
+    weekMuscles: ['chest', 'shoulders', 'triceps', 'back', 'glutes'],
     recentWorkouts: [],
     prs: [
       { exercise_name: 'Benkpress', weight_kg: 90, reps: 5, one_rep_max: 101, achieved_at: new Date().toISOString() },
@@ -114,6 +118,19 @@ export function DashboardTab() {
         else if (i > 0) break;
       }
 
+      const weekMusclesSet = new Set<string>();
+      if (weekWorkouts.length > 0) {
+        const weekWorkoutIds = weekWorkouts.map(w => w.id);
+        const { data: muscleData } = await supabase
+          .from('workout_exercises')
+          .select('exercises(muscle_group)')
+          .in('workout_id', weekWorkoutIds);
+        for (const row of muscleData ?? []) {
+          const mg = (row.exercises as any)?.muscle_group;
+          if (mg) weekMusclesSet.add(mg);
+        }
+      }
+
       const { data: prsData } = await supabase
         .from('personal_records')
         .select('*, exercises(name)')
@@ -135,6 +152,7 @@ export function DashboardTab() {
         totalSessions: ws.length,
         streak,
         topMuscleGroup: null,
+        weekMuscles: Array.from(weekMusclesSet),
         recentWorkouts: ws.slice(0, 5),
         prs,
       });
@@ -157,6 +175,14 @@ export function DashboardTab() {
           <h1 className="text-2xl font-bold text-white mt-0.5">Dashboard</h1>
           <p className="text-zinc-600 text-xs mt-0.5">Oversikt over treningen din</p>
         </motion.div>
+      </div>
+
+      {/* Muscle map */}
+      <div className="px-4 mb-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+          <p className="text-xs text-zinc-500 font-medium mb-1">Muskelaktivitet denne uken</p>
+          <MuscleMap trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles} />
+        </div>
       </div>
 
       {/* Active workout banner */}
