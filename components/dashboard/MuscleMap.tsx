@@ -72,16 +72,15 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
         <path d={ARM_PATH} />
       </svg>
-      {/* Back — custom trapezius + lats shape */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 50, ...partStyle('back', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="54" height="44" viewBox="0 0 92 74">
-        <path d="M46 3 C30 0 14 8 8 18 C2 28 2 40 6 52 C10 62 22 70 34 72 L46 74 L58 72 C70 70 82 62 86 52 C90 40 90 28 84 18 C78 8 62 0 46 3 Z
-          M46 3 C46 3 36 14 36 22 L46 20 L56 22 C56 14 46 3 46 3 Z" />
+      {/* Back — two lat wing shapes, angular multi-segment style matching chest */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
+        <path d="M28 0 l-14 4 l-12 10 l-2 22 l8 22 l14 8 l10-18 l-4-48 Z M58 0 l14 4 l12 10 l2 22 l-8 22 l-14 8 l-10-18 l4-48 Z" />
       </svg>
-      {/* Glutes — two rounded lobes */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 92, ...partStyle('glutes', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="44" height="27" viewBox="0 0 76 46">
-        <path d="M38 1 C58 1 76 11 74 26 C72 41 57 46 45 42 C41 40 38 37 38 37 C38 37 35 40 31 42 C19 46 4 41 2 26 C0 11 18 1 38 1 Z" />
+      {/* Glutes — two lobe shapes, angular multi-segment style matching chest */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 90, ...partStyle('glutes', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="44" height="28" viewBox="0 0 76 48">
+        <path d="M36 4 L22 0 L6 8 L0 24 L4 40 L18 48 L34 46 L38 32 Z M40 4 L54 0 L70 8 L76 24 L72 40 L58 48 L42 46 L38 32 Z" />
       </svg>
       {/* Hamstrings */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 116, ...partStyle('legs', trained) }}
