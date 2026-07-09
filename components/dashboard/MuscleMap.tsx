@@ -5,34 +5,35 @@ import { getMuscleGroupColor } from '@/lib/exercises-data';
 interface MuscleMapProps {
   trainedMuscles: string[];
   gender: 'male' | 'female';
-  debug?: boolean;
 }
 
+// Source image dimensions
 const SRC = { w: 1536, h: 1024 };
-// Landscape crop: trim ~120px text columns from each side, keep full height
+// Crop: trim text-margin columns from each side, keep full height
 const CROP = { x: 120, y: 0, w: 1296, h: 1024 };
 
-// backgroundSize: scale so the crop fills the container exactly
-const BG_SIZE_X = (SRC.w / CROP.w) * 100;   // 118.52%
-const BG_SIZE_Y = (SRC.h / CROP.h) * 100;   // 100%
-// backgroundPosition: shift so the crop window starts at CROP.x
-// Formula: CROP.x / (SRC.w - CROP.w) * 100  (percentage of overflow)
-const BG_POS_X = CROP.w < SRC.w ? (CROP.x / (SRC.w - CROP.w)) * 100 : 0; // 50%
-const BG_POS_Y = CROP.h < SRC.h ? (CROP.y / (SRC.h - CROP.h)) * 100 : 0; // 0%
+// CSS background-image positioning maths
+const BG_SIZE_X = (SRC.w / CROP.w) * 100;
+const BG_SIZE_Y = (SRC.h / CROP.h) * 100;
+const BG_POS_X = CROP.w < SRC.w ? (CROP.x / (SRC.w - CROP.w)) * 100 : 0;
+const BG_POS_Y = CROP.h < SRC.h ? (CROP.y / (SRC.h - CROP.h)) * 100 : 0;
 
-export function MuscleMap({ trainedMuscles, gender, debug = false }: MuscleMapProps) {
+// Card background color used for the edge-fade curtains (#18181b = zinc-900)
+const CARD_BG = '#18181b';
+
+export function MuscleMap({ trainedMuscles, gender }: MuscleMapProps) {
   const trained = new Set(trainedMuscles);
-  const male = gender !== 'female';
 
-  const imgSrc = male
-    ? '/1c21f7c8-7c94-47e8-b2c0-02fcda0c46a1-converted.svg'
-    : '/71550f93-d14b-4ed6-bb09-fe4edda4f925-converted.svg';
+  const imgSrc = gender === 'female'
+    ? '/71550f93-d14b-4ed6-bb09-fe4edda4f925-converted.svg'
+    : '/1c21f7c8-7c94-47e8-b2c0-02fcda0c46a1-converted.svg';
 
-  const ms = (muscle: string) => ({
-    fill: trained.has(muscle) ? getMuscleGroupColor(muscle) : 'transparent',
-    opacity: trained.has(muscle) ? 0.48 : 0,
+  // Returns SVG props that highlight a muscle only when it's in the trained set
+  const hl = (muscle: string) => ({
+    fill: getMuscleGroupColor(muscle),
+    opacity: trained.has(muscle) ? 0.52 : 0,
     filter: trained.has(muscle) ? 'url(#mGlow)' : undefined,
-    style: { transition: 'fill 0.4s ease, opacity 0.4s ease' } as React.CSSProperties,
+    style: { transition: 'opacity 0.4s ease' } as React.CSSProperties,
   });
 
   return (
@@ -52,126 +53,121 @@ export function MuscleMap({ trainedMuscles, gender, debug = false }: MuscleMapPr
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <filter id="mGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="12" result="blur" />
+          {/* Glow filter for active muscle highlights */}
+          <filter id="mGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="14" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+
+          {/* Left curtain gradient: opaque CARD_BG → transparent */}
+          <linearGradient id="fadeLeft" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={CARD_BG} stopOpacity="1" />
+            <stop offset="100%" stopColor={CARD_BG} stopOpacity="0" />
+          </linearGradient>
+
+          {/* Right curtain gradient: transparent → opaque CARD_BG */}
+          <linearGradient id="fadeRight" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={CARD_BG} stopOpacity="0" />
+            <stop offset="100%" stopColor={CARD_BG} stopOpacity="1" />
+          </linearGradient>
         </defs>
 
-        {debug ? (
-          /* ── CALIBRATION GRID ────────────────────────────────────────
-             Red dots every 200px (x) × 150px (y) in source coordinates.
-             Labels show source x,y so we can map them to body landmarks.
-          ─────────────────────────────────────────────────────────────── */
+        {/* ── MUSCLE OVERLAYS ─────────────────────────────────────────────
+            All coordinates are in 1536×1024 source pixel space.
+            Calibrated from a debug grid overlay on the actual image.
+
+            FRONT figure center x ≈ 490
+            BACK  figure center x ≈ 905
+        ──────────────────────────────────────────────────────────────── */}
+
+        {/* ── FRONT: Shoulders (deltoids) ── */}
+        <ellipse cx={390} cy={222} rx={64} ry={52} {...hl('shoulders')} />
+        <ellipse cx={590} cy={222} rx={64} ry={52} {...hl('shoulders')} />
+
+        {/* ── FRONT: Chest (pectorals) ── */}
+        <ellipse cx={420} cy={295} rx={82} ry={68} {...hl('chest')} />
+        <ellipse cx={560} cy={295} rx={82} ry={68} {...hl('chest')} />
+
+        {/* ── FRONT: Biceps ── */}
+        <ellipse cx={250} cy={378} rx={36} ry={68} {...hl('biceps')} />
+        <ellipse cx={730} cy={378} rx={36} ry={68} {...hl('biceps')} />
+
+        {/* ── FRONT: Triceps (lateral head visible from front) ── */}
+        <ellipse cx={236} cy={374} rx={27} ry={55} {...hl('triceps')} />
+        <ellipse cx={744} cy={374} rx={27} ry={55} {...hl('triceps')} />
+
+        {/* ── FRONT: Forearms ── */}
+        <ellipse cx={225} cy={490} rx={30} ry={62} {...hl('forearms')} />
+        <ellipse cx={755} cy={490} rx={30} ry={62} {...hl('forearms')} />
+
+        {/* ── FRONT: Abs ── */}
+        {gender === 'male' ? (
           <>
-            {[200, 400, 600, 800, 1000, 1200, 1400].map(x =>
-              [75, 225, 375, 525, 675, 825, 975].map(y => (
-                <g key={`${x}-${y}`}>
-                  <circle cx={x} cy={y} r="10" fill="#ef4444" opacity="0.9" />
-                  <text
-                    x={x + 13} y={y + 6}
-                    fill="white" fontSize="22" fontWeight="bold"
-                    stroke="black" strokeWidth="4" paintOrder="stroke"
-                  >
-                    {x},{y}
-                  </text>
-                </g>
-              ))
-            )}
+            <rect x={437} y={378} width={44} height={46} rx={10} {...hl('abs')} />
+            <rect x={499} y={378} width={44} height={46} rx={10} {...hl('abs')} />
+            <rect x={439} y={430} width={42} height={44} rx={10} {...hl('abs')} />
+            <rect x={499} y={430} width={42} height={44} rx={10} {...hl('abs')} />
+            <rect x={441} y={480} width={40} height={42} rx={10} {...hl('abs')} />
+            <rect x={499} y={480} width={40} height={42} rx={10} {...hl('abs')} />
           </>
         ) : (
-          /* ── MUSCLE OVERLAYS ──────────────────────────────────────────
-             All cx/cy values are in 1536×1024 source space.
-             Front figure: center x ≈ 595  (calibrate with debug=true)
-             Back  figure: center x ≈ 1075 (calibrate with debug=true)
-          ─────────────────────────────────────────────────────────────── */
           <>
-            {/* FRONT VIEW */}
-
-            {/* Shoulders */}
-            <ellipse cx={male ? 442 : 446} cy={175} rx="60" ry="50" {...ms('shoulders')} />
-            <ellipse cx={male ? 748 : 744} cy={175} rx="60" ry="50" {...ms('shoulders')} />
-
-            {/* Chest */}
-            <ellipse cx={male ? 520 : 522} cy={285} rx={male ? 88 : 80} ry={male ? 68 : 74} {...ms('chest')} />
-            <ellipse cx={male ? 670 : 668} cy={285} rx={male ? 88 : 80} ry={male ? 68 : 74} {...ms('chest')} />
-
-            {/* Biceps */}
-            <ellipse cx={male ? 404 : 408} cy={372} rx="35" ry="65" {...ms('biceps')} />
-            <ellipse cx={male ? 786 : 782} cy={372} rx="35" ry="65" {...ms('biceps')} />
-
-            {/* Triceps (front-visible) */}
-            <ellipse cx={male ? 392 : 396} cy={368} rx="27" ry="55" {...ms('triceps')} />
-            <ellipse cx={male ? 798 : 794} cy={368} rx="27" ry="55" {...ms('triceps')} />
-
-            {/* Forearms */}
-            <ellipse cx={male ? 383 : 386} cy={474} rx="30" ry="58" {...ms('forearms')} />
-            <ellipse cx={male ? 807 : 804} cy={474} rx="30" ry="58" {...ms('forearms')} />
-
-            {/* Abs */}
-            {male ? (
-              <>
-                <rect x="549" y="338" width="44" height="50" rx="10" {...ms('abs')} />
-                <rect x="603" y="338" width="44" height="50" rx="10" {...ms('abs')} />
-                <rect x="551" y="396" width="42" height="48" rx="10" {...ms('abs')} />
-                <rect x="605" y="396" width="42" height="48" rx="10" {...ms('abs')} />
-                <rect x="553" y="452" width="39" height="44" rx="10" {...ms('abs')} />
-                <rect x="607" y="452" width="39" height="44" rx="10" {...ms('abs')} />
-              </>
-            ) : (
-              <>
-                <rect x="552" y="360" width="41" height="48" rx="10" {...ms('abs')} />
-                <rect x="603" y="360" width="41" height="48" rx="10" {...ms('abs')} />
-                <rect x="554" y="416" width="38" height="45" rx="10" {...ms('abs')} />
-                <rect x="605" y="416" width="38" height="45" rx="10" {...ms('abs')} />
-              </>
-            )}
-
-            {/* Legs — quads */}
-            <ellipse cx={male ? 537 : 540} cy={638} rx={male ? 74 : 70} ry="86" {...ms('legs')} />
-            <ellipse cx={male ? 653 : 650} cy={638} rx={male ? 74 : 70} ry="86" {...ms('legs')} />
-
-            {/* Calves (front) */}
-            <ellipse cx={male ? 537 : 540} cy={812} rx="50" ry="65" {...ms('legs')} />
-            <ellipse cx={male ? 653 : 650} cy={812} rx="50" ry="65" {...ms('legs')} />
-
-            {/* BACK VIEW */}
-
-            {/* Shoulders (rear) */}
-            <ellipse cx={male ? 920 : 924} cy={172} rx="60" ry="50" {...ms('shoulders')} />
-            <ellipse cx={male ? 1230 : 1226} cy={172} rx="60" ry="50" {...ms('shoulders')} />
-
-            {/* Trapezius */}
-            <ellipse cx={male ? 1075 : 1071} cy={222} rx="135" ry="78" {...ms('back')} />
-
-            {/* Lats */}
-            <ellipse cx={male ? 952 : 956} cy={382} rx="74" ry="100" {...ms('back')} />
-            <ellipse cx={male ? 1198 : 1194} cy={382} rx="74" ry="100" {...ms('back')} />
-
-            {/* Glutes */}
-            <ellipse cx={male ? 1015 : 1020} cy={548} rx="88" ry="70" {...ms('glutes')} />
-            <ellipse cx={male ? 1135 : 1130} cy={548} rx="88" ry="70" {...ms('glutes')} />
-
-            {/* Triceps (back view) */}
-            <ellipse cx={male ? 883 : 887} cy={366} rx="35" ry="65" {...ms('triceps')} />
-            <ellipse cx={male ? 1267 : 1263} cy={366} rx="35" ry="65" {...ms('triceps')} />
-
-            {/* Forearms (back) */}
-            <ellipse cx={male ? 870 : 873} cy={474} rx="30" ry="58" {...ms('forearms')} />
-            <ellipse cx={male ? 1280 : 1277} cy={474} rx="30" ry="58" {...ms('forearms')} />
-
-            {/* Hamstrings */}
-            <ellipse cx={male ? 1012 : 1015} cy={638} rx={male ? 74 : 70} ry="86" {...ms('legs')} />
-            <ellipse cx={male ? 1138 : 1135} cy={638} rx={male ? 74 : 70} ry="86" {...ms('legs')} />
-
-            {/* Calves (back) */}
-            <ellipse cx={male ? 1012 : 1015} cy={812} rx="50" ry="65" {...ms('legs')} />
-            <ellipse cx={male ? 1138 : 1135} cy={812} rx="50" ry="65" {...ms('legs')} />
+            <rect x={440} y={388} width={42} height={46} rx={10} {...hl('abs')} />
+            <rect x={498} y={388} width={42} height={46} rx={10} {...hl('abs')} />
+            <rect x={442} y={440} width={40} height={44} rx={10} {...hl('abs')} />
+            <rect x={498} y={440} width={40} height={44} rx={10} {...hl('abs')} />
           </>
         )}
+
+        {/* ── FRONT: Quads ── */}
+        <ellipse cx={418} cy={655} rx={60} ry={88} {...hl('legs')} />
+        <ellipse cx={562} cy={655} rx={60} ry={88} {...hl('legs')} />
+
+        {/* ── FRONT: Calves ── */}
+        <ellipse cx={418} cy={848} rx={50} ry={66} {...hl('legs')} />
+        <ellipse cx={562} cy={848} rx={50} ry={66} {...hl('legs')} />
+
+        {/* ── BACK: Shoulders (posterior deltoids) ── */}
+        <ellipse cx={808} cy={222} rx={64} ry={52} {...hl('shoulders')} />
+        <ellipse cx={1002} cy={222} rx={64} ry={52} {...hl('shoulders')} />
+
+        {/* ── BACK: Trapezius ── */}
+        <ellipse cx={905} cy={262} rx={140} ry={80} {...hl('back')} />
+
+        {/* ── BACK: Lats ── */}
+        <ellipse cx={838} cy={387} rx={72} ry={100} {...hl('back')} />
+        <ellipse cx={972} cy={387} rx={72} ry={100} {...hl('back')} />
+
+        {/* ── BACK: Triceps ── */}
+        <ellipse cx={700} cy={376} rx={36} ry={68} {...hl('triceps')} />
+        <ellipse cx={1110} cy={376} rx={36} ry={68} {...hl('triceps')} />
+
+        {/* ── BACK: Forearms ── */}
+        <ellipse cx={678} cy={490} rx={30} ry={62} {...hl('forearms')} />
+        <ellipse cx={1132} cy={490} rx={30} ry={62} {...hl('forearms')} />
+
+        {/* ── BACK: Glutes ── */}
+        <ellipse cx={870} cy={538} rx={88} ry={70} {...hl('glutes')} />
+        <ellipse cx={940} cy={538} rx={88} ry={70} {...hl('glutes')} />
+
+        {/* ── BACK: Hamstrings ── */}
+        <ellipse cx={848} cy={655} rx={60} ry={88} {...hl('legs')} />
+        <ellipse cx={962} cy={655} rx={60} ry={88} {...hl('legs')} />
+
+        {/* ── BACK: Calves ── */}
+        <ellipse cx={848} cy={848} rx={50} ry={66} {...hl('legs')} />
+        <ellipse cx={962} cy={848} rx={50} ry={66} {...hl('legs')} />
+
+        {/* ── TEXT-MASKING CURTAINS ────────────────────────────────────────
+            These gradient rectangles fade the anatomy label text on both
+            outer edges of the source image into the card background color,
+            without cropping the figure arms.
+        ──────────────────────────────────────────────────────────────── */}
+        <rect x={120} y={0} width={180} height={1024} fill="url(#fadeLeft)" />
+        <rect x={1236} y={0} width={180} height={1024} fill="url(#fadeRight)" />
       </svg>
     </div>
   );

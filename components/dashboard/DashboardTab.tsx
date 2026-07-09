@@ -205,7 +205,6 @@ export function DashboardTab() {
               <MuscleMap
                 trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles}
                 gender={gender}
-                debug={true}
               />
               {/* Legend */}
               {stats.weekMuscles.length === 0 && !loading ? (
