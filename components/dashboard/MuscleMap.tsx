@@ -72,14 +72,14 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
         <path d={ARM_PATH} />
       </svg>
-      {/* Back — two lat wing shapes, angular multi-segment style matching chest */}
+      {/* Back — narrower lats + central trapezius diamond, wider spine gap */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('back', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
-        <path d="M28 0 l-14 4 l-12 10 l-2 22 l8 22 l14 8 l10-18 l-4-48 Z M58 0 l14 4 l12 10 l2 22 l-8 22 l-14 8 l-10-18 l4-48 Z" />
+        <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l10-16 l-4-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-10-16 l4-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
-      {/* Glutes — two lobe shapes, angular multi-segment style matching chest */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 90, ...partStyle('glutes', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="44" height="28" viewBox="0 0 76 48">
+      {/* Glutes — smaller two-lobe shapes */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 18px)', top: 91, ...partStyle('glutes', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="36" height="22" viewBox="0 0 76 48">
         <path d="M36 4 L22 0 L6 8 L0 24 L4 40 L18 48 L34 46 L38 32 Z M40 4 L54 0 L70 8 L76 24 L72 40 L58 48 L42 46 L38 32 Z" />
       </svg>
       {/* Hamstrings */}
