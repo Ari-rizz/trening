@@ -75,7 +75,7 @@ function BackBody({ trained }: { trained: Set<string> }) {
       {/* Back — narrower lats + central trapezius diamond, wider spine gap */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('back', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
-        <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l10-16 l-4-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-10-16 l4-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
+        <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l15-16 l-9-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-15-16 l9-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
       {/* Lower back — wide tapered strips forming inverted triangle with lats */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89, ...partStyle('back', trained) }}
