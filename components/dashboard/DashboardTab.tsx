@@ -200,16 +200,16 @@ export function DashboardTab() {
                 <span className="text-[10px] text-zinc-600">Ingen økt logget ennå</span>
               )}
             </div>
-            <div className="flex gap-3">
-              {/* Figure */}
-              <div className="w-24 flex-shrink-0">
+            <div className="flex gap-4">
+              {/* Figure — fixed pixel size so aspect ratio is preserved */}
+              <div className="flex-shrink-0" style={{ width: 108, height: 274 }}>
                 <MuscleMap
                   trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles}
                   gender={gender}
                 />
               </div>
               {/* Legend */}
-              <div className="flex-1 flex flex-col justify-center gap-1.5">
+              <div className="flex-1 flex flex-col justify-center gap-2">
                 {stats.weekMuscles.length === 0 && !loading ? (
                   <p className="text-zinc-600 text-xs leading-relaxed">
                     Start en økt for å se hvilke muskler du har trent denne uken.
@@ -218,8 +218,8 @@ export function DashboardTab() {
                   (isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles).map(m => (
                     <div key={m} className="flex items-center gap-2">
                       <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: getMuscleGroupColor(m) }}
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: getMuscleGroupColor(m), boxShadow: `0 0 6px ${getMuscleGroupColor(m)}88` }}
                       />
                       <span className="text-zinc-300 text-xs font-medium">
                         {getMuscleGroupLabel(m)}
