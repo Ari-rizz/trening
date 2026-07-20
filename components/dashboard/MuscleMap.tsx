@@ -18,8 +18,6 @@ function partStyle(muscle: string, trained: Set<string>) {
   } as React.CSSProperties;
 }
 
-const STROKE = { stroke: '#000', strokeWidth: 1.5, strokeLinejoin: 'round' as const };
-
 const W = 120;
 const H = 295;
 
@@ -35,122 +33,64 @@ function FrontBody({ trained }: { trained: Set<string> }) {
       {/* Shoulders */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 32px)', top: 40, ...partStyle('shoulders', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="64" height="27" viewBox="0 0 109.532 46.594">
-        <path d={SHOULDER_PATH} {...STROKE} />
+        <path d={SHOULDER_PATH} />
       </svg>
       {/* Biceps */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 45px)', top: 65, ...partStyle('biceps', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
-        <path d={ARM_PATH} {...STROKE} />
+        <path d={ARM_PATH} />
       </svg>
       {/* Chest */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('chest', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="50" height="26" viewBox="0 0 86.594 45.063">
-        <path d="M19.32 0l-9.225 16.488-10.1 5.056 6.15 4.836 4.832 14.07 11.2 4.616 17.85-8.828-4.452-34.7zm47.934 0l9.225 16.488 10.1 5.056-6.15 4.836-4.833 14.07-11.2 4.616-17.844-8.828 4.45-34.7z" {...STROKE} />
+        <path d="M19.32 0l-9.225 16.488-10.1 5.056 6.15 4.836 4.832 14.07 11.2 4.616 17.85-8.828-4.452-34.7zm47.934 0l9.225 16.488 10.1 5.056-6.15 4.836-4.833 14.07-11.2 4.616-17.844-8.828 4.45-34.7z" />
       </svg>
       {/* Abs */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 75, ...partStyle('abs', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="44" height="62" viewBox="0 0 75.25 107.594">
-        <path d="M19.25 7.49l16.6-7.5-.5 12.16-14.943 7.662zm-10.322 8.9l6.9 3.848-.8-9.116zm5.617-8.732L1.32 2.15 6.3 15.6zm-8.17 9.267l9.015 5.514 1.54 11.028-8.795-5.735zm15.53 5.89l.332 8.662 12.286-2.665.664-11.826zm14.61 84.783L33.28 76.062l-.08-20.53-11.654-5.736-1.32 37.5zM22.735 35.64L22.57 46.3l11.787 3.166.166-16.657zm-14.16-5.255L16.49 35.9l1.1 11.25-8.8-7.06zm8.79 22.74l-9.673-7.28-.84 9.78L-.006 68.29l10.564 14.594 5.5.883 1.98-20.735zM56 7.488l-16.6-7.5.5 12.16 14.942 7.66zm10.32 8.9l-6.9 3.847.8-9.116zm-5.617-8.733L73.93 2.148l-4.98 13.447zm8.17 9.267l-9.015 5.514-1.54 11.03 8.8-5.736zm-15.53 5.89l-.332 8.662-12.285-2.665-.664-11.827zm-14.61 84.783l3.234-31.536.082-20.532 11.65-5.735 1.32 37.5zm13.78-71.957l.166 10.66-11.786 3.168-.166-16.657zm14.16-5.256l-7.915 5.514-1.1 11.25 8.794-7.06zm-8.79 22.743l9.673-7.28.84 9.78 6.862 12.66-10.564 14.597-5.5.883-1.975-20.74z" {...STROKE} />
+        <path d="M19.25 7.49l16.6-7.5-.5 12.16-14.943 7.662zm-10.322 8.9l6.9 3.848-.8-9.116zm5.617-8.732L1.32 2.15 6.3 15.6zm-8.17 9.267l9.015 5.514 1.54 11.028-8.795-5.735zm15.53 5.89l.332 8.662 12.286-2.665.664-11.826zm14.61 84.783L33.28 76.062l-.08-20.53-11.654-5.736-1.32 37.5zM22.735 35.64L22.57 46.3l11.787 3.166.166-16.657zm-14.16-5.255L16.49 35.9l1.1 11.25-8.8-7.06zm8.79 22.74l-9.673-7.28-.84 9.78L-.006 68.29l10.564 14.594 5.5.883 1.98-20.735zM56 7.488l-16.6-7.5.5 12.16 14.942 7.66zm10.32 8.9l-6.9 3.847.8-9.116zm-5.617-8.733L73.93 2.148l-4.98 13.447zm8.17 9.267l-9.015 5.514-1.54 11.03 8.8-5.736zm-15.53 5.89l-.332 8.662-12.285-2.665-.664-11.827zm-14.61 84.783l3.234-31.536.082-20.532 11.65-5.735 1.32 37.5zm13.78-71.957l.166 10.66-11.786 3.168-.166-16.657zm14.16-5.256l-7.915 5.514-1.1 11.25 8.794-7.06zm-8.79 22.743l9.673-7.28.84 9.78 6.862 12.66-10.564 14.597-5.5.883-1.975-20.74z" />
       </svg>
       {/* Legs (quads) */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 119, ...partStyle('legs', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
-        <path d={LEGS_PATH} {...STROKE} />
+        <path d={LEGS_PATH} />
       </svg>
     </div>
   );
 }
 
 function BackBody({ trained }: { trained: Set<string> }) {
-  const back = partStyle('back', trained);
-  const glute = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
-  const leg = partStyle('legs', trained);
-  const shoulder = partStyle('shoulders', trained);
-  const triceps = partStyle('triceps', trained);
-  const fascia = { fill: 'none', stroke: '#000', strokeWidth: 1.5 } as React.CSSProperties;
-
   return (
     <div style={{ position: 'relative', width: W, height: H }}>
-      {/* ── REAR DELTS (posterior deltoids) ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 32px)', top: 40, ...shoulder }}
+      {/* Rear delts */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 32px)', top: 40, ...partStyle('shoulders', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="64" height="27" viewBox="0 0 109.532 46.594">
-        <path d={SHOULDER_PATH} {...STROKE} />
+        <path d={SHOULDER_PATH} />
       </svg>
-
-      {/* ── TRICEPS ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 45px)', top: 65, ...triceps }}
+      {/* Triceps */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 45px)', top: 65, ...partStyle('triceps', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
-        <path d={ARM_PATH} {...STROKE} />
+        <path d={ARM_PATH} />
       </svg>
-
-      {/*
-        ── BACK TORSO + GLUTES ──
-        One SVG, viewBox 0 0 120 110, displayed 120×110, anchored top 48.
-        Every muscle is a straight-edged polygon; right side mirrors left.
-        Per-path styles set the muscle-group fill color.
-      */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 60px)', top: 48, overflow: 'visible' }}
-        xmlns="http://www.w3.org/2000/svg" width="120" height="110" viewBox="0 0 120 110">
-
-        {/* Trapezius — upper fibers (neck cap) */}
-        <path d="M54 0 L66 0 L72 8 L48 8 Z" style={back} {...STROKE} />
-        {/* Trapezius — middle fibers (across shoulder blades) */}
-        <path d="M48 8 L72 8 L80 24 L40 24 Z" style={back} {...STROKE} />
-        {/* Trapezius — lower fibers (converge to mid-back point) */}
-        <path d="M40 24 L80 24 L60 52 Z" style={back} {...STROKE} />
-
-        {/* Rhomboids — left (between shoulder blades, under middle trap) */}
-        <path d="M52 26 L58 26 L57 36 L51 35 Z" style={back} {...STROKE} />
-        {/* Rhomboids — right (mirror) */}
-        <path d="M62 26 L68 26 L69 35 L63 36 Z" style={back} {...STROKE} />
-
-        {/* Infraspinatus — left (covers scapula) */}
-        <path d="M30 20 L48 22 L46 42 L32 40 Z" style={back} {...STROKE} />
-        {/* Infraspinatus — right (mirror) */}
-        <path d="M72 22 L90 20 L88 40 L74 42 Z" style={back} {...STROKE} />
-
-        {/* Teres minor — left (above teres major, outer scapula edge) */}
-        <path d="M28 42 L42 40 L40 48 L26 48 Z" style={back} {...STROKE} />
-        {/* Teres minor — right (mirror) */}
-        <path d="M78 40 L92 42 L94 48 L80 48 Z" style={back} {...STROKE} />
-
-        {/* Teres major — left (connects scapula to upper arm) */}
-        <path d="M26 48 L40 48 L42 58 L28 58 Z" style={back} {...STROKE} />
-        {/* Teres major — right (mirror) */}
-        <path d="M80 48 L94 48 L92 58 L78 58 Z" style={back} {...STROKE} />
-
-        {/* Latissimus dorsi — left (V-shape from under arm to lower back) */}
-        <path d="M16 32 L46 30 L48 82 L32 92 L14 66 Z" style={back} {...STROKE} />
-        {/* Latissimus dorsi — right (mirror) */}
-        <path d="M104 32 L74 30 L72 82 L88 92 L106 66 Z" style={back} {...STROKE} />
-
-        {/* Erector spinae — left column (3 stacked segments beside spine) */}
-        <path d="M48 54 L56 54 L55 66 L47 66 Z" style={back} {...STROKE} />
-        <path d="M47 66 L55 66 L54 78 L46 78 Z" style={back} {...STROKE} />
-        <path d="M46 78 L54 78 L53 92 L45 92 Z" style={back} {...STROKE} />
-        {/* Erector spinae — right column (mirror) */}
-        <path d="M64 54 L72 54 L73 66 L65 66 Z" style={back} {...STROKE} />
-        <path d="M65 66 L73 66 L74 78 L66 78 Z" style={back} {...STROKE} />
-        <path d="M66 78 L74 78 L75 92 L67 92 Z" style={back} {...STROKE} />
-
-        {/* Thoracolumbar fascia — center separator (stroke only) */}
-        <path d="M60 54 L60 92" style={fascia} />
-
-        {/* Gluteus medius — left (upper outer hip) */}
-        <path d="M14 70 L38 68 L40 80 L16 82 Z" style={glute} {...STROKE} />
-        {/* Gluteus medius — right (mirror) */}
-        <path d="M82 68 L106 70 L104 82 L80 80 Z" style={glute} {...STROKE} />
-
-        {/* Gluteus maximus — left (large rounded, center separation) */}
-        <path d="M16 78 L58 76 L56 104 L30 110 L12 98 Z" style={glute} {...STROKE} />
-        {/* Gluteus maximus — right (mirror) */}
-        <path d="M104 78 L62 76 L64 104 L90 110 L108 98 Z" style={glute} {...STROKE} />
+      {/* Back — narrower lats + central trapezius diamond, wider spine gap */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
+        <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l15-16 l-9-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-15-16 l9-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
-
-      {/* ── HAMSTRINGS ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 155, ...leg }}
-        xmlns="http://www.w3.org/2000/svg" width="54" height="140" viewBox="0 0 93.626 286.625">
-        <path d={LEGS_PATH} {...STROKE} />
+      {/* Lower back — wide tapered strips, connects lats above and glutes below */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="34" height="22" viewBox="0 0 50 30">
+        <path d="M5 0 L22 0 L18 30 L8 30 Z M28 0 L45 0 L42 30 L32 30 Z" />
+      </svg>
+      {/* Glutes — wider, angular lineto style matching chest, highlights on legs too */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
+        xmlns="http://www.w3.org/2000/svg" width="44" height="26" viewBox="0 0 76 48">
+        <path d="M36 4 l-14-4 l-16 8 l-6 16 l4 16 l14 8 l16-2 l4-14 Z M40 4 l14-4 l16 8 l6 16 l-4 16 l-14 8 l-16-2 l-4-14 Z" />
+      </svg>
+      {/* Hamstrings */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 129, ...partStyle('legs', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
+        <path d={LEGS_PATH} />
       </svg>
     </div>
   );
