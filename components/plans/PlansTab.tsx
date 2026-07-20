@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info, Search } from 'lucide-react';
+import { Plus, Play, Pencil, Trash2, ClipboardList, Dumbbell, X, Share2, Download, User, TriangleAlert as AlertTriangle, Info, Search, FileSpreadsheet } from 'lucide-react';
 import { supabase, WorkoutTemplate, TemplateExercise, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { useAppStore } from '@/lib/store';
 import { TemplateEditor } from './TemplateEditor';
 import { SharePlanSheet } from './SharePlanSheet';
 import { ImportPlanSheet } from './ImportPlanSheet';
+import { ExcelImportSheet } from './ExcelImportSheet';
 import { ProgramsTab } from './ProgramsTab';
 import { ProgramDetail } from './ProgramDetail';
 import { Program, ProgramDay } from '@/lib/programs-data';
@@ -29,6 +30,7 @@ export function PlansTab() {
 
   const [sharingTemplate, setSharingTemplate] = useState<WorkoutTemplate | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [warningDialog, setWarningDialog] = useState<UnknownExerciseWarning | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -330,6 +332,14 @@ export function PlansTab() {
           <div className="flex items-center gap-2">
             <motion.button
               whileTap={{ scale: 0.9 }}
+              onClick={() => setShowExcelImport(true)}
+              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2"
+            >
+              <FileSpreadsheet size={15} className="text-green-400" />
+              <span className="text-zinc-400 text-xs font-medium">Importer Excel</span>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => setShowImport(true)}
               className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2"
             >
@@ -413,7 +423,7 @@ export function PlansTab() {
         </div>
       )}
 
-      {mainView === 'my-plans' && <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
+      {mainView === 'my-plans' && <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-3">
         {loading && (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
@@ -450,6 +460,14 @@ export function PlansTab() {
               >
                 <Download size={14} />
                 Importer fra kode
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowExcelImport(true)}
+                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2"
+              >
+                <FileSpreadsheet size={14} className="text-green-400" />
+                Importer fra Excel
               </motion.button>
             </div>
           </div>
@@ -702,6 +720,15 @@ export function PlansTab() {
         open={showImport}
         userId={userId ?? ''}
         onClose={() => setShowImport(false)}
+        onImported={() => {
+          if (userId) fetchTemplates(userId);
+        }}
+      />
+
+      <ExcelImportSheet
+        open={showExcelImport}
+        userId={userId ?? ''}
+        onClose={() => setShowExcelImport(false)}
         onImported={() => {
           if (userId) fetchTemplates(userId);
         }}

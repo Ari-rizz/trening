@@ -225,7 +225,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
         {loading && exercises.length === 0 && (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map(i => (

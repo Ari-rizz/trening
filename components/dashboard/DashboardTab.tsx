@@ -167,7 +167,7 @@ export function DashboardTab() {
   const adjustedToday = today === 0 ? 6 : today - 1;
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto pb-24">
+    <div className="flex flex-col h-full overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+6rem)]">
       {/* Greeting */}
       <div className="px-4 pt-5 pb-4">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>

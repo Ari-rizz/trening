@@ -223,7 +223,7 @@ export function ProfileTab() {
         <p className="text-zinc-500 text-sm mt-0.5">Innstillinger og kontoinformasjon</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
         {/* User card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-4 mb-4">

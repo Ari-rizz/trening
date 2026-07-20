@@ -93,7 +93,7 @@ export function HistoryTab() {
         <p className="text-zinc-500 text-sm mt-0.5">{workouts.length} fullførte økter</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
         {loading && (
           <div className="space-y-2">
             {[1, 2, 3].map(i => (

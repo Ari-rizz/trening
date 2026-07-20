@@ -21,6 +21,7 @@ interface SharedTemplateRow {
       target_sets: number;
       target_reps: number;
       target_weight_kg: number;
+      warmup_sets: number | null;
       notes: string;
       is_unilateral: boolean;
       superset_group: number | null;
@@ -78,6 +79,7 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
             target_sets,
             target_reps,
             target_weight_kg,
+            warmup_sets,
             notes,
             is_unilateral,
             superset_group,
@@ -131,18 +133,21 @@ export function ImportPlanSheet({ open, userId, onClose, onImported }: Props) {
       return;
     }
 
-    // Copy all template exercises
-    const exercisesToInsert = (tmpl.template_exercises ?? []).map(te => ({
-      template_id: newTemplate.id,
-      exercise_id: te.exercise_id,
-      order_index: te.order_index,
-      target_sets: te.target_sets,
-      target_reps: te.target_reps,
-      target_weight_kg: te.target_weight_kg,
-      notes: te.notes,
-      is_unilateral: te.is_unilateral,
-      superset_group: te.superset_group,
-    }));
+    // Copy all template exercises, skipping any whose underlying exercise was deleted
+    const exercisesToInsert = (tmpl.template_exercises ?? [])
+      .filter(te => te.exercises != null)
+      .map(te => ({
+        template_id: newTemplate.id,
+        exercise_id: te.exercise_id,
+        order_index: te.order_index,
+        target_sets: te.target_sets,
+        target_reps: te.target_reps,
+        target_weight_kg: te.target_weight_kg,
+        warmup_sets: te.warmup_sets ?? 0,
+        notes: te.notes,
+        is_unilateral: te.is_unilateral,
+        superset_group: te.superset_group,
+      }));
 
     if (exercisesToInsert.length > 0) {
       await supabase.from('template_exercises').insert(exercisesToInsert);

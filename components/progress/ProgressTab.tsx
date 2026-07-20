@@ -600,7 +600,7 @@ function ExerciseProgressDetail({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
         {/* PR Card */}
         {isTime ? (
           maxDur > 0 && (
