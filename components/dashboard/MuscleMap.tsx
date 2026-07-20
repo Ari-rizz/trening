@@ -77,26 +77,49 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
         <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l15-16 l-9-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-15-16 l9-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
-      {/* Lower back left */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89, ...partStyle('back', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="15" height="22" viewBox="0 0 22 30">
-        <path d="M2 0 L20 0 L16 30 L4 30 Z" />
-      </svg>
-      {/* Lower back right */}
-      <svg style={{ position: 'absolute', left: 'calc(50% + 3px)', top: 89, ...partStyle('back', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="15" height="22" viewBox="0 0 22 30">
-        <path d="M2 0 L20 0 L18 30 L6 30 Z" />
-      </svg>
-      {/* Glutes left */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
-        xmlns="http://www.w3.org/2000/svg" width="20" height="26" viewBox="0 0 36 48">
-        <path d="M34 4 l-14-4 l-16 8 l-6 16 l4 16 l14 8 l16-2 l4-14 Z" />
-      </svg>
-      {/* Glutes right */}
-      <svg style={{ position: 'absolute', left: 'calc(50% + 3px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
-        xmlns="http://www.w3.org/2000/svg" width="20" height="26" viewBox="0 0 36 48">
-        <path d="M2 4 l14-4 l16 8 l6 16 l-4 16 l-14 8 l-16-2 l-4-14 Z" />
-      </svg>
+      {/* Lower back — 3 segments per side (erector spinae columns) */}
+      {[0, 7, 14].map((offset, i) => (
+        <svg key={`lb-l-${i}`} style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89 + offset, ...partStyle('back', trained) }}
+          xmlns="http://www.w3.org/2000/svg" width="13" height="5" viewBox="0 0 13 5">
+          <path d={`M${1 - i * 0.3} 0 L${12 - i * 0.5} 0 L${11 - i * 0.5} 5 L${i * 0.3} 5 Z`} />
+        </svg>
+      ))}
+      {[0, 7, 14].map((offset, i) => (
+        <svg key={`lb-r-${i}`} style={{ position: 'absolute', left: 'calc(50% + 4px)', top: 89 + offset, ...partStyle('back', trained) }}
+          xmlns="http://www.w3.org/2000/svg" width="13" height="5" viewBox="0 0 13 5">
+          <path d={`M${i * 0.3} 0 L${12 - 1 + i * 0.3} 0 L${13 - i * 0.3} 5 L${1 - i * 0.3} 5 Z`} />
+        </svg>
+      ))}
+      {/* Glutes — 3 segments per side */}
+      {(() => {
+        const gs = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
+        const leftSegs = [
+          { top: 109, w: 19, path: 'M18 0 L4 0 Q0 0 0 4 L1 9 L20 7 L20 2 Q20 0 18 0 Z' },
+          { top: 118, w: 20, path: 'M0 0 L1 9 L20 7 L20 0 Z' },
+          { top: 127, w: 17, path: 'M0 0 L3 8 Q5 10 8 10 L17 8 L20 0 Z' },
+        ];
+        const rightSegs = [
+          { top: 109, w: 19, path: 'M2 0 L0 2 Q0 4 1 7 L20 9 L21 4 Q21 0 18 0 Z' },
+          { top: 118, w: 20, path: 'M1 0 L0 7 L19 9 L20 0 Z' },
+          { top: 127, w: 17, path: 'M3 0 L0 8 L14 10 Q17 10 19 8 L21 0 Z' },
+        ];
+        return (
+          <>
+            {leftSegs.map((s, i) => (
+              <svg key={`gl-${i}`} style={{ position: 'absolute', left: 'calc(50% - 22px)', top: s.top, ...gs }}
+                xmlns="http://www.w3.org/2000/svg" width={s.w} height="11" viewBox="0 0 21 11">
+                <path d={s.path} />
+              </svg>
+            ))}
+            {rightSegs.map((s, i) => (
+              <svg key={`gr-${i}`} style={{ position: 'absolute', left: 'calc(50% + 3px)', top: s.top, ...gs }}
+                xmlns="http://www.w3.org/2000/svg" width={s.w} height="11" viewBox="0 0 21 11">
+                <path d={s.path} />
+              </svg>
+            ))}
+          </>
+        );
+      })()}
       {/* Hamstrings */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 129, ...partStyle('legs', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
