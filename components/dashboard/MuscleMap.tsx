@@ -151,25 +151,32 @@ const BACK_PATHS: Record<string, string> = {
   'clavicule-left': 'm 49.625175,14.629325 0.063,-2.62462 -0.71441,1.15181 -4.37994,1.49796 4.97857,8.36746 1.83043,5.08188 -0.21949,-13.55362 z',
 };
 
+const VIEW_BOXES: Record<'front' | 'back', string> = {
+  front: '0 0 31.5 92.7',
+  back: '36.5 0 32.5 92.7',
+};
+
 function BodyView({
   paths,
   trained,
   hovered,
   setHovered,
   setSelected,
+  side,
 }: {
   paths: Record<string, string>;
   trained: Set<string>;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   setSelected: (id: string) => void;
+  side: 'front' | 'back';
 }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="100%"
       height="100%"
-      viewBox="0 0 68.587668 92.604164"
+      viewBox={VIEW_BOXES[side]}
       preserveAspectRatio="xMidYMid meet"
       style={{ display: 'block' }}
     >
@@ -213,25 +220,27 @@ export function MuscleMap({ trainedMuscles }: Props) {
       )}
       <div className="flex justify-center items-start w-full gap-6">
         <div className="flex flex-col items-center gap-1">
-          <div style={{ width: 130, height: 340 }}>
+          <div style={{ width: 110, height: 290 }}>
             <BodyView
               paths={FRONT_PATHS}
               trained={trained}
               hovered={hovered}
               setHovered={setHovered}
               setSelected={setSelected}
+              side="front"
             />
           </div>
           <span className="text-[10px] text-zinc-600 font-medium">Forside</span>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div style={{ width: 130, height: 340 }}>
+          <div style={{ width: 110, height: 290 }}>
             <BodyView
               paths={BACK_PATHS}
               trained={trained}
               hovered={hovered}
               setHovered={setHovered}
               setSelected={setSelected}
+              side="back"
             />
           </div>
           <span className="text-[10px] text-zinc-600 font-medium">Bakside</span>
