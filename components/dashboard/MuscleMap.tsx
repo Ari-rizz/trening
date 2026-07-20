@@ -165,6 +165,3 @@ export function MuscleMap({ trainedMuscles }: Props) {
     </div>
   );
 }
-
-
-export { MuscleMap }
