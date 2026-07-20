@@ -62,84 +62,93 @@ function FrontBody({ trained }: { trained: Set<string> }) {
 }
 
 function BackBody({ trained }: { trained: Set<string> }) {
-  const backStyle = partStyle('back', trained);
-  const gluteStyle = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
-  const legStyle = partStyle('legs', trained);
-  const shoulderStyle = partStyle('shoulders', trained);
-  const tricepsStyle = partStyle('triceps', trained);
+  const back = partStyle('back', trained);
+  const glute = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
+  const leg = partStyle('legs', trained);
+  const shoulder = partStyle('shoulders', trained);
+  const triceps = partStyle('triceps', trained);
+  const fascia = { fill: 'none', stroke: '#000', strokeWidth: 1.5 } as React.CSSProperties;
 
   return (
     <div style={{ position: 'relative', width: W, height: H }}>
-      {/* ── REAR DELTS ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 32px)', top: 40, ...shoulderStyle }}
+      {/* ── REAR DELTS (posterior deltoids) ── */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 32px)', top: 40, ...shoulder }}
         xmlns="http://www.w3.org/2000/svg" width="64" height="27" viewBox="0 0 109.532 46.594">
         <path d={SHOULDER_PATH} {...STROKE} />
       </svg>
 
       {/* ── TRICEPS ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 45px)', top: 65, ...tricepsStyle }}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 45px)', top: 65, ...triceps }}
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
         <path d={ARM_PATH} {...STROKE} />
       </svg>
 
       {/*
-        ── UPPER BACK ──
-        Single SVG: left lat | trapezius | right lat
-        All three shapes share the same fill but are separated by black strokes.
-        ViewBox 0 0 100 110, displayed 46×50
+        ── BACK TORSO + GLUTES ──
+        One SVG, viewBox 0 0 120 110, displayed 120×110, anchored top 48.
+        Every muscle is a straight-edged polygon; right side mirrors left.
+        Per-path styles set the muscle-group fill color.
       */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 23px)', top: 48, overflow: 'visible', ...backStyle }}
-        xmlns="http://www.w3.org/2000/svg" width="46" height="50" viewBox="0 0 100 110">
-        {/* Trapezius — central diamond/fan */}
-        <path d="M50 0 C55 6 57 14 55 22 C50 26 45 22 45 22 C43 14 45 6 50 0 Z" {...STROKE} />
-        {/* Left lat — tall wing, wider at bottom */}
-        <path d="M44 4 C36 8 24 20 16 36 C8 52 10 74 18 88 C26 100 40 100 46 88 C50 78 48 48 44 4 Z" {...STROKE} />
-        {/* Right lat — mirror */}
-        <path d="M56 4 C64 8 76 20 84 36 C92 52 90 74 82 88 C74 100 60 100 54 88 C50 78 52 48 56 4 Z" {...STROKE} />
-      </svg>
+      <svg style={{ position: 'absolute', left: 'calc(50% - 60px)', top: 48, overflow: 'visible' }}
+        xmlns="http://www.w3.org/2000/svg" width="120" height="110" viewBox="0 0 120 110">
 
-      {/*
-        ── ERECTOR SPINAE (lower back) ──
-        3 segments per side, each a rounded pill, separated by black strokes.
-        ViewBox 0 0 80 54, displayed 40×27
-        Spine gap runs down the centre (x 34–46).
-      */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 20px)', top: 96, overflow: 'visible', ...backStyle }}
-        xmlns="http://www.w3.org/2000/svg" width="40" height="27" viewBox="0 0 80 54">
-        {/* Left column */}
-        <path d="M4 1 C10 -1 20 -1 24 2 C26 5 25 11 22 13 C17 15 8 15 4 13 C1 11 1 5 4 1 Z" {...STROKE} />
-        <path d="M3 19 C9 17 20 17 24 20 C26 23 25 29 22 31 C17 33 7 33 3 31 C0 29 0 22 3 19 Z" {...STROKE} />
-        <path d="M4 37 C9 35 19 35 23 38 C25 41 24 47 21 49 C16 51 7 51 4 49 C1 47 1 40 4 37 Z" {...STROKE} />
-        {/* Right column — mirrored */}
-        <path d="M56 1 C60 -1 70 -1 76 2 C79 5 79 11 76 13 C71 15 62 15 58 13 C55 11 54 5 56 1 Z" {...STROKE} />
-        <path d="M56 19 C60 17 71 17 77 20 C80 23 80 29 77 31 C72 33 61 33 57 31 C54 29 53 22 56 19 Z" {...STROKE} />
-        <path d="M57 37 C61 35 71 35 76 38 C79 41 79 47 76 49 C71 51 62 51 58 49 C55 47 54 40 57 37 Z" {...STROKE} />
-      </svg>
+        {/* Trapezius — upper fibers (neck cap) */}
+        <path d="M54 0 L66 0 L72 8 L48 8 Z" style={back} {...STROKE} />
+        {/* Trapezius — middle fibers (across shoulder blades) */}
+        <path d="M48 8 L72 8 L80 24 L40 24 Z" style={back} {...STROKE} />
+        {/* Trapezius — lower fibers (converge to mid-back point) */}
+        <path d="M40 24 L80 24 L60 52 Z" style={back} {...STROKE} />
 
-      {/*
-        ── GLUTES ──
-        3 stacked segments per side (upper fan, belly, lower taper).
-        ViewBox 0 0 100 72, displayed 50×36
-        Centre gap at x 44–56.
-      */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 121, overflow: 'visible', ...gluteStyle }}
-        xmlns="http://www.w3.org/2000/svg" width="50" height="36" viewBox="0 0 100 72">
-        {/* Left upper — fan that narrows toward centre */}
-        <path d="M22 1 C12 -1 4 4 1 10 C-1 15 0 22 5 24 C12 27 24 24 32 18 C38 13 39 6 35 3 C31 0 26 1 22 1 Z" {...STROKE} />
-        {/* Left belly — widest part */}
-        <path d="M4 27 C1 32 0 39 3 44 C8 49 20 51 32 48 C39 45 42 39 41 33 C39 28 34 26 26 26 C15 26 6 27 4 27 Z" {...STROKE} />
-        {/* Left lower — tapers toward hamstrings */}
-        <path d="M5 51 C2 56 4 63 9 67 C16 72 28 72 38 67 C43 63 43 56 39 52 C34 49 20 49 10 50 C8 50 6 51 5 51 Z" {...STROKE} />
-        {/* Right upper */}
-        <path d="M78 1 C88 -1 96 4 99 10 C101 15 100 22 95 24 C88 27 76 24 68 18 C62 13 61 6 65 3 C69 0 74 1 78 1 Z" {...STROKE} />
-        {/* Right belly */}
-        <path d="M96 27 C99 32 100 39 97 44 C92 49 80 51 68 48 C61 45 58 39 59 33 C61 28 66 26 74 26 C85 26 94 27 96 27 Z" {...STROKE} />
-        {/* Right lower */}
-        <path d="M95 51 C98 56 96 63 91 67 C84 72 72 72 62 67 C57 63 57 56 61 52 C66 49 80 49 90 50 C92 50 94 51 95 51 Z" {...STROKE} />
+        {/* Rhomboids — left (between shoulder blades, under middle trap) */}
+        <path d="M52 26 L58 26 L57 36 L51 35 Z" style={back} {...STROKE} />
+        {/* Rhomboids — right (mirror) */}
+        <path d="M62 26 L68 26 L69 35 L63 36 Z" style={back} {...STROKE} />
+
+        {/* Infraspinatus — left (covers scapula) */}
+        <path d="M30 20 L48 22 L46 42 L32 40 Z" style={back} {...STROKE} />
+        {/* Infraspinatus — right (mirror) */}
+        <path d="M72 22 L90 20 L88 40 L74 42 Z" style={back} {...STROKE} />
+
+        {/* Teres minor — left (above teres major, outer scapula edge) */}
+        <path d="M28 42 L42 40 L40 48 L26 48 Z" style={back} {...STROKE} />
+        {/* Teres minor — right (mirror) */}
+        <path d="M78 40 L92 42 L94 48 L80 48 Z" style={back} {...STROKE} />
+
+        {/* Teres major — left (connects scapula to upper arm) */}
+        <path d="M26 48 L40 48 L42 58 L28 58 Z" style={back} {...STROKE} />
+        {/* Teres major — right (mirror) */}
+        <path d="M80 48 L94 48 L92 58 L78 58 Z" style={back} {...STROKE} />
+
+        {/* Latissimus dorsi — left (V-shape from under arm to lower back) */}
+        <path d="M16 32 L46 30 L48 82 L32 92 L14 66 Z" style={back} {...STROKE} />
+        {/* Latissimus dorsi — right (mirror) */}
+        <path d="M104 32 L74 30 L72 82 L88 92 L106 66 Z" style={back} {...STROKE} />
+
+        {/* Erector spinae — left column (3 stacked segments beside spine) */}
+        <path d="M48 54 L56 54 L55 66 L47 66 Z" style={back} {...STROKE} />
+        <path d="M47 66 L55 66 L54 78 L46 78 Z" style={back} {...STROKE} />
+        <path d="M46 78 L54 78 L53 92 L45 92 Z" style={back} {...STROKE} />
+        {/* Erector spinae — right column (mirror) */}
+        <path d="M64 54 L72 54 L73 66 L65 66 Z" style={back} {...STROKE} />
+        <path d="M65 66 L73 66 L74 78 L66 78 Z" style={back} {...STROKE} />
+        <path d="M66 78 L74 78 L75 92 L67 92 Z" style={back} {...STROKE} />
+
+        {/* Thoracolumbar fascia — center separator (stroke only) */}
+        <path d="M60 54 L60 92" style={fascia} />
+
+        {/* Gluteus medius — left (upper outer hip) */}
+        <path d="M14 70 L38 68 L40 80 L16 82 Z" style={glute} {...STROKE} />
+        {/* Gluteus medius — right (mirror) */}
+        <path d="M82 68 L106 70 L104 82 L80 80 Z" style={glute} {...STROKE} />
+
+        {/* Gluteus maximus — left (large rounded, center separation) */}
+        <path d="M16 78 L58 76 L56 104 L30 110 L12 98 Z" style={glute} {...STROKE} />
+        {/* Gluteus maximus — right (mirror) */}
+        <path d="M104 78 L62 76 L64 104 L90 110 L108 98 Z" style={glute} {...STROKE} />
       </svg>
 
       {/* ── HAMSTRINGS ── */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 155, ...legStyle }}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 155, ...leg }}
         xmlns="http://www.w3.org/2000/svg" width="54" height="140" viewBox="0 0 93.626 286.625">
         <path d={LEGS_PATH} {...STROKE} />
       </svg>
@@ -156,3 +165,6 @@ export function MuscleMap({ trainedMuscles }: Props) {
     </div>
   );
 }
+
+
+export { MuscleMap }
