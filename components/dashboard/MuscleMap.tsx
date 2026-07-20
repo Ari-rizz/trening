@@ -60,6 +60,7 @@ function FrontBody({ trained }: { trained: Set<string> }) {
 }
 
 function BackBody({ trained }: { trained: Set<string> }) {
+  const gluteStyle = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
   return (
     <div style={{ position: 'relative', width: W, height: H }}>
       {/* Rear delts */}
@@ -72,57 +73,47 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="91" height="69" viewBox="0 0 156.344 119.25">
         <path d={ARM_PATH} />
       </svg>
-      {/* Back — narrower lats + central trapezius diamond, wider spine gap */}
+      {/* Upper back — trapezius + left lat + right lat, each a separate organic shape */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 25px)', top: 51, ...partStyle('back', trained) }}
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
-        <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l15-16 l-9-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-15-16 l9-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
+        {/* Trapezius: diamond fan at top-center */}
+        <path d="M43 0 C47 5 50 11 49 18 C43 22 37 18 36 18 C35 11 39 5 43 0 Z" />
+        {/* Left lat: wing sweeping down from shoulder to lower back */}
+        <path d="M29 3 C19 7 9 18 5 30 C1 42 5 56 13 62 C21 68 35 62 39 49 C43 38 41 17 29 3 Z" />
+        {/* Right lat: mirror */}
+        <path d="M57 3 C67 7 77 18 81 30 C85 42 81 56 73 62 C65 68 51 62 47 49 C43 38 45 17 57 3 Z" />
       </svg>
-      {/* Lower back — 3 segments per side (erector spinae columns) */}
-      {[0, 7, 14].map((offset, i) => (
-        <svg key={`lb-l-${i}`} style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89 + offset, ...partStyle('back', trained) }}
-          xmlns="http://www.w3.org/2000/svg" width="13" height="5" viewBox="0 0 13 5">
-          <path d={`M${1 - i * 0.3} 0 L${12 - i * 0.5} 0 L${11 - i * 0.5} 5 L${i * 0.3} 5 Z`} />
-        </svg>
-      ))}
-      {[0, 7, 14].map((offset, i) => (
-        <svg key={`lb-r-${i}`} style={{ position: 'absolute', left: 'calc(50% + 4px)', top: 89 + offset, ...partStyle('back', trained) }}
-          xmlns="http://www.w3.org/2000/svg" width="13" height="5" viewBox="0 0 13 5">
-          <path d={`M${i * 0.3} 0 L${12 - 1 + i * 0.3} 0 L${13 - i * 0.3} 5 L${1 - i * 0.3} 5 Z`} />
-        </svg>
-      ))}
-      {/* Glutes — 3 segments per side */}
-      {(() => {
-        const gs = trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained);
-        const leftSegs = [
-          { top: 109, w: 19, path: 'M18 0 L4 0 Q0 0 0 4 L1 9 L20 7 L20 2 Q20 0 18 0 Z' },
-          { top: 118, w: 20, path: 'M0 0 L1 9 L20 7 L20 0 Z' },
-          { top: 127, w: 17, path: 'M0 0 L3 8 Q5 10 8 10 L17 8 L20 0 Z' },
-        ];
-        const rightSegs = [
-          { top: 109, w: 19, path: 'M2 0 L0 2 Q0 4 1 7 L20 9 L21 4 Q21 0 18 0 Z' },
-          { top: 118, w: 20, path: 'M1 0 L0 7 L19 9 L20 0 Z' },
-          { top: 127, w: 17, path: 'M3 0 L0 8 L14 10 Q17 10 19 8 L21 0 Z' },
-        ];
-        return (
-          <>
-            {leftSegs.map((s, i) => (
-              <svg key={`gl-${i}`} style={{ position: 'absolute', left: 'calc(50% - 22px)', top: s.top, ...gs }}
-                xmlns="http://www.w3.org/2000/svg" width={s.w} height="11" viewBox="0 0 21 11">
-                <path d={s.path} />
-              </svg>
-            ))}
-            {rightSegs.map((s, i) => (
-              <svg key={`gr-${i}`} style={{ position: 'absolute', left: 'calc(50% + 3px)', top: s.top, ...gs }}
-                xmlns="http://www.w3.org/2000/svg" width={s.w} height="11" viewBox="0 0 21 11">
-                <path d={s.path} />
-              </svg>
-            ))}
-          </>
-        );
-      })()}
+      {/* Lower back — erector spinae: 3 segments per side in one SVG */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 19px)', top: 88, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="38" height="24" viewBox="0 0 68 44">
+        {/* Left column — 3 stacked pill segments, slightly tapered inward */}
+        <path d="M5 1 C11 -1 19 -1 22 2 C24 5 23 10 20 12 C16 14 8 14 4 12 C1 10 1 5 5 1 Z" />
+        <path d="M4 16 C10 14 19 14 22 17 C24 20 23 25 20 27 C16 29 7 29 4 27 C1 25 1 19 4 16 Z" />
+        <path d="M5 31 C10 29 18 29 21 32 C23 35 22 40 19 42 C15 44 7 44 4 42 C2 40 2 34 5 31 Z" />
+        {/* Right column — mirror of left */}
+        <path d="M46 1 C50 -1 58 -1 63 2 C67 5 67 10 64 12 C60 14 52 14 48 12 C45 10 44 5 46 1 Z" />
+        <path d="M46 16 C50 14 59 14 64 17 C67 20 67 25 64 27 C60 29 51 29 48 27 C44 25 44 19 46 16 Z" />
+        <path d="M47 31 C51 29 59 29 64 32 C67 35 66 40 63 42 C59 44 51 44 48 42 C44 40 45 34 47 31 Z" />
+      </svg>
+      {/* Glutes — 3 stacked segments per side in one SVG */}
+      <svg style={{ position: 'absolute', left: 'calc(50% - 24px)', top: 109, ...gluteStyle }}
+        xmlns="http://www.w3.org/2000/svg" width="48" height="34" viewBox="0 0 88 62">
+        {/* Left upper */}
+        <path d="M22 1 C14 -1 6 2 2 8 C-1 13 0 19 4 21 C10 24 22 22 30 17 C36 13 38 7 34 3 C30 0 26 1 22 1 Z" />
+        {/* Left middle — widest belly of the glute */}
+        <path d="M3 24 C0 28 0 34 3 38 C8 43 20 44 30 41 C37 38 40 33 39 28 C37 24 32 22 24 22 C14 22 6 23 3 24 Z" />
+        {/* Left lower */}
+        <path d="M5 43 C2 47 3 53 7 57 C13 62 24 63 34 59 C40 55 41 49 38 45 C34 42 22 41 10 42 C8 42 6 43 5 43 Z" />
+        {/* Right upper */}
+        <path d="M66 1 C74 -1 82 2 86 8 C89 13 88 19 84 21 C78 24 66 22 58 17 C52 13 50 7 54 3 C58 0 62 1 66 1 Z" />
+        {/* Right middle */}
+        <path d="M85 24 C88 28 88 34 85 38 C80 43 68 44 58 41 C51 38 48 33 49 28 C51 24 56 22 64 22 C74 22 82 23 85 24 Z" />
+        {/* Right lower */}
+        <path d="M83 43 C86 47 85 53 81 57 C75 62 64 63 54 59 C48 55 47 49 50 45 C54 42 66 41 78 42 C80 42 82 43 83 43 Z" />
+      </svg>
       {/* Hamstrings */}
-      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 129, ...partStyle('legs', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="54" height="166" viewBox="0 0 93.626 286.625">
+      <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 141, ...partStyle('legs', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="54" height="154" viewBox="0 0 93.626 286.625">
         <path d={LEGS_PATH} />
       </svg>
     </div>
