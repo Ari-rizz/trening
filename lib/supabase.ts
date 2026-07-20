@@ -30,6 +30,19 @@ export type Equipment =
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
+export type CardioType =
+  | 'running'
+  | 'walking'
+  | 'cycling'
+  | 'rowing'
+  | 'swimming'
+  | 'stairmaster'
+  | 'elliptical'
+  | 'ski_erg'
+  | 'other';
+
+export type ExerciseCategory = 'strength' | 'cardio';
+
 export type SetType =
   | 'standard'
   | 'dropset'
@@ -59,6 +72,7 @@ export interface Exercise {
   force?: string;
   mechanic?: string;
   category?: string;
+  cardio_type?: CardioType | null;
 }
 
 export interface Workout {
@@ -137,6 +151,83 @@ export interface TemplateExercise {
   is_unilateral: boolean;
   notes: string;
   superset_group: number | null;
+  warmup_sets?: number;
   created_at: string;
   exercises?: Exercise;
+}
+
+export type GoalType = 'bench' | 'squat' | 'deadlift' | 'bodyweight' | 'frequency' | 'custom';
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  type: GoalType;
+  target_value: number;
+  current_value: number;
+  unit: string;
+  exercise_id?: string | null;
+  start_date: string;
+  target_date?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Feedback {
+  id: string;
+  user_id?: string | null;
+  type: 'suggestion' | 'bug';
+  subject: string;
+  body: string;
+  app_version?: string | null;
+  platform?: string | null;
+  created_at: string;
+  status: string;
+}
+
+export interface CardioLog {
+  id: string;
+  user_id: string;
+  workout_id?: string | null;
+  category: CardioType;
+  distance_m?: number | null;
+  duration_s?: number | null;
+  calories?: number | null;
+  pace_s_per_km?: number | null;
+  speed_kmh?: number | null;
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  created_at: string;
+}
+
+export interface MuscleActivation {
+  id: string;
+  user_id: string;
+  workout_id?: string | null;
+  exercise_id?: string | null;
+  region: string;
+  sets: number;
+  volume_kg: number;
+  intensity_score: number;
+  created_at: string;
+}
+
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  rest_timer: boolean;
+  weight_reminder: boolean;
+  workout_reminder: boolean;
+  goal_reminder: boolean;
+  reminder_time: string;
+  created_at: string;
+}
+
+export interface PushSubscription {
+  id: string;
+  user_id: string;
+  platform: string;
+  token?: string | null;
+  endpoint?: string | null;
+  created_at: string;
+  updated_at: string;
 }

@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2 } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield } from 'lucide-react';
 import { format, fromUnixTime } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 import { cancelSubscription, createCheckoutSession } from '@/lib/stripe';
 import { useAppStore } from '@/lib/store';
+import { FeedbackSheet } from '@/components/profile/FeedbackSheet';
+import { NotificationSettingsSheet } from '@/components/profile/NotificationSettingsSheet';
+import { getTrialDaysLeft } from '@/lib/trial';
 
 const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
 
@@ -46,6 +49,8 @@ export function ProfileTab() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [usernameSaved, setUsernameSaved] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [subscribeLoading, setSubscribeLoading] = useState(false);
@@ -489,6 +494,48 @@ export function ProfileTab() {
           Treningshistorikk
         </motion.button>
 
+        {/* Feedback */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowFeedback(true)}
+          className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
+        >
+          <MessageSquare size={18} className="text-blue-400" />
+          Send tilbakemelding
+        </motion.button>
+
+        {/* Notifications */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowNotifications(true)}
+          className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
+        >
+          <Bell size={18} className="text-amber-400" />
+          Varslingsinnstillinger
+        </motion.button>
+
+        {/* Terms */}
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
+        >
+          <FileText size={18} className="text-zinc-400" />
+          Brukervilkår
+        </a>
+
+        {/* Privacy */}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
+        >
+          <Shield size={18} className="text-zinc-400" />
+          Personvern
+        </a>
+
         {/* Sign out */}
         <motion.button
           whileTap={{ scale: 0.97 }}
@@ -676,6 +723,9 @@ export function ProfileTab() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <FeedbackSheet open={showFeedback} onClose={() => setShowFeedback(false)} />
+      <NotificationSettingsSheet open={showNotifications} onClose={() => setShowNotifications(false)} />
     </div>
   );
 }

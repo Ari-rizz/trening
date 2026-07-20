@@ -8,6 +8,10 @@ import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM } from '@/lib/ex
 import { format, subDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { ManualEntrySheet } from './ManualEntrySheet';
+import { CreateGoalSheet, GoalsSection } from '@/components/goals/CreateGoalSheet';
+import { MuscleBalanceSection } from '@/components/analytics/MuscleBalanceSection';
+import { fetchGoals, deleteGoal } from '@/lib/goals';
+import { Goal } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -93,6 +97,8 @@ export function ProgressTab() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [showCreateGoal, setShowCreateGoal] = useState(false);
   const { isTourMode, tourSelectedExerciseId } = useAppStore();
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [weightPeriod, setWeightPeriod] = useState<30 | 90 | 180>(30);
@@ -110,11 +116,17 @@ export function ProgressTab() {
       if (uid) {
         fetchHistory(uid);
         fetchWeightLogs(uid);
+        fetchGoals().then(setGoals);
       } else {
         setLoading(false);
       }
     });
   }, [isTourMode]);
+
+  const handleDeleteGoal = async (id: string) => {
+    await deleteGoal(id);
+    setGoals(prev => prev.filter(g => g.id !== id));
+  };
 
   const fetchWeightLogs = async (uid: string) => {
     const from = format(subDays(new Date(), 180), 'yyyy-MM-dd');
@@ -452,7 +464,17 @@ export function ProgressTab() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-2">
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-2">
+        {!isTourMode && !loading && (
+          <>
+            <GoalsSection
+              goals={goals}
+              onAdd={() => setShowCreateGoal(true)}
+              onDelete={handleDeleteGoal}
+            />
+            <MuscleBalanceSection />
+          </>
+        )}
         {loading && (
           <div className="space-y-2">
             {[1, 2, 3, 4].map(i => (
@@ -532,6 +554,12 @@ export function ProgressTab() {
           onSaved={() => fetchHistory(userId)}
         />
       )}
+
+      <CreateGoalSheet
+        open={showCreateGoal}
+        onClose={() => setShowCreateGoal(false)}
+        onCreated={() => { fetchGoals().then(setGoals); }}
+      />
     </div>
   );
 }
