@@ -77,15 +77,25 @@ function BackBody({ trained }: { trained: Set<string> }) {
         xmlns="http://www.w3.org/2000/svg" width="50" height="40" viewBox="0 0 86.594 68">
         <path d="M30 2 l-12 4 l-10 12 l-2 20 l6 18 l12 10 l15-16 l-9-48 Z M56 2 l12 4 l10 12 l2 20 l-6 18 l-12 10 l-15-16 l9-48 Z M43 0 L50 9 L43 23 L36 9 Z" />
       </svg>
-      {/* Lower back — wide tapered strips, connects lats above and glutes below */}
+      {/* Lower back left */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 17px)', top: 89, ...partStyle('back', trained) }}
-        xmlns="http://www.w3.org/2000/svg" width="34" height="22" viewBox="0 0 50 30">
-        <path d="M5 0 L22 0 L18 30 L8 30 Z M28 0 L45 0 L42 30 L32 30 Z" />
+        xmlns="http://www.w3.org/2000/svg" width="15" height="22" viewBox="0 0 22 30">
+        <path d="M2 0 L20 0 L16 30 L4 30 Z" />
       </svg>
-      {/* Glutes — wider, angular lineto style matching chest, highlights on legs too */}
+      {/* Lower back right */}
+      <svg style={{ position: 'absolute', left: 'calc(50% + 3px)', top: 89, ...partStyle('back', trained) }}
+        xmlns="http://www.w3.org/2000/svg" width="15" height="22" viewBox="0 0 22 30">
+        <path d="M2 0 L20 0 L18 30 L6 30 Z" />
+      </svg>
+      {/* Glutes left */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 22px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
-        xmlns="http://www.w3.org/2000/svg" width="44" height="26" viewBox="0 0 76 48">
-        <path d="M36 4 l-14-4 l-16 8 l-6 16 l4 16 l14 8 l16-2 l4-14 Z M40 4 l14-4 l16 8 l6 16 l-4 16 l-14 8 l-16-2 l-4-14 Z" />
+        xmlns="http://www.w3.org/2000/svg" width="20" height="26" viewBox="0 0 36 48">
+        <path d="M34 4 l-14-4 l-16 8 l-6 16 l4 16 l14 8 l16-2 l4-14 Z" />
+      </svg>
+      {/* Glutes right */}
+      <svg style={{ position: 'absolute', left: 'calc(50% + 3px)', top: 109, ...(trained.has('legs') ? partStyle('legs', trained) : partStyle('glutes', trained)) }}
+        xmlns="http://www.w3.org/2000/svg" width="20" height="26" viewBox="0 0 36 48">
+        <path d="M2 4 l14-4 l16 8 l6 16 l-4 16 l-14 8 l-16-2 l-4-14 Z" />
       </svg>
       {/* Hamstrings */}
       <svg style={{ position: 'absolute', left: 'calc(50% - 27px)', top: 129, ...partStyle('legs', trained) }}
