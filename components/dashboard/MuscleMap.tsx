@@ -230,7 +230,7 @@ export function MuscleMap({ trainedMuscles }: Props) {
               side="front"
             />
           </div>
-          <span className="text-[10px] text-zinc-600 font-medium">Forside</span>
+          <span className="text-[10px] text-zinc-600 font-medium">Front</span>
         </div>
         <div className="flex flex-col items-center gap-1">
           <div style={{ width: 110, height: 290 }}>
@@ -243,7 +243,7 @@ export function MuscleMap({ trainedMuscles }: Props) {
               side="back"
             />
           </div>
-          <span className="text-[10px] text-zinc-600 font-medium">Bakside</span>
+          <span className="text-[10px] text-zinc-600 font-medium">Back</span>
         </div>
       </div>
     </div>
