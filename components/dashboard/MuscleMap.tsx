@@ -218,7 +218,7 @@ export function MuscleMap({ trainedMuscles }: Props) {
           </span>
         </div>
       )}
-      <div className="flex justify-center items-start w-full gap-9">
+      <div className="flex justify-center items-start w-full gap-12">
         <div className="flex flex-col items-center gap-1">
           <div style={{ width: 110, height: 290 }}>
             <BodyView
