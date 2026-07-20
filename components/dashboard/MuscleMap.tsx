@@ -213,7 +213,7 @@ export function MuscleMap({ trainedMuscles }: Props) {
       )}
       <div className="flex justify-around items-start w-full gap-2">
         <div className="flex flex-col items-center gap-1">
-          <div style={{ width: 90, height: 240 }}>
+          <div style={{ width: 130, height: 340 }}>
             <BodyView
               paths={FRONT_PATHS}
               trained={trained}
@@ -225,7 +225,7 @@ export function MuscleMap({ trainedMuscles }: Props) {
           <span className="text-[10px] text-zinc-600 font-medium">Forside</span>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <div style={{ width: 90, height: 240 }}>
+          <div style={{ width: 130, height: 340 }}>
             <BodyView
               paths={BACK_PATHS}
               trained={trained}
