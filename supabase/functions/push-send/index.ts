@@ -47,16 +47,22 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
-    const subject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:noreply@irongrid.app";
+    const { data: config, error: configError } = await supabase
+      .from("push_config")
+      .select("vapid_public_key, vapid_private_key, vapid_subject")
+      .eq("id", 1)
+      .single();
 
-    if (!vapidPrivateKey || !vapidPublicKey) {
+    if (configError || !config) {
       return new Response(
         JSON.stringify({ error: "VAPID keys not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const vapidPrivateKey = config.vapid_private_key;
+    const vapidPublicKey = config.vapid_public_key;
+    const subject = config.vapid_subject;
 
     let sent = 0;
     for (const sub of subs) {
