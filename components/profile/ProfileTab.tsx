@@ -24,6 +24,7 @@ interface Profile {
   training_goal: string | null;
   username: string | null;
   trial_ends_at: string | null;
+  is_lifetime: boolean | null;
 }
 
 interface SubscriptionInfo {
@@ -106,7 +107,7 @@ export function ProfileTab() {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username, trial_ends_at')
+      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username, trial_ends_at, is_lifetime')
       .eq('id', uid)
       .maybeSingle();
     if (data) {
@@ -350,7 +351,15 @@ export function ProfileTab() {
             <span className="text-white font-semibold text-sm">Mitt abonnement</span>
           </div>
 
-          {trialActive && !isSubscribed && (
+          {profile?.is_lifetime ? (
+            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+              <Trophy size={16} className="text-amber-400 flex-shrink-0" />
+              <div>
+                <p className="text-amber-300 text-sm font-semibold">Lifetime-tilgang</p>
+                <p className="text-amber-400/70 text-xs mt-0.5">Du har permanent tilgang til IronGrid</p>
+              </div>
+            </div>
+          ) : trialActive && !isSubscribed && (
             <div className="space-y-3">
               <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
                 <Clock size={16} className="text-amber-400 flex-shrink-0" />

@@ -33,12 +33,17 @@ export function SubscriptionGate({ userId, children }: SubscriptionGateProps) {
 
   const checkAccess = async () => {
     const [{ data: profile }, { data: sub }] = await Promise.all([
-      supabase.from('profiles').select('trial_ends_at').eq('id', userId).maybeSingle(),
+      supabase.from('profiles').select('trial_ends_at, is_lifetime').eq('id', userId).maybeSingle(),
       supabase
         .from('stripe_user_subscriptions')
         .select('subscription_status, cancel_at_period_end, current_period_end')
         .maybeSingle(),
     ]);
+
+    if (profile?.is_lifetime) {
+      setAccess('subscribed');
+      return;
+    }
 
     const subData = sub as SubscriptionData | null;
     const status = subData?.subscription_status ?? null;
