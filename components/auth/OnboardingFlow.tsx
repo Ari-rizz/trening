@@ -21,7 +21,9 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
 
   // Step 1: Name & DOB
   const [fullName, setFullName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [dobDay, setDobDay] = useState('');
+  const [dobMonth, setDobMonth] = useState('');
+  const [dobYear, setDobYear] = useState('');
 
   // Step 2: Username
   const [username, setUsername] = useState('');
@@ -55,7 +57,9 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
       .from('profiles')
       .update({
         full_name: fullName.trim(),
-        date_of_birth: dateOfBirth || null,
+        date_of_birth: (dobYear.length === 4 && dobMonth && dobDay)
+          ? `${dobYear}-${dobMonth.padStart(2, '0')}-${dobDay.padStart(2, '0')}`
+          : null,
         username: username.trim() || undefined,
         height_cm: heightCm ? parseFloat(heightCm) : null,
         weight_kg: weightKg ? parseFloat(weightKg) : null,
@@ -195,12 +199,38 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
               </div>
               <div className="min-w-0">
                 <label className="text-xs text-zinc-500 font-medium mb-1.5 block">Fødselsdato (valgfritt)</label>
-                <input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={e => setDateOfBirth(e.target.value)}
-                  className="w-full max-w-full min-w-0 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors [color-scheme:dark]"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={dobDay}
+                    onChange={e => setDobDay(e.target.value.slice(0, 2))}
+                    placeholder="DD"
+                    min={1}
+                    max={31}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors text-center"
+                  />
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={dobMonth}
+                    onChange={e => setDobMonth(e.target.value.slice(0, 2))}
+                    placeholder="MM"
+                    min={1}
+                    max={12}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors text-center"
+                  />
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    value={dobYear}
+                    onChange={e => setDobYear(e.target.value.slice(0, 4))}
+                    placeholder="ÅÅÅÅ"
+                    min={1900}
+                    max={new Date().getFullYear()}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors text-center"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>
