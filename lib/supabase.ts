@@ -73,6 +73,8 @@ export interface Exercise {
   mechanic?: string;
   category?: string;
   cardio_type?: CardioType | null;
+  // Alternative names, abbreviations, gym slang, and translations (NO/EN)
+  nicknames?: string[] | null;
 }
 
 export interface Workout {

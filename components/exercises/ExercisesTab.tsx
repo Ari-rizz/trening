@@ -6,6 +6,7 @@ import { Search, Filter, X, Loader as Loader2 } from 'lucide-react';
 import { Exercise, MuscleGroup, Equipment, Difficulty } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { MUSCLE_GROUPS, EQUIPMENT_OPTIONS, DIFFICULTY_OPTIONS } from '@/lib/exercises-data';
+import { scoreExercise } from '@/lib/exercise-search';
 import { ExerciseCard } from './ExerciseCard';
 import { ExerciseDetail } from './ExerciseDetail';
 import { useAppStore } from '@/lib/store';
@@ -63,13 +64,18 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
   };
 
   const filtered = useMemo(() => {
-    return exercises.filter(e => {
-      if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
+    const result = exercises.filter(e => {
+      if (search && scoreExercise(e, search) === 0) return false;
       if (selectedMuscle && e.muscle_group !== selectedMuscle) return false;
       if (selectedEquipment && e.equipment !== selectedEquipment) return false;
       if (selectedDifficulty && e.difficulty !== selectedDifficulty) return false;
       return true;
     });
+    if (search) {
+      const term = search.trim();
+      result.sort((a, b) => scoreExercise(b, term) - scoreExercise(a, term) || a.name.localeCompare(b.name));
+    }
+    return result;
   }, [exercises, search, selectedMuscle, selectedEquipment, selectedDifficulty]);
 
   const grouped = useMemo(() => {

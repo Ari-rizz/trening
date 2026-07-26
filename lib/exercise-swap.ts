@@ -1,4 +1,5 @@
 import { supabase, Exercise } from './supabase';
+import { scoreExercise } from './exercise-search';
 
 export interface ScoredExercise {
   exercise: Exercise;
@@ -64,9 +65,22 @@ export async function fetchExercisesWithFilters(
     query = query.eq('difficulty', filters.difficulty);
   }
   if (filters.search) {
-    query = query.ilike('name', `%${filters.search}%`);
+    const term = filters.search.trim();
+    if (term) {
+      query = query.or(`name.ilike.%${term}%,nicknames.cs.{${term}}`);
+    }
   }
 
   const { data } = await query;
-  return (data ?? []) as Exercise[];
+  const exercises = (data ?? []) as Exercise[];
+
+  if (filters.search && filters.search.trim()) {
+    const term = filters.search.trim();
+    return exercises
+      .map(e => ({ e, score: scoreExercise(e, term) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.e.name.localeCompare(b.e.name))
+      .map(x => x.e);
+  }
+  return exercises;
 }

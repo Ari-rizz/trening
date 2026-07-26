@@ -7,6 +7,7 @@ import { X, Search, ArrowRightLeft, Dumbbell, Zap } from 'lucide-react';
 import { Exercise, supabase } from '@/lib/supabase';
 import { fetchSimilarExercises, ScoredExercise } from '@/lib/exercise-swap';
 import { getMuscleGroupLabel, getMuscleGroupColor, EQUIPMENT_OPTIONS } from '@/lib/exercises-data';
+import { scoreExercise } from '@/lib/exercise-search';
 
 interface Props {
   open: boolean;
@@ -45,7 +46,11 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
   };
 
   const filtered = search.trim()
-    ? results.filter(r => r.exercise.name.toLowerCase().includes(search.toLowerCase()))
+    ? results
+        .map(r => ({ r, score: scoreExercise(r.exercise, search) }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score || a.r.exercise.name.localeCompare(b.r.exercise.name))
+        .map(x => x.r)
     : results;
 
   const handleConfirm = (permanent: boolean) => {
