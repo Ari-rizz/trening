@@ -12,23 +12,58 @@ interface RegionMapping {
   intensity: number;
 }
 
-const REGION_MAP: Record<string, RegionMapping[]> = {
-  chest: [{ region: "chest_upper", intensity: 0.4 }, { region: "chest_lower", intensity: 0.6 }],
-  back: [{ region: "back_lats", intensity: 0.5 }, { region: "back_traps", intensity: 0.3 }, { region: "back_lower", intensity: 0.2 }],
-  shoulders: [{ region: "shoulders_front", intensity: 0.6 }, { region: "shoulders_rear", intensity: 0.4 }],
-  biceps: [{ region: "biceps", intensity: 1.0 }],
-  triceps: [{ region: "triceps", intensity: 1.0 }],
+const DEFAULT_SPLITS: Record<string, RegionMapping[]> = {
+  chest: [{ region: "chest_middle", intensity: 1 }],
+  shoulders: [{ region: "shoulders_front", intensity: 0.5 }, { region: "shoulders_side", intensity: 0.5 }],
+  back: [{ region: "back_lats", intensity: 0.5 }, { region: "back_upper", intensity: 0.3 }, { region: "back_lower", intensity: 0.2 }],
+  biceps: [{ region: "biceps", intensity: 1 }],
+  triceps: [{ region: "triceps", intensity: 1 }],
   legs: [{ region: "legs_quads", intensity: 0.5 }, { region: "legs_hams", intensity: 0.3 }, { region: "legs_glutes", intensity: 0.2 }],
-  abs: [{ region: "abs", intensity: 1.0 }],
+  abs: [{ region: "abs", intensity: 1 }],
   glutes: [{ region: "legs_glutes", intensity: 0.8 }, { region: "legs_hams", intensity: 0.2 }],
-  forearms: [{ region: "forearms", intensity: 1.0 }],
-  "full body": [{ region: "full_body", intensity: 1.0 }],
+  forearms: [{ region: "forearms", intensity: 1 }],
+  calves: [{ region: "legs_calves", intensity: 1 }],
 };
 
-function getRegionsForExercise(muscleGroup: string, secondaryMuscles: string[]): RegionMapping[] {
-  const primary = REGION_MAP[muscleGroup] ?? [{ region: "full_body", intensity: 1.0 }];
-  const secondary = (secondaryMuscles ?? []).flatMap((m) => REGION_MAP[m] ?? []);
-  return [...primary, ...secondary.map((s) => ({ region: s.region, intensity: s.intensity * 0.3 }))];
+interface NameRule {
+  match: (name: string) => boolean;
+  splits: RegionMapping[];
+}
+
+const NAME_RULES: NameRule[] = [
+  { match: n => /incline/i.test(n), splits: [{ region: "chest_upper", intensity: 1 }] },
+  { match: n => /decline/i.test(n), splits: [{ region: "chest_lower", intensity: 1 }] },
+  { match: n => /pullover/i.test(n), splits: [{ region: "chest_upper", intensity: 0.7 }, { region: "back_lats", intensity: 0.3 }] },
+  { match: n => /lateral raise|side raise/i.test(n), splits: [{ region: "shoulders_side", intensity: 1 }] },
+  { match: n => /front raise/i.test(n), splits: [{ region: "shoulders_front", intensity: 1 }] },
+  { match: n => /rear delt|face pull|bent.over.*raise|reverse fly|back fly/i.test(n), splits: [{ region: "shoulders_rear", intensity: 1 }] },
+  { match: n => /arnold press/i.test(n), splits: [{ region: "shoulders_front", intensity: 0.5 }, { region: "shoulders_side", intensity: 0.5 }] },
+  { match: n => /shoulder press|military press|overhead press/i.test(n), splits: [{ region: "shoulders_front", intensity: 0.7 }, { region: "shoulders_side", intensity: 0.3 }] },
+  { match: n => /upright row/i.test(n), splits: [{ region: "shoulders_side", intensity: 0.6 }, { region: "back_upper", intensity: 0.4 }] },
+  { match: n => /pull.?up|chin.?up|lat pulldown|pulldown/i.test(n), splits: [{ region: "back_lats", intensity: 0.8 }, { region: "back_upper", intensity: 0.2 }] },
+  { match: n => /barbell row|bent over row|dumbbell row|row\b/i.test(n) && !/upright/i.test(n), splits: [{ region: "back_upper", intensity: 0.5 }, { region: "back_lats", intensity: 0.5 }] },
+  { match: n => /seated row|cable row|close grip row/i.test(n), splits: [{ region: "back_lats", intensity: 0.5 }, { region: "back_upper", intensity: 0.5 }] },
+  { match: n => /deadlift|romanian|rdl|stiff.leg/i.test(n), splits: [{ region: "back_lower", intensity: 0.4 }, { region: "legs_hams", intensity: 0.4 }, { region: "legs_glutes", intensity: 0.2 }] },
+  { match: n => /good morning|hyperextension|back extension/i.test(n), splits: [{ region: "back_lower", intensity: 0.6 }, { region: "legs_hams", intensity: 0.4 }] },
+  { match: n => /shrug/i.test(n), splits: [{ region: "back_upper", intensity: 1 }] },
+  { match: n => /squat|leg press|hack squat|leg extension|lunge|split squat|goblet/i.test(n), splits: [{ region: "legs_quads", intensity: 0.7 }, { region: "legs_glutes", intensity: 0.3 }] },
+  { match: n => /leg curl|hamstring curl/i.test(n), splits: [{ region: "legs_hams", intensity: 1 }] },
+  { match: n => /hip thrust|glute bridge|hip raise|cable kick|glute kick/i.test(n), splits: [{ region: "legs_glutes", intensity: 1 }] },
+  { match: n => /calf raise|calf press|seated calf/i.test(n), splits: [{ region: "legs_calves", intensity: 1 }] },
+  { match: n => /adductor|groin|inner thigh/i.test(n), splits: [{ region: "legs_quads", intensity: 0.5 }, { region: "legs_glutes", intensity: 0.5 }] },
+  { match: n => /leg raise|leg lift|captain|toe touch|crunch|sit.up|hanging/i.test(n), splits: [{ region: "abs", intensity: 1 }] },
+  { match: n => /plank|side plank|ab wheel|ab roller/i.test(n), splits: [{ region: "abs", intensity: 1 }] },
+  { match: n => /hammer curl|preacher curl|concentration curl|curl\b/i.test(n), splits: [{ region: "biceps", intensity: 1 }] },
+  { match: n => /tricep pushdown|skull crusher|overhead extension|tricep extension|kickback|dip\b/i.test(n), splits: [{ region: "triceps", intensity: 1 }] },
+  { match: n => /wrist curl|reverse curl|farmer|grip/i.test(n), splits: [{ region: "forearms", intensity: 1 }] },
+];
+
+function getRegionsForExercise(muscleGroup: string, secondaryMuscles: string[], exerciseName: string): RegionMapping[] {
+  const name = (exerciseName ?? "").toLowerCase();
+  for (const rule of NAME_RULES) {
+    if (rule.match(name)) return rule.splits;
+  }
+  return DEFAULT_SPLITS[muscleGroup] ?? [{ region: muscleGroup, intensity: 1 }];
 }
 
 Deno.serve(async (req: Request) => {
@@ -106,7 +141,7 @@ Deno.serve(async (req: Request) => {
             0
           );
           const secondary = Array.isArray(ex.secondary_muscles) ? ex.secondary_muscles : [];
-          const regions = getRegionsForExercise(ex.muscle_group, secondary);
+          const regions = getRegionsForExercise(ex.muscle_group, secondary, ex.name ?? "");
 
           for (const { region, intensity } of regions) {
             rows.push({

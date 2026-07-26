@@ -7,6 +7,7 @@ export interface RegionBalance {
   parent: string;
   totalVolume: number;
   totalSets: number;
+  weeklySets: number;
   percentage: number;
   status: 'undertrained' | 'balanced' | 'overtrained';
 }
@@ -16,6 +17,8 @@ export interface BalanceRecommendation {
   description: string;
   severity: 'info' | 'warning';
 }
+
+const WEEKS_WINDOW = 4;
 
 export async function fetchMuscleActivation(): Promise<MuscleActivation[]> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -60,7 +63,7 @@ export async function recomputeMuscleActivation(): Promise<void> {
       if (completedSets.length === 0) continue;
 
       const volume = completedSets.reduce((a: number, s: any) => a + (s.weight_kg ?? 0) * (s.reps ?? 0), 0);
-      const regions = getRegionsForExercise(ex.muscle_group, ex.secondary_muscles ?? []);
+      const regions = getRegionsForExercise(ex.muscle_group, ex.secondary_muscles ?? [], ex.name);
 
       for (const { region, intensity } of regions) {
         rows.push({
@@ -91,19 +94,19 @@ export function calculateBalance(activations: MuscleActivation[]): RegionBalance
     const existing = regionMap.get(a.region) ?? { volume: 0, sets: 0 };
     regionMap.set(a.region, {
       volume: existing.volume + Number(a.volume_kg),
-      sets: existing.sets + a.sets,
+      sets: existing.sets + Number(a.sets),
     });
   }
 
-  const totalVolume = Array.from(regionMap.values()).reduce((a, v) => a + v.volume, 0) || 1;
+  const totalSets = Array.from(regionMap.values()).reduce((a, v) => a + v.sets, 0) || 1;
 
   return MUSCLE_REGIONS.map(region => {
     const data = regionMap.get(region.key) ?? { volume: 0, sets: 0 };
-    const percentage = (data.volume / totalVolume) * 100;
+    const percentage = (data.sets / totalSets) * 100;
+    const weeklySets = data.sets / WEEKS_WINDOW;
     let status: 'undertrained' | 'balanced' | 'overtrained' = 'balanced';
-    if (percentage < 5 && data.sets > 0) status = 'undertrained';
-    if (percentage > 25) status = 'overtrained';
-    if (data.sets === 0) status = 'undertrained';
+    if (weeklySets < 3) status = 'undertrained';
+    if (weeklySets > 25) status = 'overtrained';
 
     return {
       region: region.key,
@@ -111,6 +114,7 @@ export function calculateBalance(activations: MuscleActivation[]): RegionBalance
       parent: region.parent,
       totalVolume: Math.round(data.volume),
       totalSets: data.sets,
+      weeklySets: Math.round(weeklySets * 10) / 10,
       percentage: Math.round(percentage),
       status,
     };
@@ -125,12 +129,12 @@ export function generateRecommendations(balances: RegionBalance[]): BalanceRecom
   const shoulders = findByParent('shoulders');
   const front = shoulders.find(b => b.region === 'shoulders_front');
   const rear = shoulders.find(b => b.region === 'shoulders_rear');
-  if (front && rear && front.totalVolume > 0 && rear.totalVolume > 0) {
-    const ratio = front.totalVolume / rear.totalVolume;
+  if (front && rear && front.weeklySets > 0 && rear.weeklySets > 0) {
+    const ratio = front.weeklySets / Math.max(rear.weeklySets, 0.1);
     if (ratio > 3) {
       recs.push({
         title: 'Skulderubalanse: forside dominerer',
-        description: 'Forsiden av skuldrene får betydelig mer volum enn baksiden. Legg til bakoverlendinger eller face pulls for å utjevne.',
+        description: `Du gjør ${front.weeklySets} sett/uken på forside vs ${rear.weeklySets} på bakside. Legg til face pulls eller bakoverlendinger for å utjevne.`,
         severity: 'warning',
       });
     }
@@ -139,12 +143,12 @@ export function generateRecommendations(balances: RegionBalance[]): BalanceRecom
   const legs = findByParent('legs');
   const quads = legs.find(b => b.region === 'legs_quads');
   const hams = legs.find(b => b.region === 'legs_hams');
-  if (quads && hams && quads.totalVolume > 0 && hams.totalVolume > 0) {
-    const ratio = quads.totalVolume / hams.totalVolume;
+  if (quads && hams && quads.weeklySets > 0 && hams.weeklySets > 0) {
+    const ratio = quads.weeklySets / Math.max(hams.weeklySets, 0.1);
     if (ratio > 2.5) {
       recs.push({
         title: 'Beinubalanse: quadriceps dominerer',
-        description: 'Quadriceps får mye mer volum enn hamstrings. Legg til beincurls eller rumenske markløft for bedre balanse.',
+        description: `Quadriceps får ${quads.weeklySets} sett/uken mot ${hams.weeklySets} for hamstrings. Legg til beincurls eller rumenske markløft.`,
         severity: 'warning',
       });
     }
@@ -152,7 +156,7 @@ export function generateRecommendations(balances: RegionBalance[]): BalanceRecom
 
   const chest = findByParent('chest');
   const upperChest = chest.find(b => b.region === 'chest_upper');
-  if (upperChest && upperChest.status === 'undertrained' && chest.some(b => b.totalVolume > 0)) {
+  if (upperChest && upperChest.status === 'undertrained' && chest.some(b => b.weeklySets > 0)) {
     recs.push({
       title: 'Underutviklet øvre bryst',
       description: 'Inkliner benkpress eller pullovers kan bidra til å bygge opp øvre del av brystet.',
@@ -164,9 +168,22 @@ export function generateRecommendations(balances: RegionBalance[]): BalanceRecom
   if (abs && abs.status === 'undertrained') {
     recs.push({
       title: 'Mage trenger oppmerksomhet',
-      description: 'Du har lite volum på mageøvelser. Vurder å legge til 2-3 sett per uke.',
+      description: `Du har ${abs.weeklySets} sett/uken på mage. Vurder 8-12 sett per uke for god kjernestabilitet.`,
       severity: 'info',
     });
+  }
+
+  const pushVolume = (balances.filter(b => ['chest', 'shoulders_front', 'shoulders_side', 'triceps'].some(r => b.region === r)).reduce((a, b) => a + b.weeklySets, 0));
+  const pullVolume = (balances.filter(b => ['back_lats', 'back_upper', 'back_lower', 'shoulders_rear', 'biceps'].some(r => b.region === r)).reduce((a, b) => a + b.weeklySets, 0));
+  if (pushVolume > 0 && pullVolume > 0) {
+    const ratio = pushVolume / Math.max(pullVolume, 0.1);
+    if (ratio > 1.6) {
+      recs.push({
+        title: 'Push/pull-ubalanse',
+        description: `Du gjør ${pushVolume.toFixed(1)} push-sett/uken mot ${pullVolume.toFixed(1)} pull-sett. Mer trekk for sunne skuldre.`,
+        severity: 'warning',
+      });
+    }
   }
 
   return recs;

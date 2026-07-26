@@ -250,7 +250,7 @@ export function MuscleMap({ trainedMuscles = [], mode = 'default', balanceScores
           </span>
           {mode === 'balance' && selectedScore !== null ? (
             <span className={selectedScore > 0 ? 'text-orange-400' : 'text-zinc-600'}>
-              {' · '}{selectedScore}% volum
+              {' · '}{selectedScore}% av settene
             </span>
           ) : (
             <span className={selectedActive ? 'text-green-400' : 'text-zinc-600'}>

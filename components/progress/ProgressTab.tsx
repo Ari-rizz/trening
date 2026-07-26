@@ -15,7 +15,7 @@ import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MuscleMap } from '@/components/dashboard/MuscleMap';
 import { fetchMuscleActivation, calculateBalance, generateRecommendations, RegionBalance, BalanceRecommendation } from '@/lib/muscle-balance';
-import { MUSCLE_REGIONS } from '@/lib/muscle-regions';
+import { MUSCLE_REGIONS, getRegionParent } from '@/lib/muscle-regions';
 import { searchExercises } from '@/lib/exercise-search';
 
 interface SessionData {
@@ -176,16 +176,15 @@ export function ProgressTab() {
     const balances = calculateBalance(activations);
     setRegionBalances(balances);
     setRecommendations(generateRecommendations(balances));
-    const groupVolumes = new Map<string, number>();
+    const groupSets = new Map<string, number>();
     for (const a of activations) {
-      const region = a.region;
-      const parent = MUSCLE_REGIONS_PARENTS[region] ?? region;
-      groupVolumes.set(parent, (groupVolumes.get(parent) ?? 0) + Number(a.volume_kg));
+      const parent = getRegionParent(a.region);
+      groupSets.set(parent, (groupSets.get(parent) ?? 0) + Number(a.sets));
     }
-    const totalVol = Array.from(groupVolumes.values()).reduce((a, v) => a + v, 0) || 1;
+    const totalSets = Array.from(groupSets.values()).reduce((a, v) => a + v, 0) || 1;
     const scores: Record<string, number> = {};
-    groupVolumes.forEach((vol, group) => {
-      scores[group] = Math.round((vol / totalVol) * 100);
+    groupSets.forEach((sets, group) => {
+      scores[group] = Math.round((sets / totalSets) * 100);
     });
     setBalanceScores(scores);
   };
@@ -561,7 +560,7 @@ export function ProgressTab() {
         {!isTourMode && userId && (
           <div className="mb-6">
             <h2 className="text-lg font-bold text-white mb-1">Muskelbalanse</h2>
-            <p className="text-zinc-500 text-xs mb-3">Siste 30 dager volum — trykk på en muskel for å se øvelsene</p>
+            <p className="text-zinc-500 text-xs mb-3">Sett-fordeling siste 4 ukene — trykk på en muskel for å se øvelsene</p>
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
               {Object.keys(balanceScores).length === 0 ? (
                 <div className="py-8 text-center">
@@ -1021,24 +1020,6 @@ export function ProgressTab() {
   );
 }
 
-// Region → muscle group parent mapping for balance scores
-const MUSCLE_REGIONS_PARENTS: Record<string, string> = {
-  chest_upper: 'chest',
-  chest_lower: 'chest',
-  back_lats: 'back',
-  back_upper: 'back',
-  shoulders_front: 'shoulders',
-  shoulders_rear: 'shoulders',
-  biceps: 'biceps',
-  triceps: 'triceps',
-  legs_quads: 'legs',
-  legs_hams: 'legs',
-  legs_glutes: 'glutes',
-  legs_calves: 'legs',
-  abs: 'abs',
-  forearms: 'forearms',
-};
-
 function BalanceBreakdown({
   balances,
   expandedGroups,
@@ -1067,7 +1048,7 @@ function BalanceBreakdown({
       .sort((a, b) => order.indexOf(a[0] as any) - order.indexOf(b[0] as any));
   }, [balances]);
 
-  const maxGroupVolume = Math.max(...grouped.map(([, items]) => items.reduce((a, b) => a + b.totalVolume, 0)), 1);
+  const maxGroupSets = Math.max(...grouped.map(([, items]) => items.reduce((a, b) => a + b.totalSets, 0)), 1);
 
   const statusColor = (status: string) => {
     if (status === 'overtrained') return '#ef4444';
@@ -1079,15 +1060,16 @@ function BalanceBreakdown({
     <div className="mt-4 pt-4 border-t border-zinc-800">
       <div className="flex items-center gap-2 mb-3">
         <Scale size={14} className="text-zinc-400" />
-        <p className="text-sm font-bold text-white">Volumfordeling</p>
+        <p className="text-sm font-bold text-white">Sett per uke</p>
       </div>
       <div className="space-y-2">
         {grouped.map(([parent, items]) => {
-          const totalVol = items.reduce((a, b) => a + b.totalVolume, 0);
+          const totalSets = items.reduce((a, b) => a + b.totalSets, 0);
+          const weeklySets = items.reduce((a, b) => a + b.weeklySets, 0);
           const totalPct = items.reduce((a, b) => a + b.percentage, 0);
           const color = getMuscleGroupColor(parent);
           const label = getMuscleGroupLabel(parent);
-          const widthPct = (totalVol / maxGroupVolume) * 100;
+          const widthPct = (totalSets / maxGroupSets) * 100;
           const isExpanded = expandedGroups.has(parent);
           const isHighlighted = highlightedGroup === parent;
           const hasSubRegions = items.length > 1;
@@ -1126,7 +1108,7 @@ function BalanceBreakdown({
                     <p className="text-white text-xs font-semibold">{label}</p>
                     <div className="flex items-center gap-2">
                       <span className="text-zinc-500 text-[10px] font-mono">
-                        {totalVol.toLocaleString('nb-NO')}kg
+                        {weeklySets.toFixed(1)}/u
                       </span>
                       <span className="text-zinc-400 text-[10px] font-bold w-8 text-right">{totalPct}%</span>
                       {hasSubRegions && (
@@ -1159,8 +1141,8 @@ function BalanceBreakdown({
                     <div className="px-2.5 pb-2.5 pt-1 space-y-1.5">
                       {items.map(r => {
                         const rColor = statusColor(r.status);
-                        const rWidth = r.totalVolume > 0
-                          ? (r.totalVolume / Math.max(...items.map(i => i.totalVolume), 1)) * 100
+                        const rWidth = r.totalSets > 0
+                          ? (r.totalSets / Math.max(...items.map(i => i.totalSets), 1)) * 100
                           : 0;
                         return (
                           <div key={r.region} className="flex items-center gap-2 pl-9">
@@ -1168,8 +1150,8 @@ function BalanceBreakdown({
                               <div className="flex items-center justify-between mb-0.5">
                                 <p className="text-zinc-400 text-[10px] truncate">{r.label}</p>
                                 <div className="flex items-center gap-1.5">
-                                  {r.totalVolume > 0 ? (
-                                    <span className="text-zinc-600 text-[9px] font-mono">{r.totalVolume.toLocaleString('nb-NO')}kg</span>
+                                  {r.totalSets > 0 ? (
+                                    <span className="text-zinc-600 text-[9px] font-mono">{r.weeklySets.toFixed(1)}/u</span>
                                   ) : (
                                     <span className="text-zinc-700 text-[9px]">—</span>
                                   )}
