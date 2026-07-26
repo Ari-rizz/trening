@@ -286,14 +286,14 @@ export const useAppStore = create<AppState>()(
             ...activeWorkout,
             exercises: activeWorkout.exercises.map(ex => {
               if (!idsToAdd.has(ex.id)) return ex;
-              const lastSet = ex.sets[ex.sets.length - 1];
+              const lastWorking = [...ex.sets].reverse().find(s => !s.isWarmup);
               const newSet: ActiveSet = {
                 exerciseId: ex.id,
                 setNumber: ex.sets.length + 1,
-                reps: lastSet?.reps ?? 0,
-                weight: lastSet?.weight ?? 0,
+                reps: lastWorking?.reps ?? 0,
+                weight: lastWorking?.weight ?? 0,
                 rpe: 0,
-                duration: lastSet?.duration ?? 0,
+                duration: lastWorking?.duration ?? 0,
                 isWarmup: false,
                 isCompleted: false,
               };
@@ -313,12 +313,14 @@ export const useAppStore = create<AppState>()(
               if (ex.id !== exerciseId) return ex;
               const lastWarmup = [...ex.sets].reverse().find(s => s.isWarmup);
               const firstWorking = ex.sets.find(s => !s.isWarmup);
-              const refWeight = firstWorking?.weight ?? lastWarmup?.weight ?? 0;
+              const refWeight = lastWarmup && lastWarmup.weight > 0
+                ? lastWarmup.weight
+                : (firstWorking?.weight ?? 0) * 0.5;
               const newWarmup: ActiveSet = {
                 exerciseId,
                 setNumber: 0,
                 reps: lastWarmup?.reps ?? 10,
-                weight: refWeight > 0 ? Math.round(refWeight * 0.5 * 2) / 2 : 0,
+                weight: refWeight > 0 ? Math.round(refWeight * 2) / 2 : 0,
                 rpe: 0,
                 duration: lastWarmup?.duration ?? 0,
                 isWarmup: true,
@@ -366,6 +368,7 @@ export const useAppStore = create<AppState>()(
                 ...ex,
                 sets: ex.sets.map(s => {
                   if (s.setNumber !== setNumber) return s;
+                  if (field === 'isWarmup') return s;
                   return { ...s, [field]: value };
                 }),
               };
