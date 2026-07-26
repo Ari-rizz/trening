@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield, Trash2 } from 'lucide-react';
 import { format, fromUnixTime } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
@@ -55,6 +55,9 @@ export function ProfileTab() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isIOSSafari = isIOS && isSafari;
@@ -165,6 +168,32 @@ export function ProfileTab() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Ikke innlogget');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          Apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error ?? 'Kunne ikke slette brukeren');
+      }
+      setShowDeleteConfirm(false);
+      await supabase.auth.signOut();
+    } catch (err: any) {
+      setDeleteError(err.message ?? 'Noe gikk galt. Prøv igjen.');
+    }
+    setDeleteLoading(false);
   };
 
   const handleCancelSubscription = async () => {
@@ -555,6 +584,16 @@ export function ProfileTab() {
           Logg ut
         </motion.button>
 
+        {/* Delete account */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => { setShowDeleteConfirm(true); setDeleteError(''); }}
+          className="w-full flex items-center gap-3 bg-red-950/40 border border-red-900/50 rounded-2xl px-5 py-4 text-red-400 font-semibold"
+        >
+          <Trash2 size={18} />
+          Slett min bruker
+        </motion.button>
+
         {/* Install button */}
         {!isInstalled && (
           <motion.button
@@ -730,6 +769,68 @@ export function ProfileTab() {
               )}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete account confirmation sheet */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/60"
+              onClick={() => !deleteLoading && setShowDeleteConfirm(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
+            >
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={22} className="text-red-400" />
+              </div>
+              <h2 className="text-white font-bold text-xl text-center mb-2">Slette brukeren din?</h2>
+              <p className="text-zinc-400 text-sm text-center leading-relaxed mb-6">
+                Dette sletter permanent all treningshistorikk, mål, abonnement og kontoinformasjon.
+                Dette kan ikke angres. Eventuelt abonnement avsluttes umiddelbart.
+              </p>
+              {deleteError && (
+                <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4 text-center">
+                  {deleteError}
+                </p>
+              )}
+              <div className="space-y-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading}
+                  className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-colors"
+                >
+                  {deleteLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 size={18} />
+                      Ja, slett brukeren min
+                    </>
+                  )}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleteLoading}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-4 rounded-2xl font-semibold text-base transition-colors"
+                >
+                  Avbryt
+                </motion.button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
