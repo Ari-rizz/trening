@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell } from 'lucide-react';
+import { supabase, Exercise } from '@/lib/supabase';
+import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
+import { searchExercises } from '@/lib/exercise-search';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
 
 interface OnboardingFlowProps {
@@ -37,10 +39,15 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   const [trainingDaysPerWeek, setTrainingDaysPerWeek] = useState('');
   const [availableEquipment, setAvailableEquipment] = useState<string[]>([]);
 
-  // Step 6: Terms acceptance
+  // Step 6: Pin exercises
+  const [trackedExercises, setTrackedExercises] = useState<string[]>([]);
+  const [exerciseSearch, setExerciseSearch] = useState('');
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+
+  // Step 7: Terms acceptance
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const totalSteps = 6;
+  const totalSteps = 7;
 
   const saveProfile = async () => {
     setLoading(true);
@@ -57,6 +64,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
         training_goal: trainingGoal || null,
         workout_frequency: trainingDaysPerWeek ? parseInt(trainingDaysPerWeek, 10) : null,
         available_equipment: availableEquipment.length > 0 ? availableEquipment : null,
+        tracked_exercises: trackedExercises.length > 0 ? trackedExercises : [],
         terms_accepted_at: termsAccepted ? new Date().toISOString() : null,
         terms_version: termsAccepted ? 'v1' : null,
         onboarding_completed: true,
@@ -110,9 +118,21 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   const canProceed = () => {
     if (step === 1) return fullName.trim().length > 0;
     if (step === 2) return username.trim().length >= 3 && !usernameError;
-    if (step === 6) return termsAccepted;
+    if (step === 7) return termsAccepted;
     return true;
   };
+
+  useEffect(() => {
+    if (step === 6 && allExercises.length === 0) {
+      supabase
+        .from('exercises')
+        .select('id, name, muscle_group, secondary_muscles, equipment, nicknames')
+        .order('name')
+        .then(({ data }) => {
+          if (data) setAllExercises(data as Exercise[]);
+        });
+    }
+  }, [step, allExercises.length]);
 
   const equipmentOptions = [
     { value: 'barbell', label: 'Stang' },
@@ -419,6 +439,111 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             transition={{ duration: 0.25 }}
             className="flex-1 flex flex-col"
           >
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-5">
+              <Dumbbell size={24} className="text-blue-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Velg øvelser å følge</h1>
+            <p className="text-zinc-500 text-sm mb-6">Valgfritt — velg 3–5 øvelser du vil følge tett på. Du kan endre dette senere.</p>
+
+            {/* Selected counter */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${trackedExercises.length > 0 ? 'bg-blue-500/20 text-blue-400' : 'bg-zinc-800 text-zinc-500'}`}>
+                {trackedExercises.length} valgt
+              </span>
+            </div>
+
+            {/* Selected chips */}
+            {trackedExercises.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {trackedExercises.map(id => {
+                  const ex = allExercises.find(e => e.id === id);
+                  if (!ex) return null;
+                  const color = getMuscleGroupColor(ex.muscle_group);
+                  return (
+                    <div key={id} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-full pl-2.5 pr-1 py-1">
+                      <span className="text-xs font-medium text-white">{ex.name}</span>
+                      <button
+                        onClick={() => setTrackedExercises(prev => prev.filter(x => x !== id))}
+                        className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center"
+                      >
+                        <X size={11} className="text-zinc-400" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                type="text"
+                value={exerciseSearch}
+                onChange={e => setExerciseSearch(e.target.value)}
+                placeholder="Søk etter øvelser…"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+              />
+            </div>
+
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 pb-2">
+              {(() => {
+                const results = searchExercises(allExercises, exerciseSearch).slice(0, 50);
+                if (results.length === 0) {
+                  return (
+                    <div className="py-8 text-center">
+                      <p className="text-zinc-600 text-sm">Ingen øvelser funnet</p>
+                    </div>
+                  );
+                }
+                return results.map(ex => {
+                  const isSelected = trackedExercises.includes(ex.id);
+                  const color = getMuscleGroupColor(ex.muscle_group);
+                  return (
+                    <button
+                      key={ex.id}
+                      onClick={() => {
+                        setTrackedExercises(prev =>
+                          isSelected ? prev.filter(x => x !== ex.id) : [...prev, ex.id]
+                        );
+                      }}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-colors ${
+                        isSelected
+                          ? 'bg-blue-500/10 border-blue-500/40'
+                          : 'bg-zinc-900 border-zinc-800'
+                      }`}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: color + '22' }}
+                      >
+                        <Dumbbell size={16} style={{ color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{ex.name}</p>
+                        <p className="text-xs" style={{ color }}>{getMuscleGroupLabel(ex.muscle_group)}</p>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-blue-500' : 'bg-zinc-800'}`}>
+                        {isSelected && <Check size={14} className="text-white" />}
+                      </div>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+          </motion.div>
+        )}
+
+        {step === 7 && (
+          <motion.div
+            key="step7"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.25 }}
+            className="flex-1 flex flex-col"
+          >
             <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
               <ShieldCheck size={24} className="text-red-400" />
             </div>
@@ -453,7 +578,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
           )}
         </motion.button>
 
-        {step > 1 && step !== 2 && step !== 6 && (
+        {step > 1 && step !== 2 && step !== 7 && (
           <button
             onClick={handleSkip}
             className="w-full text-zinc-500 hover:text-zinc-300 text-sm font-medium py-2 transition-colors"

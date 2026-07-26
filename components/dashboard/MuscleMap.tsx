@@ -7,7 +7,10 @@ import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 // Copyright (c) 2026 by Vilson — MIT License. See THIRD_PARTY_LICENSES.md.
 
 interface Props {
-  trainedMuscles: string[];
+  trainedMuscles?: string[];
+  mode?: 'default' | 'balance';
+  balanceScores?: Record<string, number>;
+  onGroupSelect?: (group: string) => void;
 }
 
 const INACTIVE = '#3f3f46';
@@ -63,7 +66,25 @@ const PATH_TO_GROUP: Record<string, string> = {
   'clavicule-right': 'shoulders',
 };
 
-function partStyle(group: string, trained: Set<string>) {
+function partStyle(group: string, trained: Set<string>, mode: string, balanceScores?: Record<string, number>) {
+  if (mode === 'balance') {
+    const score = balanceScores?.[group] ?? 0;
+    if (score <= 0) {
+      return {
+        fill: INACTIVE,
+        transition: 'fill 0.4s ease, filter 0.4s ease',
+        cursor: 'pointer',
+      } as React.CSSProperties;
+    }
+    const intensity = Math.min(1, score / 100);
+    const alpha = Math.round(40 + intensity * 215).toString(16).padStart(2, '0');
+    return {
+      fill: `#ef4444${alpha}`,
+      transition: 'fill 0.4s ease, filter 0.4s ease',
+      filter: `drop-shadow(0 0 ${3 + intensity * 6}px #ef4444${alpha})`,
+      cursor: 'pointer',
+    } as React.CSSProperties;
+  }
   const active = trained.has(group);
   const color = active ? getMuscleGroupColor(group) : INACTIVE;
   return {
@@ -81,12 +102,14 @@ interface BodyPartProps {
   hovered: string | null;
   setHovered: (id: string | null) => void;
   setSelected: (id: string) => void;
+  mode: string;
+  balanceScores?: Record<string, number>;
 }
 
-function BodyPart({ id, d, trained, hovered, setHovered, setSelected }: BodyPartProps) {
+function BodyPart({ id, d, trained, hovered, setHovered, setSelected, mode, balanceScores }: BodyPartProps) {
   const group = PATH_TO_GROUP[id] ?? id;
-  const style = partStyle(group, trained);
-  if (hovered === id && !trained.has(group)) {
+  const style = partStyle(group, trained, mode, balanceScores);
+  if (hovered === id && (mode === 'default' && !trained.has(group))) {
     (style as React.CSSProperties).fill = HOVER;
   }
   return (
@@ -163,6 +186,8 @@ function BodyView({
   setHovered,
   setSelected,
   side,
+  mode,
+  balanceScores,
 }: {
   paths: Record<string, string>;
   trained: Set<string>;
@@ -170,6 +195,8 @@ function BodyView({
   setHovered: (id: string | null) => void;
   setSelected: (id: string) => void;
   side: 'front' | 'back';
+  mode: string;
+  balanceScores?: Record<string, number>;
 }) {
   return (
     <svg
@@ -189,33 +216,47 @@ function BodyView({
           hovered={hovered}
           setHovered={setHovered}
           setSelected={setSelected}
+          mode={mode}
+          balanceScores={balanceScores}
         />
       ))}
     </svg>
   );
 }
 
-export function MuscleMap({ trainedMuscles }: Props) {
+export function MuscleMap({ trainedMuscles = [], mode = 'default', balanceScores, onGroupSelect }: Props) {
   const trained = new Set(trainedMuscles);
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
+  const handleSelect = (id: string) => {
+    setSelected(id);
+    const group = PATH_TO_GROUP[id] ?? id;
+    onGroupSelect?.(group);
+  };
+
   const selectedGroup = selected ? PATH_TO_GROUP[selected] ?? null : null;
   const selectedLabel = selectedGroup ? getMuscleGroupLabel(selectedGroup) : null;
   const selectedActive = selectedGroup ? trained.has(selectedGroup) : false;
+  const selectedScore = selectedGroup && mode === 'balance' ? balanceScores?.[selectedGroup] ?? 0 : null;
 
   return (
     <div className="flex flex-col items-center w-full">
       {selectedLabel && (
         <div className="mb-2 text-xs font-medium">
           <span className="text-zinc-500">Valgt: </span>
-          <span className={selectedActive ? 'text-white' : 'text-zinc-400'}>
+          <span className={selectedActive || (selectedScore !== null && selectedScore > 0) ? 'text-white' : 'text-zinc-400'}>
             {selectedLabel}
           </span>
-          <span className={selectedActive ? 'text-green-400' : 'text-zinc-600'}>
-            {' · '}
-            {selectedActive ? 'Trent' : 'Ikke trent'}
-          </span>
+          {mode === 'balance' && selectedScore !== null ? (
+            <span className={selectedScore > 0 ? 'text-orange-400' : 'text-zinc-600'}>
+              {' · '}{selectedScore}% volum
+            </span>
+          ) : (
+            <span className={selectedActive ? 'text-green-400' : 'text-zinc-600'}>
+              {' · '}{selectedActive ? 'Trent' : 'Ikke trent'}
+            </span>
+          )}
         </div>
       )}
       <div className="flex justify-center items-start w-full gap-16">
@@ -226,8 +267,10 @@ export function MuscleMap({ trainedMuscles }: Props) {
               trained={trained}
               hovered={hovered}
               setHovered={setHovered}
-              setSelected={setSelected}
+              setSelected={handleSelect}
               side="front"
+              mode={mode}
+              balanceScores={balanceScores}
             />
           </div>
           <span className="text-[10px] text-zinc-600 font-medium">Front</span>
@@ -239,8 +282,10 @@ export function MuscleMap({ trainedMuscles }: Props) {
               trained={trained}
               hovered={hovered}
               setHovered={setHovered}
-              setSelected={setSelected}
+              setSelected={handleSelect}
               side="back"
+              mode={mode}
+              balanceScores={balanceScores}
             />
           </div>
           <span className="text-[10px] text-zinc-600 font-medium">Back</span>

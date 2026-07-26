@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown, Link2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM } from '@/lib/exercises-data';
+import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown, Link2, Search, Pin, Check } from 'lucide-react';
+import { supabase, Exercise } from '@/lib/supabase';
+import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { format, subDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { ManualEntrySheet } from './ManualEntrySheet';
 import { CreateGoalSheet, GoalsSection } from '@/components/goals/CreateGoalSheet';
-import { MuscleBalanceSection } from '@/components/analytics/MuscleBalanceSection';
 import { fetchGoals, deleteGoal } from '@/lib/goals';
 import { Goal } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { MuscleMap } from '@/components/dashboard/MuscleMap';
+import { fetchMuscleActivation } from '@/lib/muscle-balance';
+import { searchExercises } from '@/lib/exercise-search';
 
 interface SessionData {
   workoutId: string;
@@ -33,6 +35,7 @@ interface ExerciseHistory {
   exerciseId: string;
   exerciseName: string;
   muscleGroup: string;
+  mechanic: string;
   sessions: SessionData[];
   pr: { weight: number; reps: number; oneRM: number } | null;
   isTimeBased: boolean;
@@ -43,6 +46,7 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     exerciseId: 'mock-bench',
     exerciseName: 'Benkpress',
     muscleGroup: 'chest',
+    mechanic: 'compound',
     isTimeBased: false,
     pr: { weight: 90, reps: 5, oneRM: 101 },
     sessions: [
@@ -55,6 +59,7 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     exerciseId: 'mock-squat',
     exerciseName: 'Knebøy',
     muscleGroup: 'legs',
+    mechanic: 'compound',
     isTimeBased: false,
     pr: { weight: 120, reps: 5, oneRM: 135 },
     sessions: [
@@ -66,6 +71,7 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     exerciseId: 'mock-deadlift',
     exerciseName: 'Markløft',
     muscleGroup: 'back',
+    mechanic: 'compound',
     isTimeBased: false,
     pr: { weight: 140, reps: 3, oneRM: 151 },
     sessions: [
@@ -77,6 +83,7 @@ const MOCK_HISTORIES: ExerciseHistory[] = [
     exerciseId: 'mock-ohp',
     exerciseName: 'Skulderpress',
     muscleGroup: 'shoulders',
+    mechanic: 'compound',
     isTimeBased: false,
     pr: { weight: 60, reps: 6, oneRM: 70 },
     sessions: [
@@ -91,6 +98,9 @@ interface WeightLog {
   weight_kg: number;
 }
 
+type ChartTab = 'weight' | 'strength';
+type Period = 30 | 90 | 180;
+
 export function ProgressTab() {
   const [histories, setHistories] = useState<ExerciseHistory[]>([]);
   const [selected, setSelected] = useState<ExerciseHistory | null>(null);
@@ -101,12 +111,23 @@ export function ProgressTab() {
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const { isTourMode, tourSelectedExerciseId } = useAppStore();
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
-  const [weightPeriod, setWeightPeriod] = useState<30 | 90 | 180>(30);
-  const [weightExpanded, setWeightExpanded] = useState(false);
+  const [weightPeriod, setWeightPeriod] = useState<Period>(30);
+  const [strengthPeriod, setStrengthPeriod] = useState<Period>(30);
+  const [chartTab, setChartTab] = useState<ChartTab>('weight');
+  const [trackedExercises, setTrackedExercises] = useState<string[]>([]);
+  const [balanceScores, setBalanceScores] = useState<Record<string, number>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showPinSheet, setShowPinSheet] = useState(false);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+  const [pinSearch, setPinSearch] = useState('');
+  const [pinDraft, setPinDraft] = useState<string[]>([]);
+  const [pinSaving, setPinSaving] = useState(false);
+  const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if (isTourMode) {
       setHistories(MOCK_HISTORIES);
+      setTrackedExercises(['mock-bench', 'mock-squat', 'mock-deadlift']);
       setLoading(false);
       return;
     }
@@ -117,11 +138,49 @@ export function ProgressTab() {
         fetchHistory(uid);
         fetchWeightLogs(uid);
         fetchGoals().then(setGoals);
+        fetchTrackedExercises(uid);
+        fetchBalanceScores();
       } else {
         setLoading(false);
       }
     });
   }, [isTourMode]);
+
+  useEffect(() => {
+    if (isTourMode && tourSelectedExerciseId) {
+      const match = MOCK_HISTORIES.find(h => h.exerciseId === tourSelectedExerciseId);
+      if (match) setSelected(match);
+    } else if (isTourMode && !tourSelectedExerciseId) {
+      setSelected(null);
+    }
+  }, [isTourMode, tourSelectedExerciseId]);
+
+  const fetchTrackedExercises = async (uid: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('tracked_exercises')
+      .eq('id', uid)
+      .maybeSingle();
+    if (data?.tracked_exercises) {
+      setTrackedExercises(data.tracked_exercises as string[]);
+    }
+  };
+
+  const fetchBalanceScores = async () => {
+    const activations = await fetchMuscleActivation();
+    const groupVolumes = new Map<string, number>();
+    for (const a of activations) {
+      const region = a.region;
+      const parent = MUSCLE_REGIONS_PARENTS[region] ?? region;
+      groupVolumes.set(parent, (groupVolumes.get(parent) ?? 0) + Number(a.volume_kg));
+    }
+    const totalVol = Array.from(groupVolumes.values()).reduce((a, v) => a + v, 0) || 1;
+    const scores: Record<string, number> = {};
+    groupVolumes.forEach((vol, group) => {
+      scores[group] = Math.round((vol / totalVol) * 100);
+    });
+    setBalanceScores(scores);
+  };
 
   const handleDeleteGoal = async (id: string) => {
     await deleteGoal(id);
@@ -139,15 +198,6 @@ export function ProgressTab() {
     setWeightLogs(data ?? []);
   };
 
-  useEffect(() => {
-    if (isTourMode && tourSelectedExerciseId) {
-      const match = MOCK_HISTORIES.find(h => h.exerciseId === tourSelectedExerciseId);
-      if (match) setSelected(match);
-    } else if (isTourMode && !tourSelectedExerciseId) {
-      setSelected(null);
-    }
-  }, [isTourMode, tourSelectedExerciseId]);
-
   const fetchHistory = async (uid: string) => {
     setLoading(true);
     try {
@@ -157,7 +207,7 @@ export function ProgressTab() {
           id, date, name, is_manual,
           workout_exercises(
             exercise_id, superset_group,
-            exercises(id, name, muscle_group),
+            exercises(id, name, muscle_group, mechanic),
             workout_sets(set_number, reps, weight_kg, rpe, duration_seconds, is_completed)
           )
         `)
@@ -176,6 +226,7 @@ export function ProgressTab() {
               exerciseId: ex.id,
               exerciseName: ex.name,
               muscleGroup: ex.muscle_group,
+              mechanic: (ex.mechanic ?? '').toLowerCase(),
               sessions: [],
               pr: null,
               isTimeBased: false,
@@ -242,7 +293,6 @@ export function ProgressTab() {
   };
 
   const handleDeleteSession = async (workoutId: string, exerciseId: string) => {
-    // Check if the workout is a manual entry before deleting
     const { data: workoutRow } = await supabase
       .from('workouts')
       .select('is_manual')
@@ -255,7 +305,6 @@ export function ProgressTab() {
       .eq('workout_id', workoutId)
       .eq('exercise_id', exerciseId);
 
-    // If manual entry, also delete the parent workout row
     if (workoutRow?.is_manual) {
       await supabase.from('workouts').delete().eq('id', workoutId);
     }
@@ -274,6 +323,39 @@ export function ProgressTab() {
         setSelected({ ...selected, sessions: updatedSessions });
       }
     }
+  };
+
+  const openPinSheet = async () => {
+    setPinDraft(trackedExercises);
+    setPinSearch('');
+    if (allExercises.length === 0) {
+      const { data } = await supabase
+        .from('exercises')
+        .select('id, name, muscle_group, secondary_muscles, equipment, nicknames')
+        .order('name');
+      if (data) setAllExercises(data as Exercise[]);
+    }
+    setShowPinSheet(true);
+  };
+
+  const savePinnedExercises = async () => {
+    if (!userId) return;
+    setPinSaving(true);
+    await supabase
+      .from('profiles')
+      .update({ tracked_exercises: pinDraft })
+      .eq('id', userId);
+    setTrackedExercises(pinDraft);
+    setPinSaving(false);
+    setShowPinSheet(false);
+  };
+
+  const scrollToGroup = (group: string) => {
+    setExpandedGroups(prev => new Set(prev).add(group));
+    setTimeout(() => {
+      const el = groupRefs.current[group];
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   if (selected) {
@@ -305,153 +387,152 @@ export function ProgressTab() {
     vekt: Number(l.weight_kg),
   }));
 
+  // Strength chart: sum of 1RM across pinned exercises per session date
+  const pinnedHistories = histories.filter(h => trackedExercises.includes(h.exerciseId) && !h.isTimeBased);
+  const strengthChartData = useMemo(() => {
+    const dateMap = new Map<string, { date: string; styrke: number }>();
+    for (const h of pinnedHistories) {
+      for (const s of h.sessions) {
+        const dateKey = format(new Date(s.date), 'yyyy-MM-dd');
+        const existing = dateMap.get(dateKey) ?? { date: format(new Date(s.date), 'd. MMM', { locale: nb }), styrke: 0 };
+        existing.styrke += Math.round(s.oneRM);
+        dateMap.set(dateKey, existing);
+      }
+    }
+    return Array.from(dateMap.values()).sort((a, b) => {
+      const aDate = a.date;
+      const bDate = b.date;
+      return aDate.localeCompare(bDate);
+    });
+  }, [pinnedHistories]);
+
+  // Group exercises by mechanic then muscle group
+  const grouped = useMemo(() => {
+    const compound: Record<string, ExerciseHistory[]> = {};
+    const isolation: Record<string, ExerciseHistory[]> = {};
+    const other: Record<string, ExerciseHistory[]> = {};
+    for (const h of histories) {
+      const bucket = h.mechanic === 'compound' ? compound : h.mechanic === 'isolation' ? isolation : other;
+      const key = h.muscleGroup;
+      if (!bucket[key]) bucket[key] = [];
+      bucket[key].push(h);
+    }
+    return { compound, isolation, other };
+  }, [histories]);
+
+  const renderGroupedSection = (title: string, groups: Record<string, ExerciseHistory[]>) => {
+    const groupKeys = Object.keys(groups).sort((a, b) => {
+      const order = MUSCLE_GROUPS.map(m => m.value);
+      return order.indexOf(a as any) - order.indexOf(b as any);
+    });
+    if (groupKeys.length === 0) return null;
+    return (
+      <div className="mb-4">
+        <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wide mb-2 px-1">{title}</h3>
+        <div className="space-y-2">
+          {groupKeys.map(mg => {
+            const exercises = groups[mg];
+            const color = getMuscleGroupColor(mg);
+            const label = getMuscleGroupLabel(mg);
+            const groupKey = `${title}-${mg}`;
+            const isExpanded = expandedGroups.has(groupKey);
+            return (
+              <div
+                key={groupKey}
+                ref={el => { groupRefs.current[mg] = el; }}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden"
+              >
+                <button
+                  onClick={() => setExpandedGroups(prev => {
+                    const next = new Set(prev);
+                    if (next.has(groupKey)) next.delete(groupKey);
+                    else next.add(groupKey);
+                    return next;
+                  })}
+                  className="w-full flex items-center gap-3 p-3.5 text-left"
+                >
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: color + '22' }}
+                  >
+                    <Dumbbell size={16} style={{ color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm">{label}</p>
+                    <p className="text-xs text-zinc-500">{exercises.length} {exercises.length === 1 ? 'øvelse' : 'øvelser'}</p>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={`text-zinc-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-2 pb-2 space-y-1.5">
+                        {exercises.map((h, i) => {
+                          const lastSession = h.sessions[h.sessions.length - 1];
+                          const prevSession = h.sessions.length >= 2 ? h.sessions[h.sessions.length - 2] : null;
+                          const trend = h.isTimeBased
+                            ? (prevSession ? lastSession.maxDuration - prevSession.maxDuration : 0)
+                            : (prevSession ? lastSession.oneRM - prevSession.oneRM : 0);
+                          return (
+                            <motion.button
+                              key={h.exerciseId}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.03 }}
+                              onClick={() => setSelected(h)}
+                              className="w-full bg-zinc-800/50 border border-zinc-800/50 rounded-xl p-3 flex items-center gap-3 text-left active:bg-zinc-800"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white font-medium text-sm truncate">{h.exerciseName}</p>
+                                <p className="text-xs text-zinc-500 mt-0.5">{h.sessions.length} {h.sessions.length === 1 ? 'sesjon' : 'sesjoner'}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                {h.isTimeBased ? (
+                                  <p className="text-white font-bold text-sm">{lastSession.maxDuration}s</p>
+                                ) : h.pr ? (
+                                  <p className="text-white font-bold text-sm">{Math.round(h.pr.oneRM)}kg</p>
+                                ) : null}
+                                {trend !== 0 && (
+                                  <p className={`text-xs font-medium ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {trend > 0 ? '+' : ''}{Math.round(trend)}{h.isTimeBased ? 's' : ''}
+                                  </p>
+                                )}
+                              </div>
+                              <ChevronRight size={16} className="text-zinc-700 flex-shrink-0" />
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const pinnedCards = trackedExercises
+    .map(id => histories.find(h => h.exerciseId === id))
+    .filter((h): h is ExerciseHistory => h !== undefined);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Body weight section */}
-      {userId && !isTourMode && (
-        <div className="px-4 pt-5 mb-2">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Kroppsvekt</h2>
-              <p className="text-zinc-500 text-sm mt-0.5">
-                {currentWeight !== null ? `${String(currentWeight).replace('.', ',')} kg nå` : 'Ingen data ennå'}
-              </p>
-            </div>
-            <button
-              onClick={() => setWeightExpanded(v => !v)}
-              className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center"
-            >
-              <ChevronDown
-                size={16}
-                className={`text-zinc-400 transition-transform ${weightExpanded ? 'rotate-180' : ''}`}
-              />
-            </button>
-          </div>
-
-            <AnimatePresence initial={false}>
-              {weightExpanded && (
-                <motion.div
-                  key="weight-body"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.22 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl pb-4 pt-3 px-4 mb-4">
-                    {/* Period selector */}
-                    <div className="flex gap-2 mb-4">
-                      {([30, 90, 180] as const).map(p => (
-                        <button
-                          key={p}
-                          onClick={() => setWeightPeriod(p)}
-                          className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
-                            weightPeriod === p
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-zinc-800 text-zinc-500'
-                          }`}
-                        >
-                          {p} dager
-                        </button>
-                      ))}
-                    </div>
-
-                    {weightChartData.length === 0 ? (
-                      <div className="py-8 text-center">
-                        <Scale size={32} className="text-zinc-700 mx-auto mb-2" />
-                        <p className="text-zinc-500 text-sm font-medium">Ingen vektdata</p>
-                        <p className="text-zinc-600 text-xs mt-1">Logg vekten din fra hjem-fanen</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Stats row */}
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
-                            <p className="text-white font-bold text-sm">
-                              {currentWeight !== null ? String(currentWeight).replace('.', ',') : '—'}
-                            </p>
-                            <p className="text-zinc-600 text-[10px] mt-0.5">Nå</p>
-                          </div>
-                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
-                            <p className="text-white font-bold text-sm">
-                              {startWeight !== null ? String(startWeight).replace('.', ',') : '—'}
-                            </p>
-                            <p className="text-zinc-600 text-[10px] mt-0.5">Start</p>
-                          </div>
-                          <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
-                            {weightDiff !== null ? (
-                              <>
-                                <p className={`font-bold text-sm flex items-center justify-center gap-0.5 ${
-                                  weightDiff < 0 ? 'text-green-400' : weightDiff > 0 ? 'text-red-400' : 'text-zinc-400'
-                                }`}>
-                                  {weightDiff > 0
-                                    ? <TrendingUp size={12} />
-                                    : weightDiff < 0
-                                    ? <TrendingDown size={12} />
-                                    : null}
-                                  {weightDiff > 0 ? '+' : ''}{weightDiff.toFixed(1).replace('.', ',')}
-                                </p>
-                                <p className="text-zinc-600 text-[10px] mt-0.5">Endring</p>
-                              </>
-                            ) : (
-                              <p className="text-zinc-600 text-sm">—</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Chart */}
-                        <div className="h-36">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                tick={{ fill: '#52525b', fontSize: 9 }}
-                                tickLine={false}
-                                axisLine={false}
-                                interval="preserveStartEnd"
-                              />
-                              <YAxis
-                                tick={{ fill: '#52525b', fontSize: 9 }}
-                                tickLine={false}
-                                axisLine={false}
-                                domain={['auto', 'auto']}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  background: '#18181b',
-                                  border: '1px solid #3f3f46',
-                                  borderRadius: 10,
-                                  color: '#fff',
-                                  fontSize: 12,
-                                }}
-                                formatter={(v: number) => [`${String(v).replace('.', ',')} kg`, 'Vekt']}
-                                labelStyle={{ color: '#a1a1aa', marginBottom: 2 }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="vekt"
-                                stroke="#3b82f6"
-                                strokeWidth={2}
-                                dot={weightChartData.length <= 14}
-                                activeDot={{ r: 4, fill: '#3b82f6' }}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-        </div>
-      )}
-
-      <div className="px-4 pt-5 pb-4 flex items-center justify-between">
+      <div className="px-4 pt-5 pb-3 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Fremgang</h1>
-          <p className="text-zinc-500 text-sm mt-0.5">Alle øvelser du har trent</p>
+          <p className="text-zinc-500 text-sm mt-0.5">Din utvikling over tid</p>
         </div>
         {userId && (
           <motion.button
@@ -464,17 +545,261 @@ export function ProgressTab() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-2">
-        {!isTourMode && !loading && (
-          <>
-            <GoalsSection
-              goals={goals}
-              onAdd={() => setShowCreateGoal(true)}
-              onDelete={handleDeleteGoal}
-            />
-            <MuscleBalanceSection />
-          </>
+      <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
+        {/* Section 1: Body Map */}
+        {!isTourMode && userId && (
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-white mb-1">Muskelbalanse</h2>
+            <p className="text-zinc-500 text-xs mb-3">Siste 30 dager volum — trykk på en muskel for å se øvelsene</p>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+              {Object.keys(balanceScores).length === 0 ? (
+                <div className="py-8 text-center">
+                  <Scale size={28} className="text-zinc-700 mx-auto mb-2" />
+                  <p className="text-zinc-500 text-sm">Ingen balansedata ennå</p>
+                  <p className="text-zinc-600 text-xs mt-1">Fullfør økter for å se fordeling</p>
+                </div>
+              ) : (
+                <MuscleMap
+                  mode="balance"
+                  balanceScores={balanceScores}
+                  onGroupSelect={scrollToGroup}
+                />
+              )}
+            </div>
+          </div>
         )}
+
+        {/* Section 2: Swipeable Charts */}
+        {!isTourMode && userId && (
+          <div className="mb-6">
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setChartTab('weight')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
+                  chartTab === 'weight' ? 'bg-blue-500 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-500'
+                }`}
+              >
+                Kroppsvekt
+              </button>
+              <button
+                onClick={() => setChartTab('strength')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-colors ${
+                  chartTab === 'strength' ? 'bg-blue-500 text-white' : 'bg-zinc-900 border border-zinc-800 text-zinc-500'
+                }`}
+              >
+                Total styrke
+              </button>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {chartTab === 'weight' ? (
+                <motion.div
+                  key="weight-chart"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+                >
+                  <div className="flex gap-2 mb-3">
+                    {([30, 90, 180] as Period[]).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setWeightPeriod(p)}
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                          weightPeriod === p ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {p} dager
+                      </button>
+                    ))}
+                  </div>
+
+                  {weightChartData.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Scale size={28} className="text-zinc-700 mx-auto mb-2" />
+                      <p className="text-zinc-500 text-sm">Ingen vektdata</p>
+                      <p className="text-zinc-600 text-xs mt-1">Logg vekten din fra hjem-fanen</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                          <p className="text-white font-bold text-sm">
+                            {currentWeight !== null ? String(currentWeight).replace('.', ',') : '—'}
+                          </p>
+                          <p className="text-zinc-600 text-[10px] mt-0.5">Nå</p>
+                        </div>
+                        <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                          <p className="text-white font-bold text-sm">
+                            {startWeight !== null ? String(startWeight).replace('.', ',') : '—'}
+                          </p>
+                          <p className="text-zinc-600 text-[10px] mt-0.5">Start</p>
+                        </div>
+                        <div className="bg-zinc-800/60 rounded-xl p-2.5 text-center">
+                          {weightDiff !== null ? (
+                            <>
+                              <p className={`font-bold text-sm flex items-center justify-center gap-0.5 ${
+                                weightDiff < 0 ? 'text-green-400' : weightDiff > 0 ? 'text-red-400' : 'text-zinc-400'
+                              }`}>
+                                {weightDiff > 0 ? <TrendingUp size={12} /> : weightDiff < 0 ? <TrendingDown size={12} /> : null}
+                                {weightDiff > 0 ? '+' : ''}{weightDiff.toFixed(1).replace('.', ',')}
+                              </p>
+                              <p className="text-zinc-600 text-[10px] mt-0.5">Endring</p>
+                            </>
+                          ) : (
+                            <p className="text-zinc-600 text-sm">—</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="h-36">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={weightChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 9 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                            <YAxis tick={{ fill: '#52525b', fontSize: 9 }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                            <Tooltip
+                              contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 10, color: '#fff', fontSize: 12 }}
+                              formatter={(v: number) => [`${String(v).replace('.', ',')} kg`, 'Vekt']}
+                              labelStyle={{ color: '#a1a1aa', marginBottom: 2 }}
+                            />
+                            <Line type="monotone" dataKey="vekt" stroke="#3b82f6" strokeWidth={2} dot={weightChartData.length <= 14} activeDot={{ r: 4, fill: '#3b82f6' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="strength-chart"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+                >
+                  <div className="flex gap-2 mb-3">
+                    {([30, 90, 180] as Period[]).map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setStrengthPeriod(p)}
+                        className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                          strengthPeriod === p ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {p} dager
+                      </button>
+                    ))}
+                  </div>
+
+                  {pinnedHistories.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <Pin size={28} className="text-zinc-700 mx-auto mb-2" />
+                      <p className="text-zinc-500 text-sm">Ingen pinned øvelser</p>
+                      <p className="text-zinc-600 text-xs mt-1">Velg øvelser å følge med pin-ikonet</p>
+                    </div>
+                  ) : strengthChartData.length === 0 ? (
+                    <div className="py-8 text-center">
+                      <TrendingUp size={28} className="text-zinc-700 mx-auto mb-2" />
+                      <p className="text-zinc-500 text-sm">Ingen styrkedata</p>
+                      <p className="text-zinc-600 text-xs mt-1">Logg økter med pinned øvelser</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-zinc-500 mb-3">Sum 1RM for {pinnedHistories.length} pinned øvelser</p>
+                      <div className="h-36">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={strengthChartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fill: '#52525b', fontSize: 9 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                            <YAxis tick={{ fill: '#52525b', fontSize: 9 }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
+                            <Tooltip
+                              contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 10, color: '#fff', fontSize: 12 }}
+                              formatter={(v: number) => [`${Math.round(v)} kg`, 'Styrke']}
+                              labelStyle={{ color: '#a1a1aa', marginBottom: 2 }}
+                            />
+                            <Line type="monotone" dataKey="styrke" stroke="#10b981" strokeWidth={2} dot={strengthChartData.length <= 14} activeDot={{ r: 4, fill: '#10b981' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Section 3: Pinned Exercises */}
+        {!isTourMode && userId && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-white">Pinned øvelser</h2>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={openPinSheet}
+                className="flex items-center gap-1 text-blue-400 text-xs font-medium"
+              >
+                <Pin size={12} />
+                Endre
+              </motion.button>
+            </div>
+            {pinnedCards.length === 0 ? (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-center">
+                <Pin size={24} className="text-zinc-700 mx-auto mb-2" />
+                <p className="text-zinc-500 text-sm">Ingen pinned øvelser</p>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={openPinSheet}
+                  className="mt-3 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+                >
+                  <Plus size={14} />
+                  Velg øvelser
+                </motion.button>
+              </div>
+            ) : (
+              <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+                {pinnedCards.map(h => {
+                  const color = getMuscleGroupColor(h.muscleGroup);
+                  const lastSession = h.sessions[h.sessions.length - 1];
+                  const prevSession = h.sessions.length >= 2 ? h.sessions[h.sessions.length - 2] : null;
+                  const trend = h.isTimeBased
+                    ? (prevSession ? lastSession.maxDuration - prevSession.maxDuration : 0)
+                    : (prevSession ? lastSession.oneRM - prevSession.oneRM : 0);
+                  return (
+                    <motion.button
+                      key={h.exerciseId}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setSelected(h)}
+                      className="flex-shrink-0 w-32 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 text-left active:bg-zinc-800"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center mb-2"
+                        style={{ backgroundColor: color + '22' }}
+                      >
+                        <Dumbbell size={14} style={{ color }} />
+                      </div>
+                      <p className="text-white font-semibold text-xs truncate mb-1">{h.exerciseName}</p>
+                      {h.isTimeBased ? (
+                        <p className="text-white font-bold text-sm">{lastSession.maxDuration}s</p>
+                      ) : h.pr ? (
+                        <p className="text-white font-bold text-sm">{Math.round(h.pr.oneRM)}kg</p>
+                      ) : null}
+                      {trend !== 0 && (
+                        <p className={`text-xs font-medium ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {trend > 0 ? '+' : ''}{Math.round(trend)}{h.isTimeBased ? 's' : ''} 30d
+                        </p>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Section 4: Exercise Groups */}
         {loading && (
           <div className="space-y-2">
             {[1, 2, 3, 4].map(i => (
@@ -498,52 +823,23 @@ export function ProgressTab() {
           </div>
         )}
 
-        {histories.map((h, i) => {
-          const color = getMuscleGroupColor(h.muscleGroup);
-          const lastSession = h.sessions[h.sessions.length - 1];
-          const prevSession = h.sessions.length >= 2 ? h.sessions[h.sessions.length - 2] : null;
-          const trend = h.isTimeBased
-            ? (prevSession ? lastSession.maxDuration - prevSession.maxDuration : 0)
-            : (prevSession ? lastSession.oneRM - prevSession.oneRM : 0);
+        {!loading && histories.length > 0 && (
+          <>
+            {renderGroupedSection('Sammensatte', grouped.compound)}
+            {renderGroupedSection('Isolasjon', grouped.isolation)}
+            {Object.keys(grouped.other).length > 0 && renderGroupedSection('Annet', grouped.other)}
+          </>
+        )}
 
-          return (
-            <motion.button
-              key={h.exerciseId}
-              data-tour={i === 0 ? 'progress-list' : undefined}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              onClick={() => setSelected(h)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 flex items-center gap-3 text-left active:bg-zinc-800"
-            >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: color + '22' }}
-              >
-                <Dumbbell size={18} style={{ color }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm truncate">{h.exerciseName}</p>
-                <p className="text-xs mt-0.5" style={{ color }}>
-                  {getMuscleGroupLabel(h.muscleGroup)} - {h.sessions.length} {h.sessions.length === 1 ? 'sesjon' : 'sesjoner'}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                {h.isTimeBased ? (
-                  <p className="text-white font-bold text-sm">{lastSession.maxDuration}s</p>
-                ) : h.pr ? (
-                  <p className="text-white font-bold text-sm">{Math.round(h.pr.oneRM)}kg</p>
-                ) : null}
-                {trend !== 0 && (
-                  <p className={`text-xs font-medium ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {trend > 0 ? '+' : ''}{Math.round(trend)}{h.isTimeBased ? 's' : ''}
-                  </p>
-                )}
-              </div>
-              <ChevronRight size={16} className="text-zinc-700 flex-shrink-0" />
-            </motion.button>
-          );
-        })}
+        {!loading && !isTourMode && userId && histories.length > 0 && (
+          <>
+            <GoalsSection
+              goals={goals}
+              onAdd={() => setShowCreateGoal(true)}
+              onDelete={handleDeleteGoal}
+            />
+          </>
+        )}
       </div>
 
       {userId && (
@@ -560,9 +856,141 @@ export function ProgressTab() {
         onClose={() => setShowCreateGoal(false)}
         onCreated={() => { fetchGoals().then(setGoals); }}
       />
+
+      {/* Pin exercises sheet */}
+      <AnimatePresence>
+        {showPinSheet && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end"
+            onClick={e => { if (e.target === e.currentTarget) setShowPinSheet(false); }}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="w-full bg-zinc-950 border-t border-zinc-800 rounded-t-3xl overflow-hidden flex flex-col"
+              style={{ maxHeight: '85vh' }}
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+              </div>
+              <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-900">
+                <div>
+                  <h3 className="text-base font-bold text-white">Velg øvelser å følge</h3>
+                  <p className="text-zinc-500 text-xs mt-0.5">{pinDraft.length} valgt</p>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowPinSheet(false)}
+                  className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center"
+                >
+                  <X size={16} className="text-zinc-400" />
+                </motion.button>
+              </div>
+
+              {pinDraft.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-zinc-900">
+                  {pinDraft.map(id => {
+                    const ex = allExercises.find(e => e.id === id);
+                    if (!ex) return null;
+                    return (
+                      <div key={id} className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-full pl-2.5 pr-1 py-1">
+                        <span className="text-xs font-medium text-white">{ex.name}</span>
+                        <button
+                          onClick={() => setPinDraft(prev => prev.filter(x => x !== id))}
+                          className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center"
+                        >
+                          <X size={11} className="text-zinc-400" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="relative px-5 py-3 border-b border-zinc-900">
+                <Search size={16} className="absolute left-8 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  type="text"
+                  value={pinSearch}
+                  onChange={e => setPinSearch(e.target.value)}
+                  placeholder="Søk etter øvelser…"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-5 py-3 pb-32 space-y-1.5">
+                {(() => {
+                  const results = searchExercises(allExercises, pinSearch).slice(0, 50);
+                  if (results.length === 0) {
+                    return <div className="py-8 text-center"><p className="text-zinc-600 text-sm">Ingen øvelser funnet</p></div>;
+                  }
+                  return results.map(ex => {
+                    const isSelected = pinDraft.includes(ex.id);
+                    const color = getMuscleGroupColor(ex.muscle_group);
+                    return (
+                      <button
+                        key={ex.id}
+                        onClick={() => setPinDraft(prev => isSelected ? prev.filter(x => x !== ex.id) : [...prev, ex.id])}
+                        className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-colors ${
+                          isSelected ? 'bg-blue-500/10 border-blue-500/40' : 'bg-zinc-900 border-zinc-800'
+                        }`}
+                      >
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + '22' }}>
+                          <Dumbbell size={16} style={{ color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{ex.name}</p>
+                          <p className="text-xs" style={{ color }}>{getMuscleGroupLabel(ex.muscle_group)}</p>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-blue-500' : 'bg-zinc-800'}`}>
+                          {isSelected && <Check size={14} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-zinc-950 border-t border-zinc-900">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={savePinnedExercises}
+                  disabled={pinSaving}
+                  className="w-full bg-blue-500 disabled:bg-zinc-800 text-white py-3 rounded-xl font-bold text-sm"
+                >
+                  {pinSaving ? 'Lagrer…' : 'Lagre'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
+// Region → muscle group parent mapping for balance scores
+const MUSCLE_REGIONS_PARENTS: Record<string, string> = {
+  chest_upper: 'chest',
+  chest_lower: 'chest',
+  back_lats: 'back',
+  back_upper: 'back',
+  shoulders_front: 'shoulders',
+  shoulders_rear: 'shoulders',
+  biceps: 'biceps',
+  triceps: 'triceps',
+  legs_quads: 'legs',
+  legs_hams: 'legs',
+  legs_glutes: 'glutes',
+  legs_calves: 'legs',
+  abs: 'abs',
+  forearms: 'forearms',
+};
 
 function ExerciseProgressDetail({
   history,
@@ -601,7 +1029,6 @@ function ExerciseProgressDetail({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
-        {/* PR Card */}
         {isTime ? (
           maxDur > 0 && (
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-4">
@@ -639,7 +1066,6 @@ function ExerciseProgressDetail({
               </p>
             </motion.button>
 
-            {/* RM Table Modal */}
             <AnimatePresence>
               {showRMTable && (
                 <motion.div
@@ -715,7 +1141,6 @@ function ExerciseProgressDetail({
           </>
         )}
 
-        {/* Chart */}
         {history.sessions.length > 1 && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
             <p className="text-sm font-bold text-white mb-3">{isTime ? 'Tid-utvikling' : '1RM utvikling'}</p>
@@ -740,7 +1165,6 @@ function ExerciseProgressDetail({
           </div>
         )}
 
-        {/* Full session history with all sets */}
         <div>
           <p className="text-sm font-bold text-white mb-2">Alle sesjoner ({history.sessions.length})</p>
           <div className="space-y-2">
@@ -809,7 +1233,6 @@ function ExerciseProgressDetail({
                     )}
                   </div>
                 </div>
-                {/* All sets from this session */}
                 <div className="space-y-1 border-t border-zinc-800/50 pt-2">
                   {s.sets.map((set, si) => (
                     <div key={si} className="flex items-center gap-3 text-xs">
