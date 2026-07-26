@@ -33,7 +33,11 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
       const result = await parseWorkbook(file);
       setParsed(result);
       setPlanName(result.name);
-    } catch {
+      if (result.rows.length === 0) {
+        setError(result.errors[0] ?? 'Ingen gyldige øvelser funnet i filen. Sjekk at kolonnene har navn som "Øvelse", "Sett", "Reps", "Vekt".');
+      }
+    } catch (err) {
+      console.error('Excel import error:', err);
       setError('Kunne ikke lese filen. Sjekk at det er en gyldig Excel- eller CSV-fil.');
     }
     setParsing(false);
@@ -173,6 +177,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                   onChange={e => {
                     const file = e.target.files?.[0];
                     if (file) handleFile(file);
+                    e.target.value = '';
                   }}
                 />
               </div>
