@@ -14,7 +14,7 @@ import { Goal } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MuscleMap } from '@/components/dashboard/MuscleMap';
-import { fetchMuscleActivation, calculateBalance, generateRecommendations, RegionBalance, BalanceRecommendation } from '@/lib/muscle-balance';
+import { fetchMuscleActivation, recomputeMuscleActivation, calculateBalance, generateRecommendations, RegionBalance, BalanceRecommendation } from '@/lib/muscle-balance';
 import { MUSCLE_REGIONS, getRegionParent } from '@/lib/muscle-regions';
 import { searchExercises } from '@/lib/exercise-search';
 
@@ -172,7 +172,11 @@ export function ProgressTab() {
   };
 
   const fetchBalanceScores = async () => {
-    const activations = await fetchMuscleActivation();
+    let activations = await fetchMuscleActivation();
+    if (activations.length === 0) {
+      await recomputeMuscleActivation();
+      activations = await fetchMuscleActivation();
+    }
     const balances = calculateBalance(activations);
     setRegionBalances(balances);
     setRecommendations(generateRecommendations(balances));

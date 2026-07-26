@@ -1,0 +1,1 @@
+ALTER TABLE muscle_activation ALTER COLUMN sets TYPE numeric(10, 1) USING sets::numeric(10, 1);
