@@ -173,7 +173,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
               <User size={24} className="text-red-400" />
@@ -181,25 +181,25 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             <h1 className="text-2xl font-bold text-white mb-2">Hva heter du?</h1>
             <p className="text-zinc-500 text-sm mb-8">Fortell oss litt om deg selv</p>
 
-            <div className="space-y-4">
-              <div>
+            <div className="space-y-4 min-w-0">
+              <div className="min-w-0">
                 <label className="text-xs text-zinc-500 font-medium mb-1.5 block">Fullt navn</label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   placeholder="Ola Nordmann"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors"
+                  className="w-full max-w-full min-w-0 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors"
                   autoComplete="name"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-xs text-zinc-500 font-medium mb-1.5 block">Fødselsdato (valgfritt)</label>
                 <input
                   type="date"
                   value={dateOfBirth}
                   onChange={e => setDateOfBirth(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors [color-scheme:dark]"
+                  className="w-full max-w-full min-w-0 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors [color-scheme:dark]"
                 />
               </div>
             </div>
@@ -213,7 +213,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-5">
               <AtSign size={24} className="text-blue-400" />
@@ -250,7 +250,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-5">
               <Ruler size={24} className="text-blue-400" />
@@ -312,7 +312,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-green-500/20 border border-green-500/30 flex items-center justify-center mb-5">
               <Target size={24} className="text-green-400" />
@@ -380,7 +380,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-5">
               <Calendar size={24} className="text-amber-400" />
@@ -437,7 +437,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-5">
               <Dumbbell size={24} className="text-blue-400" />
@@ -542,7 +542,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
               <ShieldCheck size={24} className="text-red-400" />
