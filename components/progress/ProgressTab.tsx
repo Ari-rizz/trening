@@ -372,16 +372,6 @@ export function ProgressTab() {
     setTimeout(() => setHighlightedGroup(null), 1500);
   };
 
-  if (selected) {
-    return (
-      <ExerciseProgressDetail
-        history={selected}
-        onBack={() => setSelected(null)}
-        onDeleteSession={handleDeleteSession}
-      />
-    );
-  }
-
   const filteredWeightLogs = weightLogs.filter(l => {
     const cutoff = format(subDays(new Date(), weightPeriod), 'yyyy-MM-dd');
     return l.logged_at >= cutoff;
@@ -433,6 +423,16 @@ export function ProgressTab() {
     }
     return { compound, isolation, other };
   }, [histories]);
+
+  if (selected) {
+    return (
+      <ExerciseProgressDetail
+        history={selected}
+        onBack={() => setSelected(null)}
+        onDeleteSession={handleDeleteSession}
+      />
+    );
+  }
 
   const renderGroupedSection = (title: string, groups: Record<string, ExerciseHistory[]>) => {
     const groupKeys = Object.keys(groups).sort((a, b) => {
