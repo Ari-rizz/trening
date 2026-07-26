@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell } from 'lucide-react';
 import { supabase, Exercise } from '@/lib/supabase';
-import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
+import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { searchExercises } from '@/lib/exercise-search';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
 
@@ -45,6 +45,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   const [trackedExercises, setTrackedExercises] = useState<string[]>([]);
   const [exerciseSearch, setExerciseSearch] = useState('');
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
+  const [muscleFilter, setMuscleFilter] = useState<string>('all');
 
   // Step 7: Terms acceptance
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -516,18 +517,50 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
               />
             </div>
 
+            {/* Muscle group category filter */}
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide -mx-1 px-1">
+              <button
+                onClick={() => setMuscleFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
+                  muscleFilter === 'all'
+                    ? 'bg-white text-black border-white'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                Alle
+              </button>
+              {MUSCLE_GROUPS.map(mg => (
+                <button
+                  key={mg.value}
+                  onClick={() => setMuscleFilter(muscleFilter === mg.value ? 'all' : mg.value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
+                    muscleFilter === mg.value
+                      ? 'text-white border-transparent'
+                      : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                  style={muscleFilter === mg.value ? { backgroundColor: mg.color, borderColor: mg.color } : undefined}
+                >
+                  {mg.label}
+                </button>
+              ))}
+            </div>
+
             {/* Results */}
             <div className="flex-1 overflow-y-auto space-y-1.5 pb-2">
               {(() => {
-                const results = searchExercises(allExercises, exerciseSearch).slice(0, 50);
-                if (results.length === 0) {
+                let results = searchExercises(allExercises, exerciseSearch);
+                if (muscleFilter !== 'all') {
+                  results = results.filter(ex => ex.muscle_group === muscleFilter);
+                }
+                const sliced = results.slice(0, 50);
+                if (sliced.length === 0) {
                   return (
                     <div className="py-8 text-center">
                       <p className="text-zinc-600 text-sm">Ingen øvelser funnet</p>
                     </div>
                   );
                 }
-                return results.map(ex => {
+                return sliced.map(ex => {
                   const isSelected = trackedExercises.includes(ex.id);
                   const color = getMuscleGroupColor(ex.muscle_group);
                   return (
