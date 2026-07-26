@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown, Link2, Search, Pin, Check } from 'lucide-react';
+import { TrendingUp, Trophy, ChartBar as BarChart2, ChevronRight, Dumbbell, Trash2, TriangleAlert as AlertTriangle, X, ChevronDown, Plus, Scale, TrendingDown, Link2, Search, Pin, Check, Info, ChevronUp } from 'lucide-react';
 import { supabase, Exercise } from '@/lib/supabase';
 import { getMuscleGroupLabel, getMuscleGroupColor, calculate1RM, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { format, subDays } from 'date-fns';
@@ -14,7 +14,8 @@ import { Goal } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MuscleMap } from '@/components/dashboard/MuscleMap';
-import { fetchMuscleActivation } from '@/lib/muscle-balance';
+import { fetchMuscleActivation, calculateBalance, generateRecommendations, RegionBalance, BalanceRecommendation } from '@/lib/muscle-balance';
+import { MUSCLE_REGIONS } from '@/lib/muscle-regions';
 import { searchExercises } from '@/lib/exercise-search';
 
 interface SessionData {
@@ -116,6 +117,10 @@ export function ProgressTab() {
   const [chartTab, setChartTab] = useState<ChartTab>('weight');
   const [trackedExercises, setTrackedExercises] = useState<string[]>([]);
   const [balanceScores, setBalanceScores] = useState<Record<string, number>>({});
+  const [regionBalances, setRegionBalances] = useState<RegionBalance[]>([]);
+  const [recommendations, setRecommendations] = useState<BalanceRecommendation[]>([]);
+  const [expandedBalanceGroups, setExpandedBalanceGroups] = useState<Set<string>>(new Set());
+  const [highlightedGroup, setHighlightedGroup] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showPinSheet, setShowPinSheet] = useState(false);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
@@ -168,6 +173,9 @@ export function ProgressTab() {
 
   const fetchBalanceScores = async () => {
     const activations = await fetchMuscleActivation();
+    const balances = calculateBalance(activations);
+    setRegionBalances(balances);
+    setRecommendations(generateRecommendations(balances));
     const groupVolumes = new Map<string, number>();
     for (const a of activations) {
       const region = a.region;
@@ -352,10 +360,13 @@ export function ProgressTab() {
 
   const scrollToGroup = (group: string) => {
     setExpandedGroups(prev => new Set(prev).add(group));
+    setExpandedBalanceGroups(prev => new Set(prev).add(group));
+    setHighlightedGroup(group);
     setTimeout(() => {
       const el = groupRefs.current[group];
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
+    setTimeout(() => setHighlightedGroup(null), 1500);
   };
 
   if (selected) {
@@ -546,7 +557,7 @@ export function ProgressTab() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)]">
-        {/* Section 1: Body Map */}
+        {/* Section 1: Body Map + Balance breakdown */}
         {!isTourMode && userId && (
           <div className="mb-6">
             <h2 className="text-lg font-bold text-white mb-1">Muskelbalanse</h2>
@@ -559,11 +570,47 @@ export function ProgressTab() {
                   <p className="text-zinc-600 text-xs mt-1">Fullfør økter for å se fordeling</p>
                 </div>
               ) : (
-                <MuscleMap
-                  mode="balance"
-                  balanceScores={balanceScores}
-                  onGroupSelect={scrollToGroup}
-                />
+                <>
+                  <MuscleMap
+                    mode="balance"
+                    balanceScores={balanceScores}
+                    onGroupSelect={scrollToGroup}
+                  />
+                  <BalanceBreakdown
+                    balances={regionBalances}
+                    expandedGroups={expandedBalanceGroups}
+                    setExpandedGroups={setExpandedBalanceGroups}
+                    groupRefs={groupRefs}
+                    highlightedGroup={highlightedGroup}
+                    onGroupClick={(g) => scrollToGroup(g)}
+                  />
+                  {recommendations.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-zinc-800 space-y-2">
+                      {recommendations.map((rec, i) => (
+                        <div
+                          key={i}
+                          className={`flex gap-2.5 p-3 rounded-xl border ${
+                            rec.severity === 'warning'
+                              ? 'bg-orange-500/10 border-orange-500/30'
+                              : 'bg-blue-500/10 border-blue-500/30'
+                          }`}
+                        >
+                          {rec.severity === 'warning' ? (
+                            <AlertTriangle size={16} className="text-orange-400 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <Info size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold ${rec.severity === 'warning' ? 'text-orange-300' : 'text-blue-300'}`}>
+                              {rec.title}
+                            </p>
+                            <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">{rec.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -991,6 +1038,168 @@ const MUSCLE_REGIONS_PARENTS: Record<string, string> = {
   abs: 'abs',
   forearms: 'forearms',
 };
+
+function BalanceBreakdown({
+  balances,
+  expandedGroups,
+  setExpandedGroups,
+  groupRefs,
+  highlightedGroup,
+  onGroupClick,
+}: {
+  balances: RegionBalance[];
+  expandedGroups: Set<string>;
+  setExpandedGroups: (updater: (prev: Set<string>) => Set<string>) => void;
+  groupRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+  highlightedGroup: string | null;
+  onGroupClick: (group: string) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, RegionBalance[]>();
+    for (const b of balances) {
+      const key = b.parent;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(b);
+    }
+    const order = MUSCLE_GROUPS.map(m => m.value);
+    return Array.from(map.entries())
+      .filter(([key]) => order.includes(key as any))
+      .sort((a, b) => order.indexOf(a[0] as any) - order.indexOf(b[0] as any));
+  }, [balances]);
+
+  const maxGroupVolume = Math.max(...grouped.map(([, items]) => items.reduce((a, b) => a + b.totalVolume, 0)), 1);
+
+  const statusColor = (status: string) => {
+    if (status === 'overtrained') return '#ef4444';
+    if (status === 'undertrained') return '#f59e0b';
+    return '#10b981';
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-zinc-800">
+      <div className="flex items-center gap-2 mb-3">
+        <Scale size={14} className="text-zinc-400" />
+        <p className="text-sm font-bold text-white">Volumfordeling</p>
+      </div>
+      <div className="space-y-2">
+        {grouped.map(([parent, items]) => {
+          const totalVol = items.reduce((a, b) => a + b.totalVolume, 0);
+          const totalPct = items.reduce((a, b) => a + b.percentage, 0);
+          const color = getMuscleGroupColor(parent);
+          const label = getMuscleGroupLabel(parent);
+          const widthPct = (totalVol / maxGroupVolume) * 100;
+          const isExpanded = expandedGroups.has(parent);
+          const isHighlighted = highlightedGroup === parent;
+          const hasSubRegions = items.length > 1;
+
+          return (
+            <div
+              key={parent}
+              ref={el => { groupRefs.current[parent] = el; }}
+              className={`rounded-xl border transition-colors ${
+                isHighlighted ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-800/30 border-zinc-800'
+              }`}
+            >
+              <button
+                onClick={() => {
+                  if (hasSubRegions) {
+                    setExpandedGroups(prev => {
+                      const next = new Set(prev);
+                      if (next.has(parent)) next.delete(parent);
+                      else next.add(parent);
+                      return next;
+                    });
+                  } else {
+                    onGroupClick(parent);
+                  }
+                }}
+                className="w-full flex items-center gap-3 p-2.5 text-left"
+              >
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: color + '22' }}
+                >
+                  <Dumbbell size={13} style={{ color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-white text-xs font-semibold">{label}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-500 text-[10px] font-mono">
+                        {totalVol.toLocaleString('nb-NO')}kg
+                      </span>
+                      <span className="text-zinc-400 text-[10px] font-bold w-8 text-right">{totalPct}%</span>
+                      {hasSubRegions && (
+                        isExpanded
+                          ? <ChevronUp size={12} className="text-zinc-600" />
+                          : <ChevronDown size={12} className="text-zinc-600" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${widthPct}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              </button>
+              <AnimatePresence initial={false}>
+                {isExpanded && hasSubRegions && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-2.5 pb-2.5 pt-1 space-y-1.5">
+                      {items.map(r => {
+                        const rColor = statusColor(r.status);
+                        const rWidth = r.totalVolume > 0
+                          ? (r.totalVolume / Math.max(...items.map(i => i.totalVolume), 1)) * 100
+                          : 0;
+                        return (
+                          <div key={r.region} className="flex items-center gap-2 pl-9">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <p className="text-zinc-400 text-[10px] truncate">{r.label}</p>
+                                <div className="flex items-center gap-1.5">
+                                  {r.totalVolume > 0 ? (
+                                    <span className="text-zinc-600 text-[9px] font-mono">{r.totalVolume.toLocaleString('nb-NO')}kg</span>
+                                  ) : (
+                                    <span className="text-zinc-700 text-[9px]">—</span>
+                                  )}
+                                  <span className="text-zinc-500 text-[9px] font-bold w-6 text-right">{r.percentage}%</span>
+                                </div>
+                              </div>
+                              <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${rWidth}%` }}
+                                  transition={{ duration: 0.4 }}
+                                  className="h-full rounded-full"
+                                  style={{ backgroundColor: rColor }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function ExerciseProgressDetail({
   history,
