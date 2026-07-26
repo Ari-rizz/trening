@@ -72,7 +72,7 @@ const STEPS: TourStep[] = [
   {
     tab: 'progress',
     title: 'Fremgang',
-    text: 'Her ser du hvordan styrken din utvikler seg over tid. Trykk på en øvelse for å se graf og alle sesjoner. Grønne tall betyr fremgang siden sist.',
+    text: 'Her ser du hvordan styrken din utvikler seg. Øvelsene er delt inn i sammensatte, isolasjon og annet. Trykk på en øvelse for å se graf, 1RM og alle sesjonene dine.',
     selector: '[data-tour="progress-list"]',
     bubblePosition: 'top',
   },

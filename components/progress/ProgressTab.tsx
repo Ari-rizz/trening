@@ -874,11 +874,11 @@ export function ProgressTab() {
         )}
 
         {!loading && histories.length > 0 && (
-          <>
+          <div data-tour="progress-list">
             {renderGroupedSection('Sammensatte', grouped.compound)}
             {renderGroupedSection('Isolasjon', grouped.isolation)}
             {Object.keys(grouped.other).length > 0 && renderGroupedSection('Annet', grouped.other)}
-          </>
+          </div>
         )}
 
         {!loading && !isTourMode && userId && histories.length > 0 && (
