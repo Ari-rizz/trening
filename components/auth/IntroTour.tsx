@@ -103,6 +103,7 @@ export function IntroTour({ userId, onComplete }: IntroTourProps) {
   const [visible, setVisible] = useState(false);
   const { setCurrentTab, startMockWorkout, clearMockWorkout, setIsTourMode, setTourSelectedExerciseId } = useAppStore();
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isProgrammaticScroll = useRef(false);
 
   const step = STEPS[stepIndex];
 
@@ -117,6 +118,33 @@ export function IntroTour({ userId, onComplete }: IntroTourProps) {
     } else {
       setHighlightRect(null);
     }
+  }, []);
+
+  const scrollToAndHighlight = useCallback((selector: string | null) => {
+    if (!selector) {
+      setHighlightRect(null);
+      return;
+    }
+    const el = document.querySelector(selector);
+    if (!el) {
+      setHighlightRect(null);
+      return;
+    }
+    // Check if element is already visible in viewport
+    const rect = el.getBoundingClientRect();
+    const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+    if (isVisible) {
+      setHighlightRect(rect);
+      return;
+    }
+    // Suppress scroll listener during programmatic scroll
+    isProgrammaticScroll.current = true;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    // Measure after scroll settles
+    setTimeout(() => {
+      setHighlightRect(el.getBoundingClientRect());
+      isProgrammaticScroll.current = false;
+    }, 350);
   }, []);
 
   // Re-scan the DOM periodically so we catch elements that mount after tab switch
@@ -143,9 +171,9 @@ export function IntroTour({ userId, onComplete }: IntroTourProps) {
       setTourSelectedExerciseId(null);
     }
 
-    // Give the tab a moment to render, then search for the element
+    // Give the tab a moment to render, then scroll to and highlight the element
     const initialDelay = setTimeout(() => {
-      findAndSetHighlight(step.selector);
+      scrollToAndHighlight(step.selector);
     }, 400);
 
     // Keep rescanning to handle slow renders
@@ -157,11 +185,14 @@ export function IntroTour({ userId, onComplete }: IntroTourProps) {
       clearTimeout(initialDelay);
       if (scanTimerRef.current) clearInterval(scanTimerRef.current);
     };
-  }, [stepIndex, step.tab, step.selector, setCurrentTab, findAndSetHighlight, startMockWorkout, clearMockWorkout, setIsTourMode, setTourSelectedExerciseId]);
+  }, [stepIndex, step.tab, step.selector, setCurrentTab, findAndSetHighlight, scrollToAndHighlight, startMockWorkout, clearMockWorkout, setIsTourMode, setTourSelectedExerciseId]);
 
   // Update highlight rect on scroll/resize
   useEffect(() => {
-    const update = () => findAndSetHighlight(step.selector);
+    const update = () => {
+      if (isProgrammaticScroll.current) return;
+      findAndSetHighlight(step.selector);
+    };
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
     return () => {
