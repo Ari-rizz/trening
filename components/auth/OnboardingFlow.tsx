@@ -136,7 +136,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
 
   const equipmentOptions = [
     { value: 'barbell', label: 'Stang' },
-    { value: 'dumbbell', label: 'Hantler' },
+    { value: 'dumbbell', label: 'Dumbbell' },
     { value: 'cable', label: 'Kabel' },
     { value: 'machine', label: 'Maskiner' },
     { value: 'kettlebell', label: 'Kettlebell' },
