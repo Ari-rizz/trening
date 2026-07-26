@@ -131,9 +131,9 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-black px-6 pt-16 pb-8">
+    <div className="flex flex-col h-screen bg-black px-6 pt-16 pb-8 overflow-hidden">
       {/* Progress bar */}
-      <div className="flex gap-2 mb-10">
+      <div className="flex gap-2 mb-10 flex-shrink-0">
         {Array.from({ length: totalSteps }, (_, i) => (
           <div
             key={i}
@@ -144,6 +144,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
         ))}
       </div>
 
+      <div className="flex-1 overflow-y-auto -mx-1 px-1 pb-2 scrollbar-hide">
       <AnimatePresence mode="wait">
         {step === 1 && (
           <motion.div
@@ -430,9 +431,10 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
 
       {/* Bottom actions */}
-      <div className="mt-8 space-y-3">
+      <div className="mt-6 space-y-3 flex-shrink-0">
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleNext}
