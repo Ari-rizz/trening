@@ -58,7 +58,7 @@ const NAME_RULES: NameRule[] = [
   { match: n => /wrist curl|reverse curl|farmer|grip/i.test(n), splits: [{ region: "forearms", intensity: 1 }] },
 ];
 
-function getRegionsForExercise(muscleGroup: string, secondaryMuscles: string[], exerciseName: string): RegionMapping[] {
+function getRegionsForExercise(muscleGroup: string, exerciseName: string): RegionMapping[] {
   const name = (exerciseName ?? "").toLowerCase();
   for (const rule of NAME_RULES) {
     if (rule.match(name)) return rule.splits;
@@ -140,8 +140,7 @@ Deno.serve(async (req: Request) => {
             (a: number, s: any) => a + (Number(s.weight_kg) ?? 0) * (Number(s.reps) ?? 0),
             0
           );
-          const secondary = Array.isArray(ex.secondary_muscles) ? ex.secondary_muscles : [];
-          const regions = getRegionsForExercise(ex.muscle_group, secondary, ex.name ?? "");
+          const regions = getRegionsForExercise(ex.muscle_group, ex.name ?? "");
 
           for (const { region, intensity } of regions) {
             rows.push({
@@ -149,7 +148,7 @@ Deno.serve(async (req: Request) => {
               workout_id: workout.id,
               exercise_id: ex.id,
               region,
-              sets: completedSets.length,
+              sets: Math.round(completedSets.length * intensity * 10) / 10,
               volume_kg: Math.round(volume * intensity),
               intensity_score: Math.round(intensity * 100),
             });

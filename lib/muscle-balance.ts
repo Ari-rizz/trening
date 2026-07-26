@@ -63,7 +63,7 @@ export async function recomputeMuscleActivation(): Promise<void> {
       if (completedSets.length === 0) continue;
 
       const volume = completedSets.reduce((a: number, s: any) => a + (s.weight_kg ?? 0) * (s.reps ?? 0), 0);
-      const regions = getRegionsForExercise(ex.muscle_group, ex.secondary_muscles ?? [], ex.name);
+      const regions = getRegionsForExercise(ex.muscle_group, ex.name);
 
       for (const { region, intensity } of regions) {
         rows.push({
@@ -71,7 +71,7 @@ export async function recomputeMuscleActivation(): Promise<void> {
           workout_id: workout.id,
           exercise_id: ex.id,
           region,
-          sets: completedSets.length,
+          sets: Math.round(completedSets.length * intensity * 10) / 10,
           volume_kg: Math.round(volume * intensity),
           intensity_score: Math.round(intensity * 100),
         });

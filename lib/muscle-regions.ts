@@ -61,16 +61,9 @@ const DEFAULT_SPLITS: Record<string, RegionSplit[]> = {
   quads: [{ region: 'legs_quads', intensity: 1 }],
 };
 
-const SECONDARY_SPLITS: Record<string, RegionSplit[]> = {
-  chest: [{ region: 'shoulders_front', intensity: 0.4 }, { region: 'triceps', intensity: 0.4 }],
-  shoulders: [{ region: 'shoulders_front', intensity: 0.3 }, { region: 'shoulders_side', intensity: 0.3 }, { region: 'shoulders_rear', intensity: 0.3 }],
-  back: [{ region: 'biceps', intensity: 0.5 }, { region: 'back_lats', intensity: 0.3 }, { region: 'back_upper', intensity: 0.3 }],
-  legs: [{ region: 'legs_glutes', intensity: 0.3 }, { region: 'legs_hams', intensity: 0.3 }, { region: 'legs_calves', intensity: 0.2 }],
-  triceps: [{ region: 'shoulders_front', intensity: 0.3 }],
-  biceps: [{ region: 'forearms', intensity: 0.5 }],
-  abs: [{ region: 'back_lower', intensity: 0.2 }],
-  glutes: [{ region: 'legs_hams', intensity: 0.3 }],
-};
+// Secondary muscles are intentionally excluded from set-counting.
+// Only the primary region(s) of an exercise count toward the balance score.
+// This prevents exercises like bench press from inflating shoulder counts.
 
 interface NameRule {
   match: (name: string) => boolean;
@@ -117,24 +110,7 @@ function getPrimarySplits(muscleGroup: string, exerciseName: string): RegionSpli
 
 export function getRegionsForExercise(
   muscleGroup: string,
-  secondaryMuscles: string[] = [],
-  exerciseName: string = ''
+  exerciseName: string = '',
 ): { region: string; intensity: number }[] {
-  const primary = getPrimarySplits(muscleGroup, exerciseName);
-  const regions: { region: string; intensity: number }[] = primary.map(p => ({ region: p.region, intensity: p.intensity }));
-
-  const seen = new Set(regions.map(r => r.region));
-  const secondarySet = new Set<string>();
-  (secondaryMuscles ?? []).forEach(sm => {
-    (SECONDARY_SPLITS[sm] ?? DEFAULT_SPLITS[sm] ?? [{ region: sm, intensity: 1 }]).forEach(r => secondarySet.add(r.region));
-  });
-
-  secondarySet.forEach(r => {
-    if (!seen.has(r)) {
-      regions.push({ region: r, intensity: 0.3 });
-      seen.add(r);
-    }
-  });
-
-  return regions;
+  return getPrimarySplits(muscleGroup, exerciseName).map(p => ({ region: p.region, intensity: p.intensity }));
 }

@@ -75,7 +75,7 @@ export function MuscleBalanceSection() {
     );
   }
 
-  const maxVolume = Math.max(...balances.map(b => b.totalVolume), 1);
+  const maxSets = Math.max(...balances.map(b => b.totalSets), 1);
 
   return (
     <div className="px-4 mb-4">
@@ -95,7 +95,7 @@ export function MuscleBalanceSection() {
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-3">
         <div className="space-y-2.5">
           {balances.map(b => {
-            const width = maxVolume > 0 ? (b.totalVolume / maxVolume) * 100 : 0;
+            const width = maxSets > 0 ? (b.totalSets / maxSets) * 100 : 0;
             const color = b.status === 'undertrained' ? '#ef4444' : b.status === 'overtrained' ? '#f59e0b' : '#3b82f6';
             return (
               <div key={b.region}>
