@@ -16,7 +16,7 @@ export const MUSCLE_GROUPS: { value: MuscleGroup; label: string; color: string }
 
 export const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: 'barbell', label: 'Stang' },
-  { value: 'dumbbell', label: 'Hantler' },
+  { value: 'dumbbell', label: 'Dumbbell' },
   { value: 'cable', label: 'Kabel' },
   { value: 'machine', label: 'Maskin' },
   { value: 'bodyweight', label: 'Kroppsvekt' },
