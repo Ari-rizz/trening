@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, Plus, Dumbbell, ClipboardList } from 'lucide-react';
 import { supabase, WorkoutTemplate } from '@/lib/supabase';
@@ -88,7 +89,12 @@ export function StartWorkoutSheet({ onClose, open = true }: Props) {
     onClose();
   };
 
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && <motion.div
         initial={{ opacity: 0 }}
@@ -235,6 +241,7 @@ export function StartWorkoutSheet({ onClose, open = true }: Props) {
           </div>
         </motion.div>
       </motion.div>}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
