@@ -746,7 +746,10 @@ export function WorkoutTab() {
                     if (partner) {
                       return (
                         <>
-                          <h3 className="text-white font-bold text-base leading-tight truncate">
+                          <h3
+                            onClick={() => setShowExerciseInfo(true)}
+                            className="text-white font-bold text-base leading-tight truncate active:text-zinc-300 transition-colors"
+                          >
                             {currentEx.exercise.name}
                             <span className="text-zinc-500 font-normal"> + </span>
                             {partner.exercise.name}
@@ -757,7 +760,10 @@ export function WorkoutTab() {
                     }
                     return (
                       <>
-                        <h3 className="text-white font-bold text-base truncate">{currentEx.exercise.name}</h3>
+                        <h3
+                          onClick={() => setShowExerciseInfo(true)}
+                          className="text-white font-bold text-base truncate active:text-zinc-300 transition-colors"
+                        >{currentEx.exercise.name}</h3>
                         <p className="text-xs text-zinc-500 capitalize mt-0.5">{currentEx.exercise.equipment} · {currentEx.exercise.muscle_group}</p>
                       </>
                     );
