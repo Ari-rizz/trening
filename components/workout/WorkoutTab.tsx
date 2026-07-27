@@ -62,6 +62,7 @@ export function WorkoutTab() {
   const { toast } = useToast();
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [showReorder, setShowReorder] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [editingName, setEditingName] = useState(false);
   const [savingWorkout, setSavingWorkout] = useState(false);
@@ -730,7 +731,18 @@ export function WorkoutTab() {
         ) : currentEx ? (
           <div className="px-4 pt-4">
             {/* Exercise header */}
-            <div className="flex items-center justify-between mb-4">
+            <div
+              className="flex items-center justify-between mb-4"
+              onTouchStart={() => {
+                longPressTimer.current = setTimeout(() => { setShowReorder(true); }, 500);
+              }}
+              onTouchEnd={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              }}
+              onTouchMove={() => {
+                if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+              }}
+            >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"

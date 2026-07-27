@@ -63,10 +63,17 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     setLoading(false);
   };
 
+  const matchesMuscle = (e: Exercise, muscle: MuscleGroup): boolean => {
+    if (e.muscle_group === muscle) return true;
+    if (e.secondary_muscles?.includes(muscle)) return true;
+    if (muscle === 'full body' && (e as any).mechanic === 'compound') return true;
+    return false;
+  };
+
   const filtered = useMemo(() => {
     const result = exercises.filter(e => {
       if (search && scoreExercise(e, search) === 0) return false;
-      if (selectedMuscle && e.muscle_group !== selectedMuscle) return false;
+      if (selectedMuscle && !matchesMuscle(e, selectedMuscle)) return false;
       if (selectedEquipment && e.equipment !== selectedEquipment) return false;
       if (selectedDifficulty && e.difficulty !== selectedDifficulty) return false;
       return true;
@@ -83,9 +90,21 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     filtered.forEach(e => {
       if (!groups[e.muscle_group]) groups[e.muscle_group] = [];
       groups[e.muscle_group].push(e);
+      if (!selectedMuscle) {
+        e.secondary_muscles?.forEach(sm => {
+          if (sm !== e.muscle_group && MUSCLE_GROUPS.some(mg => mg.value === sm)) {
+            if (!groups[sm]) groups[sm] = [];
+            if (!groups[sm].includes(e)) groups[sm].push(e);
+          }
+        });
+        if ((e as any).mechanic === 'compound' && e.muscle_group !== 'full body' && e.muscle_group !== 'cardio') {
+          if (!groups['full body']) groups['full body'] = [];
+          if (!groups['full body'].includes(e)) groups['full body'].push(e);
+        }
+      }
     });
     return groups;
-  }, [filtered]);
+  }, [filtered, selectedMuscle]);
 
   const hasFilters = selectedMuscle || selectedEquipment || selectedDifficulty;
 

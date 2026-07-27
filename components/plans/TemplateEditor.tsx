@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Trash2, Save, Dumbbell, Repeat2, Link2, Link2Off, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Dumbbell, Repeat2, Link2, Link2Off, ChevronDown, GripVertical } from 'lucide-react';
 import { supabase, WorkoutTemplate, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor } from '@/lib/exercises-data';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
+import { useToast } from '@/hooks/use-toast';
 
 interface TemplateEditorProps {
   template: WorkoutTemplate | null;
@@ -29,6 +30,7 @@ interface LocalTemplateExercise {
 }
 
 export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateEditorProps) {
+  const { toast } = useToast();
   const [name, setName] = useState(template?.name ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
   const [exercises, setExercises] = useState<LocalTemplateExercise[]>([]);
@@ -36,6 +38,39 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   const [saving, setSaving] = useState(false);
   const [supersetPickerFor, setSupersetPickerFor] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [draggingRowIdx, setDraggingRowIdx] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [weightInputs, setWeightInputs] = useState<Record<number, string>>({});
+  const [setsInputs, setSetsInputs] = useState<Record<number, string>>({});
+
+  const getWeightDisplay = (index: number, stored: number) => {
+    return index in weightInputs ? weightInputs[index] : (stored ? String(stored).replace('.', ',') : '');
+  };
+  const handleWeightChange = (index: number, raw: string) => {
+    const filtered = raw.replace(/[^0-9.,]/g, '');
+    setWeightInputs(prev => ({ ...prev, [index]: filtered }));
+  };
+  const handleWeightBlur = (index: number) => {
+    const raw = weightInputs[index];
+    if (raw == null) return;
+    const parsed = parseFloat(raw.replace(',', '.'));
+    updateExercise(index, 'target_weight_kg', isNaN(parsed) ? 0 : parsed);
+    setWeightInputs(prev => { const n = { ...prev }; delete n[index]; return n; });
+  };
+  const getSetsDisplay = (index: number, stored: number) => {
+    return index in setsInputs ? setsInputs[index] : (stored ? String(stored).replace('.', ',') : '');
+  };
+  const handleSetsChange = (index: number, raw: string) => {
+    const filtered = raw.replace(/[^0-9.,]/g, '');
+    setSetsInputs(prev => ({ ...prev, [index]: filtered }));
+  };
+  const handleSetsBlur = (index: number) => {
+    const raw = setsInputs[index];
+    if (raw == null) return;
+    const parsed = parseFloat(raw.replace(',', '.'));
+    updateExercise(index, 'target_sets', isNaN(parsed) ? 0 : parsed);
+    setSetsInputs(prev => { const n = { ...prev }; delete n[index]; return n; });
+  };
 
   useEffect(() => {
     if (template?.template_exercises) {
@@ -75,7 +110,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         superset_group: null,
       },
     ]);
-    setShowExercisePicker(false);
+    toast({ title: `${exercise.name} lagt til`, duration: 1500 });
   };
 
   const linkSuperset = (indexA: number, indexB: number) => {
@@ -109,6 +144,23 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
     });
     if (expandedIndex === index) setExpandedIndex(null);
   };
+
+  const moveExercise = (from: number, to: number) => {
+    if (from === to || to < 0) return;
+    setExercises(prev => {
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(to, 0, moved);
+      return updated.map((e, i) => ({ ...e, order_index: i }));
+    });
+    if (expandedIndex === from) setExpandedIndex(to);
+    else if (expandedIndex !== null) {
+      if (from < expandedIndex && to >= expandedIndex) setExpandedIndex(expandedIndex - 1);
+      else if (from > expandedIndex && to <= expandedIndex) setExpandedIndex(expandedIndex + 1);
+    }
+  };
+
+  
 
   const updateExercise = (index: number, field: keyof LocalTemplateExercise, value: any) => {
     setExercises(prev => prev.map((e, i) => (i === index ? { ...e, [field]: value } : e)));
@@ -177,11 +229,11 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center gap-3 px-4 pt-4 pb-2 border-b border-zinc-900">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowExercisePicker(false)} className="text-zinc-400 text-sm">
-            Avbryt
-          </motion.button>
-          <h2 className="text-base font-bold text-white flex-1 text-center">Velg øvelse</h2>
           <div className="w-12" />
+          <h2 className="text-base font-bold text-white flex-1 text-center">Velg øvelse</h2>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowExercisePicker(false)} className="text-red-400 text-sm font-semibold">
+            Ferdig
+          </motion.button>
         </div>
         <div className="flex-1 overflow-hidden">
           <ExercisesTab onAddToWorkout={addExercise} />
@@ -349,12 +401,33 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                 return (
                   <div key={`${ex.exercise_id}-${row.index}`}>
                     <motion.div
+                      data-row-idx={rowIdx}
                       initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      animate={{ opacity: 1, y: 0, scale: draggingRowIdx === row.index ? 1.03 : 1 }}
                       exit={{ opacity: 0, x: -50 }}
-                      className="bg-zinc-900 border border-zinc-800 rounded-xl p-3"
+                      className={`bg-zinc-900 border rounded-xl p-3 ${draggingRowIdx === row.index ? 'border-red-500/50 shadow-lg shadow-red-500/10' : 'border-zinc-800'}`}
                     >
                       <div className="flex items-center gap-2 mb-2">
+                        <button
+                          className="touch-none text-zinc-600 active:text-zinc-300 transition-colors p-0.5 -ml-1"
+                          onTouchStart={() => {
+                            longPressTimer.current = setTimeout(() => {
+                              setDraggingRowIdx(row.index);
+                            }, 400);
+                          }}
+                          onTouchEnd={() => {
+                            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                          }}
+                          onTouchMove={() => {
+                            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+                          }}
+                          onClick={() => {
+                            if (draggingRowIdx === row.index) setDraggingRowIdx(null);
+                            else setDraggingRowIdx(row.index);
+                          }}
+                        >
+                          <GripVertical size={16} />
+                        </button>
                         <div
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: color + '22' }}
@@ -385,15 +458,45 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                           <Trash2 size={14} />
                         </motion.button>
                       </div>
+                      {draggingRowIdx === row.index && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="flex items-center justify-center gap-3 py-2 border-b border-zinc-800 mb-2"
+                        >
+                          <button
+                            onClick={() => { moveExercise(row.index, row.index - 1); setDraggingRowIdx(row.index - 1); }}
+                            disabled={row.index === 0}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium disabled:opacity-30"
+                          >
+                            <ArrowLeft size={12} className="rotate-90" /> Opp
+                          </button>
+                          <button
+                            onClick={() => { moveExercise(row.index, row.index + 1); setDraggingRowIdx(row.index + 1); }}
+                            disabled={row.index === exercises.length - 1}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium disabled:opacity-30"
+                          >
+                            Ned <ArrowLeft size={12} className="-rotate-90" />
+                          </button>
+                          <button
+                            onClick={() => setDraggingRowIdx(null)}
+                            className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-medium"
+                          >
+                            Ferdig
+                          </button>
+                        </motion.div>
+                      )}
                       <div className="grid grid-cols-4 gap-2">
                         <div>
                           <label className="text-[10px] text-zinc-600 block mb-0.5">Sett</label>
                           <input
-                            type="number"
-                            value={ex.target_sets || ''}
-                            onChange={e => updateExercise(row.index, 'target_sets', parseInt(e.target.value) || 0)}
+                            type="text"
+                            inputMode="decimal"
+                            value={getSetsDisplay(row.index, ex.target_sets)}
+                            onChange={e => handleSetsChange(row.index, e.target.value)}
+                            onBlur={() => handleSetsBlur(row.index)}
                             className="w-full bg-zinc-800 text-white text-center rounded-lg py-1.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
-                            inputMode="numeric"
                           />
                         </div>
                         <div>
@@ -411,8 +514,9 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                           <input
                             type="text"
                             inputMode="decimal"
-                            value={ex.target_weight_kg || ''}
-                            onChange={e => updateExercise(row.index, 'target_weight_kg', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                            value={getWeightDisplay(row.index, ex.target_weight_kg)}
+                            onChange={e => handleWeightChange(row.index, e.target.value)}
+                            onBlur={() => handleWeightBlur(row.index)}
                             className="w-full bg-zinc-800 text-white text-center rounded-lg py-1.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                             placeholder="0"
                           />
@@ -529,6 +633,14 @@ function SupersetExerciseRow({
   onUpdate: (index: number, field: keyof LocalTemplateExercise, value: any) => void;
   onRemove: (index: number) => void;
 }) {
+  const [localWeight, setLocalWeight] = useState<string | null>(null);
+  const weightDisplay = localWeight ?? (ex.target_weight_kg ? String(ex.target_weight_kg).replace('.', ',') : '');
+  const handleWeightBlur = () => {
+    if (localWeight == null) return;
+    const parsed = parseFloat(localWeight.replace(',', '.'));
+    onUpdate(index, 'target_weight_kg', isNaN(parsed) ? 0 : parsed);
+    setLocalWeight(null);
+  };
   return (
     <div className="bg-zinc-900">
       <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -584,8 +696,9 @@ function SupersetExerciseRow({
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={ex.target_weight_kg || ''}
-                    onChange={e => onUpdate(index, 'target_weight_kg', parseFloat(e.target.value.replace(',', '.')) || 0)}
+                    value={weightDisplay}
+                    onChange={e => setLocalWeight(e.target.value.replace(/[^0-9.,]/g, ''))}
+                    onBlur={handleWeightBlur}
                     className="w-full bg-zinc-800 text-white text-center rounded-lg py-1.5 text-sm font-semibold border border-transparent focus:border-red-500 focus:outline-none"
                     placeholder="0"
                   />
