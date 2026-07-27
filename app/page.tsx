@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Lightbulb } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { PageHelpSheet } from '@/components/layout/PageHelpSheet';
 import { DashboardTab } from '@/components/dashboard/DashboardTab';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
@@ -20,6 +21,8 @@ import { initStatusBar, hideSplash, requestNotificationPermission } from '@/lib/
 export default function Home() {
   const currentTab = useAppStore(s => s.currentTab);
   const setCurrentTab = useAppStore(s => s.setCurrentTab);
+  const showStartSheet = useAppStore(s => s.showStartSheet);
+  const setShowStartSheet = useAppStore(s => s.setShowStartSheet);
   const [initials, setInitials] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -123,6 +126,10 @@ export default function Home() {
       </div>
 
       <BottomNav />
+
+      {showStartSheet && (
+        <StartWorkoutSheet onClose={() => setShowStartSheet(false)} />
+      )}
 
       {/* Contextual help sheet */}
       <PageHelpSheet

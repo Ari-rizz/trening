@@ -114,6 +114,10 @@ interface AppState {
   setSelectedMuscleGroup: (group: string | null) => void;
   setCachedExercises: (exercises: Exercise[]) => void;
 
+  // Sheet visibility
+  showStartSheet: boolean;
+  setShowStartSheet: (show: boolean) => void;
+
   // Tour mode
   isTourMode: boolean;
   tourSelectedExerciseId: string | null;
@@ -147,6 +151,7 @@ export const useAppStore = create<AppState>()(
       currentTab: 'dashboard',
       selectedMuscleGroup: null,
       cachedExercises: [],
+      showStartSheet: false,
       isTourMode: false,
       tourSelectedExerciseId: null,
 
@@ -625,6 +630,7 @@ export const useAppStore = create<AppState>()(
       setCurrentTab: (tab: string) => set({ currentTab: tab }),
       setSelectedMuscleGroup: (group: string | null) => set({ selectedMuscleGroup: group }),
       setCachedExercises: (exercises: Exercise[]) => set({ cachedExercises: exercises }),
+      setShowStartSheet: (show: boolean) => set({ showStartSheet: show }),
 
       setIsTourMode: (value: boolean) => set({ isTourMode: value }),
       setTourSelectedExerciseId: (id: string | null) => set({ tourSelectedExerciseId: id }),

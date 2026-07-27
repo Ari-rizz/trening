@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, Dumbbell, Play, TrendingUp, ClipboardList } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 
 const tabs = [
   { id: 'dashboard', label: 'Hjem', icon: LayoutDashboard },
@@ -15,8 +13,7 @@ const tabs = [
 ];
 
 export function BottomNav() {
-  const { currentTab, setCurrentTab, activeWorkout } = useAppStore();
-  const [showStartSheet, setShowStartSheet] = useState(false);
+  const { currentTab, setCurrentTab, activeWorkout, showStartSheet, setShowStartSheet } = useAppStore();
 
   const handleWorkoutPress = () => {
     if (activeWorkout) {
@@ -90,10 +87,6 @@ export function BottomNav() {
           })}
         </div>
       </div>
-
-      {showStartSheet && (
-        <StartWorkoutSheet onClose={() => setShowStartSheet(false)} />
-      )}
     </>
   );
 }
