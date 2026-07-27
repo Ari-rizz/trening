@@ -176,9 +176,29 @@ export function IntroTour({ userId, onComplete }: IntroTourProps) {
       scrollToAndHighlight(step.selector);
     }, 400);
 
-    // Keep rescanning to handle slow renders
+    // Keep rescanning to handle slow renders — also scroll into view if found but off-screen
     scanTimerRef.current = setInterval(() => {
-      findAndSetHighlight(step.selector);
+      if (!step.selector) {
+        setHighlightRect(null);
+        return;
+      }
+      const el = document.querySelector(step.selector);
+      if (!el) {
+        setHighlightRect(null);
+        return;
+      }
+      const rect = el.getBoundingClientRect();
+      const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+      if (!isVisible) {
+        isProgrammaticScroll.current = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        setTimeout(() => {
+          setHighlightRect(el.getBoundingClientRect());
+          isProgrammaticScroll.current = false;
+        }, 350);
+      } else {
+        setHighlightRect(rect);
+      }
     }, 500);
 
     return () => {
