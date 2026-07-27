@@ -615,7 +615,7 @@ export function ProfileTab() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/60"
+              className="fixed inset-0 z-[60] bg-black/60"
               onClick={() => setShowCancelConfirm(false)}
             />
             <motion.div
@@ -623,7 +623,7 @@ export function ProfileTab() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
+              className="fixed bottom-0 left-0 right-0 z-[60] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
             >
               <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
@@ -780,7 +780,7 @@ export function ProfileTab() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/60"
+              className="fixed inset-0 z-[60] bg-black/60"
               onClick={() => !deleteLoading && setShowDeleteConfirm(false)}
             />
             <motion.div
@@ -788,7 +788,7 @@ export function ProfileTab() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
+              className="fixed bottom-0 left-0 right-0 z-[60] bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-6 pt-6 pb-10"
             >
               <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
               <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
