@@ -709,7 +709,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'irongrid-store',
-      version: 2,
+      version: 3,
+      migrate: (persistedState: any, version: number) => {
+        if (version < 3) {
+          persistedState.cachedExercises = [];
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         activeWorkout: state.activeWorkout,
         cachedExercises: state.cachedExercises,
