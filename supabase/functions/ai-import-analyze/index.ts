@@ -14,10 +14,6 @@ const supabase = createClient(
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-if (!OPENAI_API_KEY) {
-  console.error("OPENAI_API_KEY secret is not configured");
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -28,6 +24,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    if (!OPENAI_API_KEY) {
+      return jsonError("OPENAI_API_KEY er ikke konfigurert. Gå til prosjektinnstillinger for å legge til nøkkelen.", 500);
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return jsonError("Missing authorization header", 401);
 
@@ -44,33 +44,38 @@ Deno.serve(async (req: Request) => {
       return jsonError("No rows provided for analysis", 400);
     }
 
-    // Fetch the full exercise catalogue (names + nicknames) to give the AI
+    // Fetch exercise names + nicknames only (no UUIDs to keep prompt small)
     const { data: exercises, error: exError } = await supabase
       .from("exercises")
-      .select("id, name, muscle_group, equipment, nicknames, is_custom, created_by");
+      .select("id, name, nicknames");
 
     if (exError) {
       console.error("Failed to fetch exercises:", exError);
       return jsonError("Failed to fetch exercise catalogue", 500);
     }
 
-    // Build a compact catalogue for the AI prompt
-    const catalogue = (exercises ?? []).map((e: any) => ({
-      id: e.id,
-      name: e.name,
-      muscle_group: e.muscle_group,
-      equipment: e.equipment,
-      nicknames: e.nicknames ?? [],
-    }));
+    // Build a name-only list for the AI prompt — much smaller than full objects
+    const exerciseNames: string[] = [];
+    const nameToId = new Map<string, string>();
 
-    const aiResult = await callOpenAI(rows, catalogue);
-
-    if (!aiResult) {
-      return jsonError("AI analysis failed — please try again", 502);
+    for (const e of exercises ?? []) {
+      nameToId.set(e.name.toLowerCase(), e.id);
+      exerciseNames.push(e.name);
+      if (e.nicknames) {
+        for (const nick of e.nicknames) {
+          nameToId.set(nick.toLowerCase(), e.id);
+        }
+      }
     }
 
-    // Process the AI result: resolve exercises, create new ones, add nicknames
-    const processedPlans = await processAiResult(aiResult.plans, userId);
+    const aiResult = await callOpenAI(rows, exerciseNames);
+
+    if (!aiResult) {
+      return jsonError("AI returnerte ingen gyldig respons. Prøv igjen med færre øvelser.", 502);
+    }
+
+    // Process the AI result: resolve exercise names to IDs, create new ones, add nicknames
+    const processedPlans = await processAiResult(aiResult.plans, userId, nameToId);
 
     return jsonResponse({ plans: processedPlans });
   } catch (err: any) {
@@ -87,22 +92,20 @@ interface RawRow {
 
 interface AiExercise {
   originalName: string;
-  matchedExerciseId?: string;
-  matchedExerciseName?: string;
+  matchedExerciseName?: string | null;
   matchType: "exact" | "nickname" | "ai_similarity" | "new";
   isNew: boolean;
   sets: number;
   reps: number;
   weight: number;
-  rest?: number;
-  notes?: string;
-  // For new exercises:
-  newExerciseName?: string;
-  muscleGroup?: string;
-  secondaryMuscles?: string[];
-  equipment?: string;
-  difficulty?: string;
-  instructions?: string;
+  rest?: number | null;
+  notes?: string | null;
+  newExerciseName?: string | null;
+  muscleGroup?: string | null;
+  secondaryMuscles?: string[] | null;
+  equipment?: string | null;
+  difficulty?: string | null;
+  instructions?: string | null;
 }
 
 interface AiPlan {
@@ -113,13 +116,13 @@ interface AiPlan {
 
 // ===== OpenAI call =====
 
-async function callOpenAI(rows: RawRow[], catalogue: any[]): Promise<{ plans: AiPlan[] } | null> {
+async function callOpenAI(rows: RawRow[], exerciseNames: string[]): Promise<{ plans: AiPlan[] } | null> {
   const systemPrompt = `You are a fitness expert assistant that analyzes workout program data imported from Excel/CSV files.
 Your job is to:
 1. Detect and group rows into separate training plans/sessions (e.g. "Dag A", "Dag B", "Push", "Pull", "Leg Day").
 2. Collapse repeated identical sessions (e.g. "Uke 1 Dag A", "Uke 2 Dag A", "Uke 3 Dag A" with the same exercises) into ONE plan.
-3. For each exercise name, try to match it to an existing exercise from the provided catalogue by name or nickname (case-insensitive, fuzzy matching for Norwegian/English variations).
-4. For exercises that don't match anything in the catalogue, flag them as new and generate: muscleGroup, secondaryMuscles, equipment, difficulty, instructions, and a normalized name.
+3. For each exercise name, try to match it to an existing exercise from the provided list by name or nickname (case-insensitive, fuzzy matching for Norwegian/English variations).
+4. For exercises that don't match anything in the list, flag them as new and generate: muscleGroup, secondaryMuscles, equipment, difficulty, instructions, and a normalized name.
 
 You must respond with a JSON object matching this exact structure:
 {
@@ -130,8 +133,7 @@ You must respond with a JSON object matching this exact structure:
       "exercises": [
         {
           "originalName": "string - the exercise name as it appeared in the file",
-          "matchedExerciseId": "string | null - the UUID of the matched exercise, or null if new",
-          "matchedExerciseName": "string | null - the name of the matched exercise",
+          "matchedExerciseName": "string | null - the matched exercise name from the list, or null if new",
           "matchType": "'exact' | 'nickname' | 'ai_similarity' | 'new'",
           "isNew": boolean,
           "sets": number,
@@ -140,7 +142,7 @@ You must respond with a JSON object matching this exact structure:
           "rest": number | null,
           "notes": "string | null",
           "newExerciseName": "string | null - normalized name for new exercises",
-          "muscleGroup": "string | null - for new exercises",
+          "muscleGroup": "string | null",
           "secondaryMuscles": "string[] | null",
           "equipment": "string | null",
           "difficulty": "string | null",
@@ -154,21 +156,28 @@ You must respond with a JSON object matching this exact structure:
 Rules:
 - If the file has multiple sheets or sections that look like separate training days, create multiple plans.
 - If the same day/session is repeated across weeks with identical exercises, collapse into one plan.
-- Match exercises generously — "benk", "benkpress", "bench press", "flat bench" should all match "Barbell Bench Press - Medium Grip" if it exists in the catalogue.
+- Match exercises generously — "benk", "benkpress", "bench press", "flat bench" should all match the closest exercise in the list.
 - For new exercises, use these muscleGroup values: chest, back, shoulders, biceps, triceps, legs, abs, glutes, forearms, full body, cardio.
 - For equipment use: barbell, dumbbell, cable, machine, bodyweight, kettlebell, resistance band, other.
 - For difficulty use: beginner, intermediate, advanced.
 - Always respond in the same language as the input (Norwegian or English).
 - Keep instructions concise (1-2 sentences).
-- If sets/reps/weight are missing or invalid, default to 3 sets, 10 reps, 0 weight.`;
+- If sets/reps/weight are missing or invalid, default to 3 sets, 10 reps, 0 weight.
+- IMPORTANT: For matchedExerciseName, use the EXACT name from the exercise list. Do not invent names.`;
+
+  // Send only exercise names as a newline-separated list — much smaller than JSON objects
+  const namesList = exerciseNames.slice(0, 2000).join("\n");
 
   const userMessage = `Here is the raw data from the imported file (JSON array of row objects):
-${JSON.stringify(rows.slice(0, 500))}
+${JSON.stringify(rows.slice(0, 300))}
 
-Here is the exercise catalogue to match against:
-${JSON.stringify(catalogue.slice(0, 2000))}
+Here is the list of known exercise names to match against (one per line):
+${namesList}
 
 Analyze the data and return the structured JSON response.`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120000);
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -177,8 +186,9 @@ Analyze the data and return the structured JSON response.`;
         "Content-Type": "application/json",
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
+      signal: controller.signal,
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
@@ -189,29 +199,45 @@ Analyze the data and return the structured JSON response.`;
       }),
     });
 
+    clearTimeout(timeout);
+
     if (!response.ok) {
       const errText = await response.text();
       console.error("OpenAI API error:", response.status, errText);
-      return null;
+      let userMessage = "AI-analyse feilet";
+      if (response.status === 401) userMessage = "OpenAI API-nøkkelen er ugyldig. Sjekk konfigurasjonen.";
+      else if (response.status === 429) userMessage = "For mange forespørsler til OpenAI. Vent litt og prøv igjen.";
+      else if (response.status === 500 || response.status === 503) userMessage = "OpenAI-server feilet. Prøv igjen senere.";
+      throw new Error(`${userMessage} (${response.status})`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    if (!content) return null;
+    if (!content) {
+      console.error("OpenAI returned no content:", JSON.stringify(data));
+      return null;
+    }
 
     const parsed = JSON.parse(content);
-    if (!parsed.plans || !Array.isArray(parsed.plans)) return null;
+    if (!parsed.plans || !Array.isArray(parsed.plans)) {
+      console.error("OpenAI returned invalid structure:", content.slice(0, 500));
+      return null;
+    }
 
     return parsed;
-  } catch (err) {
-    console.error("OpenAI call failed:", err);
-    return null;
+  } catch (err: any) {
+    clearTimeout(timeout);
+    if (err.name === "AbortError") {
+      console.error("OpenAI call timed out");
+      throw new Error("AI-analyse tidsavbrutt (over 120 sekunder). Prøv med færre øvelser.");
+    }
+    throw err;
   }
 }
 
-// ===== Process AI result: create new exercises, add nicknames, track users =====
+// ===== Process AI result: resolve names to IDs, create new exercises =====
 
-async function processAiResult(plans: AiPlan[], userId: string) {
+async function processAiResult(plans: AiPlan[], userId: string, nameToId: Map<string, string>) {
   const processedPlans = [];
 
   for (const plan of plans) {
@@ -222,31 +248,47 @@ async function processAiResult(plans: AiPlan[], userId: string) {
       let matchType = ex.matchType;
       let matchedName: string | null = null;
 
-      if (ex.isNew || !ex.matchedExerciseId) {
-        // Check if another user already created this exercise with the same normalized name
+      // Try to resolve the matched name to an ID
+      if (ex.matchedExerciseName) {
+        const lookupKey = ex.matchedExerciseName.toLowerCase();
+        exerciseId = nameToId.get(lookupKey) ?? null;
+      }
+
+      if (exerciseId) {
+        // Successfully resolved to an existing exercise
+        matchedName = ex.matchedExerciseName;
+        matchType = ex.matchType === "new" ? "ai_similarity" : ex.matchType;
+
+        // Add nickname if the original name differs
+        await addNickname(exerciseId, ex.originalName);
+
+        // Add this user to exercise_users
+        await supabase
+          .from("exercise_users")
+          .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
+      } else {
+        // No match — check if an exercise with this name already exists (case-insensitive)
+        const lookupName = ex.newExerciseName ?? ex.originalName;
         const { data: existing } = await supabase
           .from("exercises")
-          .select("id, name, is_custom, created_by")
-          .ilike("name", ex.newExerciseName ?? ex.originalName)
+          .select("id, name")
+          .ilike("name", lookupName)
           .limit(1);
 
         if (existing && existing.length > 0) {
-          // Found an existing exercise with the same name (possibly created by another user)
           exerciseId = existing[0].id;
           matchedName = existing[0].name;
           matchType = "ai_similarity";
 
-          // Add this user to exercise_users if not already there
           await supabase
             .from("exercise_users")
             .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
 
-          // Add nickname if the original name differs
           await addNickname(exerciseId, ex.originalName);
         } else {
           // Create a brand new private exercise
           const newExercise = {
-            name: ex.newExerciseName ?? ex.originalName,
+            name: lookupName,
             muscle_group: ex.muscleGroup ?? "full body",
             secondary_muscles: ex.secondaryMuscles ?? [],
             equipment: ex.equipment ?? "other",
@@ -275,23 +317,10 @@ async function processAiResult(plans: AiPlan[], userId: string) {
           matchedName = inserted.name;
           matchType = "new";
 
-          // Add to exercise_users
           await supabase
             .from("exercise_users")
             .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
         }
-      } else {
-        // Matched to an existing exercise by the AI
-        exerciseId = ex.matchedExerciseId;
-        matchedName = ex.matchedExerciseName ?? ex.originalName;
-
-        // Add nickname if the original name is not already there
-        await addNickname(exerciseId, ex.originalName);
-
-        // Add this user to exercise_users
-        await supabase
-          .from("exercise_users")
-          .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
       }
 
       processedExercises.push({

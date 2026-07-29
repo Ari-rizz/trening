@@ -57,7 +57,7 @@ export async function analyzeImport(
 
   const data = await response.json();
   if (!data.plans || !Array.isArray(data.plans)) {
-    throw new Error('Ugyldig respons fra AI-analyse');
+    throw new Error(data.error ?? 'Ugyldig respons fra AI-analyse');
   }
 
   return { plans: data.plans };
