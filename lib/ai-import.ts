@@ -1,19 +1,23 @@
 import { supabase } from './supabase';
 
 export interface AnalyzedExercise {
-  exerciseId: string;
+  exerciseId: string | null;
   originalName: string;
   matchedName: string | null;
   matchType: 'exact' | 'nickname' | 'normalized' | 'ai_similarity' | 'new';
   isNew: boolean;
+  isNonExercise: boolean;
   sets: number;
   reps: number;
   weight: number;
   rest: number | null;
   notes: string | null;
+  newExerciseName: string | null;
   muscleGroup: string | null;
+  secondaryMuscles: string[] | null;
   equipment: string | null;
   difficulty: string | null;
+  instructions: string | null;
 }
 
 export interface AnalyzedPlan {
@@ -70,7 +74,51 @@ export async function saveConfirmedPlans(
   const plansToSave = plans.filter(p => p.exercises.length > 0);
   if (plansToSave.length === 0) return { success: false, error: 'Ingen planer å lagre' };
 
+  // Cache newly created exercises so the same name isn't created twice across plans
+  const createdCache = new Map<string, string>();
+  // Every exercise the user keeps (new or matched) is registered as "used" so the
+  // shared library can promote a private exercise to public once 5 users have it.
+  const usedExerciseIds = new Set<string>();
+
+  const resolveExerciseId = async (ex: AnalyzedExercise): Promise<string | null> => {
+    if (ex.exerciseId) return ex.exerciseId;
+
+    const cacheKey = ex.originalName.trim().toLowerCase();
+    const cached = createdCache.get(cacheKey);
+    if (cached) return cached;
+
+    const { data: created, error: createError } = await supabase
+      .from('exercises')
+      .insert({
+        name: ex.newExerciseName?.trim() || ex.originalName.trim(),
+        muscle_group: ex.muscleGroup ?? 'full body',
+        secondary_muscles: ex.secondaryMuscles ?? [],
+        equipment: ex.equipment ?? 'other',
+        difficulty: ex.difficulty ?? 'beginner',
+        instructions: ex.instructions ?? '',
+        is_custom: true,
+        created_by: userId,
+        nicknames: [cacheKey],
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (createError || !created) return null;
+    createdCache.set(cacheKey, created.id);
+    return created.id;
+  };
+
   for (const plan of plansToSave) {
+    const resolved: Array<{ ex: AnalyzedExercise; exerciseId: string }> = [];
+    for (const ex of plan.exercises) {
+      const exerciseId = await resolveExerciseId(ex);
+      if (!exerciseId) {
+        return { success: false, error: 'Kunne ikke opprette en av øvelsene' };
+      }
+      usedExerciseIds.add(exerciseId);
+      resolved.push({ ex, exerciseId });
+    }
+
     const { data: template, error: tmplError } = await supabase
       .from('workout_templates')
       .insert({
@@ -85,9 +133,9 @@ export async function saveConfirmedPlans(
       return { success: false, error: 'Kunne ikke opprette plan' };
     }
 
-    const exercisesToInsert = plan.exercises.map((ex, idx) => ({
+    const exercisesToInsert = resolved.map(({ ex, exerciseId }, idx) => ({
       template_id: template.id,
-      exercise_id: ex.exerciseId,
+      exercise_id: exerciseId,
       order_index: idx,
       target_sets: ex.sets,
       target_reps: ex.reps,
@@ -105,6 +153,15 @@ export async function saveConfirmedPlans(
     if (insertError) {
       return { success: false, error: 'Kunne ikke lagre øvelsene' };
     }
+  }
+
+  if (usedExerciseIds.size > 0) {
+    await supabase
+      .from('exercise_users')
+      .upsert(
+        Array.from(usedExerciseIds).map(exercise_id => ({ exercise_id, user_id: userId })),
+        { onConflict: 'exercise_id,user_id' },
+      );
   }
 
   return { success: true };

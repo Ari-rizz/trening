@@ -119,29 +119,13 @@ Deno.serve(async (req: Request) => {
     }
 
     // Merge AI plan grouping with local matching results
-    let processedPlans = await processAiResult(aiResult, matchResults, userId, nameToId, exerciseList);
+    let processedPlans = await processAiResult(aiResult, matchResults, exerciseList);
 
     // Fallback: if AI returned 0 plans, create a single default plan with all exercises
     if (processedPlans.length === 0 && filteredRows.length > 0) {
       const fallbackExercises: ProcessedExercise[] = [];
       for (const name of uniqueNames) {
-        const localMatch = matchResults.get(name);
-        const meta = aiResult.unmatchedMetadata?.[name] ?? {};
-        fallbackExercises.push({
-          exerciseId: localMatch?.exerciseId ?? null,
-          originalName: name,
-          matchedName: localMatch?.matchedName ?? null,
-          matchType: localMatch?.matchType ?? "new",
-          isNew: !localMatch,
-          sets: 3,
-          reps: 10,
-          weight: 0,
-          rest: null,
-          notes: null,
-          muscleGroup: meta.muscleGroup ?? null,
-          equipment: meta.equipment ?? null,
-          difficulty: meta.difficulty ?? null,
-        });
+        fallbackExercises.push(buildExerciseFromName(name, matchResults, aiResult));
       }
       processedPlans = [{
         name: "Importert plan",
@@ -159,23 +143,7 @@ Deno.serve(async (req: Request) => {
     }
     for (const name of uniqueNames) {
       if (!allOutputNames.has(name) && processedPlans.length > 0) {
-        const localMatch = matchResults.get(name);
-        const meta = aiResult.unmatchedMetadata?.[name] ?? {};
-        processedPlans[0].exercises.push({
-          exerciseId: localMatch?.exerciseId ?? null,
-          originalName: name,
-          matchedName: localMatch?.matchedName ?? null,
-          matchType: localMatch?.matchType ?? "new",
-          isNew: !localMatch,
-          sets: 3,
-          reps: 10,
-          weight: 0,
-          rest: null,
-          notes: null,
-          muscleGroup: meta.muscleGroup ?? null,
-          equipment: meta.equipment ?? null,
-          difficulty: meta.difficulty ?? null,
-        });
+        processedPlans[0].exercises.push(buildExerciseFromName(name, matchResults, aiResult));
       }
     }
 
@@ -313,10 +281,15 @@ function extractRowName(row: RawRow): string {
   return firstString ? String(firstString).trim() : "";
 }
 
+function isNonExerciseName(name: string): boolean {
+  return !isLikelyExerciseName(name);
+}
+
+// Keep every row that has a name so nothing is silently dropped. Obvious
+// non-exercises are flagged (isNonExercise) later and greyed out in the UI,
+// which lets the user override if the detector is wrong.
 function filterNonExerciseRows(rows: RawRow[]): RawRow[] {
-  const filtered = rows.filter(row => isLikelyExerciseName(extractRowName(row)));
-  // Safety net: if filtering removed everything, return original rows and let AI handle it
-  return filtered.length > 0 ? filtered : rows;
+  return rows.filter(row => extractRowName(row).length > 0);
 }
 
 // ===== Tempo Extraction =====
@@ -419,9 +392,7 @@ const SYNONYMS: Record<string, string> = {
 
 const FILLER_WORDS = new Set([
   "the", "a", "an", "with", "and", "or", "-",
-  "medium", "grip", "version", "bands", "band",
-  "chest", "triceps", "version", "focus", "focused",
-  "if", "needed", "required",
+  "version", "if", "needed", "required",
 ]);
 
 function normalizeName(name: string): string {
@@ -539,6 +510,7 @@ function matchLocally(
   // 4. Substring matching as a fallback for short names
   if (normalized.length >= 4) {
     for (const [key, id] of nameToId) {
+      if (key.length < 4) continue;
       const exName = nameToExerciseName.get(key)!;
       if (exName.toLowerCase().includes(normalized) || normalized.includes(key)) {
         return {
@@ -752,15 +724,15 @@ Analyze the data and return the structured JSON response. Include every real exe
 
 // ===== Process AI Result =====
 
+// Analysis is READ-ONLY: it resolves matches against existing exercises but
+// never writes to the database. New exercises are created only when the user
+// confirms and saves (see saveConfirmedPlans on the client).
 async function processAiResult(
   aiResult: AiResponse,
   matchResults: Map<string, LocalMatch>,
-  userId: string,
-  nameToId: Map<string, string>,
   exerciseList: ExerciseRecord[]
 ) {
   const processedPlans: ProcessedPlan[] = [];
-  const unmatchedMetadata = aiResult.unmatchedMetadata ?? {};
   const similarityMatches = aiResult.similarityMatches ?? {};
 
   // Build a name-to-exercise lookup for AI similarity matches
@@ -783,13 +755,8 @@ async function processAiResult(
         exerciseId = localMatch.exerciseId;
         matchedName = localMatch.matchedName;
         matchType = localMatch.matchType;
-
-        await addNickname(exerciseId, ex.originalName);
-        await supabase
-          .from("exercise_users")
-          .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
       } else {
-        // 2. Check AI similarity match
+        // 2. Check AI similarity match against an existing exercise
         const aiMatch = similarityMatches[ex.originalName];
         if (aiMatch) {
           const matched = exerciseByName.get(aiMatch.toLowerCase());
@@ -797,15 +764,10 @@ async function processAiResult(
             exerciseId = matched.id;
             matchedName = matched.name;
             matchType = "ai_similarity";
-
-            await addNickname(exerciseId, ex.originalName);
-            await supabase
-              .from("exercise_users")
-              .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
           }
         }
 
-        // 3. If still unmatched, check database case-insensitively
+        // 3. If still unmatched, check database case-insensitively (read-only)
         if (!exerciseId) {
           const { data: existing } = await supabase
             .from("exercises")
@@ -817,66 +779,29 @@ async function processAiResult(
             exerciseId = existing[0].id;
             matchedName = existing[0].name;
             matchType = "ai_similarity";
-
-            await supabase
-              .from("exercise_users")
-              .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
-
-            await addNickname(exerciseId, ex.originalName);
-          } else {
-            // 4. Create a brand new exercise using AI-generated metadata
-            const meta = unmatchedMetadata[ex.originalName] ?? {};
-            const newExercise = {
-              name: meta.newExerciseName ?? ex.originalName,
-              muscle_group: meta.muscleGroup ?? "full body",
-              secondary_muscles: meta.secondaryMuscles ?? [],
-              equipment: meta.equipment ?? "other",
-              difficulty: meta.difficulty ?? "beginner",
-              instructions: meta.instructions ?? "",
-              gif_url: "",
-              image_url: "Ingen bilde enda — kommer snart",
-              images: [],
-              is_custom: true,
-              created_by: userId,
-              nicknames: [ex.originalName.toLowerCase()],
-            };
-
-            const { data: inserted, error: insertErr } = await supabase
-              .from("exercises")
-              .insert(newExercise)
-              .select("id, name")
-              .single();
-
-            if (insertErr || !inserted) {
-              console.error("Failed to create new exercise:", insertErr);
-              continue;
-            }
-
-            exerciseId = inserted.id;
-            matchedName = inserted.name;
-            matchType = "new";
-
-            await supabase
-              .from("exercise_users")
-              .upsert({ exercise_id: exerciseId, user_id: userId }, { onConflict: "exercise_id, user_id" });
           }
         }
       }
 
+      const meta = aiResult.unmatchedMetadata?.[ex.originalName] ?? {};
       processedExercises.push({
         exerciseId,
         originalName: ex.originalName,
         matchedName,
         matchType,
-        isNew: matchType === "new",
+        isNew: !exerciseId,
+        isNonExercise: isNonExerciseName(ex.originalName),
         sets: ex.sets ?? 3,
         reps: ex.reps ?? 10,
         weight: ex.weight ?? 0,
         rest: ex.rest ?? null,
         notes: ex.notes ?? null,
-        muscleGroup: unmatchedMetadata[ex.originalName]?.muscleGroup ?? null,
-        equipment: unmatchedMetadata[ex.originalName]?.equipment ?? null,
-        difficulty: unmatchedMetadata[ex.originalName]?.difficulty ?? null,
+        newExerciseName: meta.newExerciseName ?? null,
+        muscleGroup: meta.muscleGroup ?? null,
+        secondaryMuscles: meta.secondaryMuscles ?? null,
+        equipment: meta.equipment ?? null,
+        difficulty: meta.difficulty ?? null,
+        instructions: meta.instructions ?? null,
       });
     }
 
@@ -890,23 +815,34 @@ async function processAiResult(
   return processedPlans;
 }
 
-async function addNickname(exerciseId: string, nickname: string) {
-  const normalized = nickname.toLowerCase().trim();
-  if (!normalized) return;
-
-  const { data: ex } = await supabase
-    .from("exercises")
-    .select("nicknames")
-    .eq("id", exerciseId)
-    .single();
-
-  const current = (ex?.nicknames ?? []) as string[];
-  if (current.includes(normalized)) return;
-
-  await supabase
-    .from("exercises")
-    .update({ nicknames: [...current, normalized] })
-    .eq("id", exerciseId);
+// Build a ProcessedExercise for a bare name (used by fallback + safety-net
+// validation). Resolves any local match; otherwise marks it as new.
+function buildExerciseFromName(
+  name: string,
+  matchResults: Map<string, LocalMatch>,
+  aiResult: AiResponse,
+): ProcessedExercise {
+  const localMatch = matchResults.get(name);
+  const meta = aiResult.unmatchedMetadata?.[name] ?? {};
+  return {
+    exerciseId: localMatch?.exerciseId ?? null,
+    originalName: name,
+    matchedName: localMatch?.matchedName ?? null,
+    matchType: localMatch?.matchType ?? "new",
+    isNew: !localMatch,
+    isNonExercise: isNonExerciseName(name),
+    sets: 3,
+    reps: 10,
+    weight: 0,
+    rest: null,
+    notes: null,
+    newExerciseName: meta.newExerciseName ?? null,
+    muscleGroup: meta.muscleGroup ?? null,
+    secondaryMuscles: meta.secondaryMuscles ?? null,
+    equipment: meta.equipment ?? null,
+    difficulty: meta.difficulty ?? null,
+    instructions: meta.instructions ?? null,
+  };
 }
 
 // ===== Helpers =====
@@ -917,14 +853,18 @@ interface ProcessedExercise {
   matchedName: string | null;
   matchType: string;
   isNew: boolean;
+  isNonExercise: boolean;
   sets: number;
   reps: number;
   weight: number;
   rest: number | null;
   notes: string | null;
+  newExerciseName: string | null;
   muscleGroup: string | null;
+  secondaryMuscles: string[] | null;
   equipment: string | null;
   difficulty: string | null;
+  instructions: string | null;
 }
 
 interface ProcessedPlan {

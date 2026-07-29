@@ -44,7 +44,7 @@ export function PlansTab() {
   // when opening TemplateEditor from a program day, remember to return to programs
   const [fromProgram, setFromProgram] = useState(false);
 
-  const { startWorkoutFromTemplate, setCurrentTab } = useAppStore();
+  const { startWorkoutFromTemplate, setCurrentTab, isOnline } = useAppStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -331,17 +331,21 @@ export function PlansTab() {
         {userId && mainView === 'my-plans' && (
           <div className="flex items-center gap-2">
             <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowExcelImport(true)}
-              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2"
+              whileTap={{ scale: isOnline ? 0.9 : 1 }}
+              onClick={() => isOnline && setShowExcelImport(true)}
+              disabled={!isOnline}
+              title={isOnline ? undefined : 'Import krever internett'}
+              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <FileSpreadsheet size={15} className="text-green-400" />
               <span className="text-zinc-400 text-xs font-medium">Importer Excel</span>
             </motion.button>
             <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowImport(true)}
-              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2"
+              whileTap={{ scale: isOnline ? 0.9 : 1 }}
+              onClick={() => isOnline && setShowImport(true)}
+              disabled={!isOnline}
+              title={isOnline ? undefined : 'Import krever internett'}
+              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download size={15} className="text-zinc-400" />
               <span className="text-zinc-400 text-xs font-medium">Legg til delt plan</span>
@@ -454,17 +458,21 @@ export function PlansTab() {
                 Lag ny plan
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setShowImport(true)}
-                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2"
+                whileTap={{ scale: isOnline ? 0.97 : 1 }}
+                onClick={() => isOnline && setShowImport(true)}
+                disabled={!isOnline}
+                title={isOnline ? undefined : 'Import krever internett'}
+                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Download size={14} />
                 Importer fra kode
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setShowExcelImport(true)}
-                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2"
+                whileTap={{ scale: isOnline ? 0.97 : 1 }}
+                onClick={() => isOnline && setShowExcelImport(true)}
+                disabled={!isOnline}
+                title={isOnline ? undefined : 'Import krever internett'}
+                className="bg-zinc-900 border border-zinc-800 text-zinc-400 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <FileSpreadsheet size={14} className="text-green-400" />
                 Importer fra Excel

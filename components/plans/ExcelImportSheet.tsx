@@ -19,6 +19,7 @@ import {
   Plus,
   Search,
   Pencil,
+  TriangleAlert as AlertTriangle,
 } from 'lucide-react';
 import { parsePastedText, parseWorkbook } from '@/lib/excel-import';
 import { analyzeImport, saveConfirmedPlans, type AnalyzedPlan, type AnalyzedExercise } from '@/lib/ai-import';
@@ -45,6 +46,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
   const [currentPlanIdx, setCurrentPlanIdx] = useState(0);
   const [editedPlanNames, setEditedPlanNames] = useState<Record<number, string>>({});
   const [removedExercises, setRemovedExercises] = useState<Record<number, Set<number>>>({});
+  const [includedJunk, setIncludedJunk] = useState<Record<number, Set<number>>>({});
   const [skippedPlans, setSkippedPlans] = useState<Set<number>>(new Set());
   const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, string>>({});
   const [searchOpen, setSearchOpen] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
     setCurrentPlanIdx(0);
     setEditedPlanNames({});
     setRemovedExercises({});
+    setIncludedJunk({});
     setSkippedPlans(new Set());
     setExerciseOverrides({});
     setSearchOpen(null);
@@ -155,6 +158,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
       setCurrentPlanIdx(0);
       setEditedPlanNames({});
       setRemovedExercises({});
+      setIncludedJunk({});
       setSkippedPlans(new Set());
       setPhase('confirming');
     } catch (err: any) {
@@ -187,19 +191,47 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
     return (plans[planIdx]?.exercises ?? []).filter((_, i) => !removed.has(i));
   };
 
+  // A junk row (AI thinks it's not an exercise) is excluded from saving unless
+  // the user re-includes it or picks a real exercise for it.
+  const isJunkExcluded = (planIdx: number, exIdx: number, ex: AnalyzedExercise) => {
+    if (!ex.isNonExercise) return false;
+    if (exerciseOverrides[ex.originalName]) return false;
+    return !(includedJunk[planIdx]?.has(exIdx));
+  };
+
+  const toggleIncludeJunk = (planIdx: number, exIdx: number) => {
+    setIncludedJunk(prev => {
+      const next = { ...prev };
+      const set = new Set(next[planIdx] ?? []);
+      if (set.has(exIdx)) set.delete(exIdx);
+      else set.add(exIdx);
+      next[planIdx] = set;
+      return next;
+    });
+  };
+
+  const getIncludedCount = (planIdx: number) => {
+    const removed = removedExercises[planIdx] ?? new Set<number>();
+    return (plans[planIdx]?.exercises ?? []).filter(
+      (ex, i) => !removed.has(i) && !isJunkExcluded(planIdx, i, ex)
+    ).length;
+  };
+
   const getFinalPlans = (): AnalyzedPlan[] => {
     return plans
       .map((plan, idx) => {
         if (skippedPlans.has(idx)) return null;
-        const visibleExs = getVisibleExercises(idx);
-        if (visibleExs.length === 0) return null;
-        const exercisesWithOverrides = visibleExs.map(ex => {
-          const overrideId = exerciseOverrides[ex.originalName];
-          if (overrideId) {
-            return { ...ex, exerciseId: overrideId, isNew: false, matchType: 'exact' as const, matchedName: ex.matchedName };
-          }
-          return ex;
-        });
+        const removed = removedExercises[idx] ?? new Set<number>();
+        const exercisesWithOverrides = plan.exercises
+          .filter((ex, exIdx) => !removed.has(exIdx) && !isJunkExcluded(idx, exIdx, ex))
+          .map(ex => {
+            const overrideId = exerciseOverrides[ex.originalName];
+            if (overrideId) {
+              return { ...ex, exerciseId: overrideId, isNew: false, isNonExercise: false, matchType: 'exact' as const, matchedName: ex.matchedName };
+            }
+            return ex;
+          });
+        if (exercisesWithOverrides.length === 0) return null;
         return {
           name: editedPlanNames[idx] ?? plan.name,
           dayLabel: plan.dayLabel,
@@ -258,6 +290,14 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
         <div className="flex items-center gap-1 text-green-400 text-[10px] font-semibold">
           <Check size={10} />
           Endret
+        </div>
+      );
+    }
+    if (ex.isNonExercise) {
+      return (
+        <div className="flex items-center gap-1 text-zinc-500 text-[10px] font-semibold">
+          <AlertTriangle size={10} />
+          Ikke en øvelse
         </div>
       );
     }
@@ -489,7 +529,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                       <div className="px-4 py-2.5 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
                         <p className="text-zinc-400 text-xs font-semibold">
-                          {getVisibleExercises(currentPlanIdx).length} øvelser
+                          {getIncludedCount(currentPlanIdx)} øvelser
                         </p>
                         <span className="text-zinc-600 text-[10px]">{plans[currentPlanIdx].dayLabel}</span>
                       </div>
@@ -498,18 +538,21 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                           const isRemoved = (removedExercises[currentPlanIdx] ?? new Set()).has(exIdx);
                           if (isRemoved) return null;
                           const hasOverride = !!exerciseOverrides[ex.originalName];
+                          const excluded = isJunkExcluded(currentPlanIdx, exIdx, ex);
                           return (
                             <div
                               key={exIdx}
                               className={`flex items-center gap-2 px-4 py-2.5 text-xs border-b border-zinc-800/50 transition-colors ${
-                                ex.matchType === 'ai_similarity' && !hasOverride
+                                excluded
+                                  ? 'opacity-45'
+                                  : ex.matchType === 'ai_similarity' && !hasOverride
                                   ? 'bg-amber-500/5'
                                   : 'hover:bg-zinc-800/30'
                               }`}
                             >
                               <Dumbbell size={12} className="text-zinc-600 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
-                                <p className="text-white truncate">{ex.originalName}</p>
+                                <p className={`truncate ${excluded ? 'text-zinc-400 line-through' : 'text-white'}`}>{ex.originalName}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   {matchBadge(ex, hasOverride)}
                                   {ex.isNew && !hasOverride && ex.muscleGroup && (
@@ -524,10 +567,25 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                                   </p>
                                 )}
                               </div>
-                              <span className="text-zinc-500 flex-shrink-0">
-                                {ex.sets}x{ex.reps}
-                                {ex.weight > 0 && ` @ ${ex.weight}kg`}
-                              </span>
+                              {!excluded && (
+                                <span className="text-zinc-500 flex-shrink-0">
+                                  {ex.sets}x{ex.reps}
+                                  {ex.weight > 0 && ` @ ${ex.weight}kg`}
+                                </span>
+                              )}
+                              {ex.isNonExercise && !hasOverride && (
+                                <button
+                                  onClick={() => toggleIncludeJunk(currentPlanIdx, exIdx)}
+                                  className={`px-2 h-6 rounded-full text-[10px] font-semibold flex items-center justify-center transition-colors flex-shrink-0 ${
+                                    excluded
+                                      ? 'bg-zinc-800 text-zinc-400 hover:text-white'
+                                      : 'bg-green-500/15 text-green-400'
+                                  }`}
+                                  title={excluded ? 'Ta med likevel' : 'Ekskluder'}
+                                >
+                                  {excluded ? 'Ta med' : 'Med'}
+                                </button>
+                              )}
                               <button
                                 onClick={() => setSearchOpen(ex.originalName)}
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors flex-shrink-0"
