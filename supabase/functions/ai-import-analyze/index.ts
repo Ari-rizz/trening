@@ -251,6 +251,23 @@ const SCHEDULE_DAYS_EXACT = new Set([
   "day", "dag", "week", "uke",
 ]);
 
+const NON_EXERCISE_EXACT = new Set([
+  "variation", "target", "targets", "rest day", "hviledag",
+  "warm up", "warm-up", "cooldown", "cool down",
+  "weekly schedule", "daily schedule", "schedule",
+  "how this workbook works", "instructions",
+  "daily nutrition targets", "nutrition", "macros",
+  "notes", "notater", "comments",
+]);
+
+const NON_EXERCISE_PATTERNS: RegExp[] = [
+  /^calories/i, /^protein\s*\(/i, /^creatine/i, /^carbs?\s*\(/i,
+  /^fat\s*\(/i, /^kcal/i, /^grams?\s*\(/i,
+  /^how\s+(this|to|the)/i, /^weekly\s+schedule/i,
+  /^daily\s+(schedule|nutrition|target)/i,
+  /^nutrition\s+target/i,
+];
+
 function isLikelyExerciseName(name: string): boolean {
   const trimmed = name.trim();
   if (!trimmed) return false;
@@ -265,6 +282,14 @@ function isLikelyExerciseName(name: string): boolean {
 
   // Single letters (A, B, C variation labels)
   if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) return false;
+
+  // Exact non-exercise labels
+  if (NON_EXERCISE_EXACT.has(lower)) return false;
+
+  // Pattern-based non-exercise detection
+  for (const pattern of NON_EXERCISE_PATTERNS) {
+    if (pattern.test(trimmed)) return false;
+  }
 
   return true;
 }
@@ -581,11 +606,15 @@ Your job is to:
 4. For the list of unmatched exercise names, generate metadata: muscleGroup, secondaryMuscles, equipment, difficulty, instructions, and a normalized name.
 5. For unmatched exercise names where candidate matches are provided, determine if the imported name refers to the same exercise as one of the candidates. If so, return the candidate name in similarityMatches. If not, return null.
 
-CRITICAL RULE - INCLUDE EVERYTHING:
-- EVERY row in the input MUST appear in the output as an exercise. Never skip, drop, or exclude any row.
-- When in doubt, INCLUDE the row as an exercise. It is far better to include a non-exercise by mistake than to drop a real exercise.
-- The ONLY rows you may skip are rows where the name field is a multi-sentence paragraph (3+ sentences of instructional text like "How this workbook works: Each day you should..."). Single words or short phrases are ALWAYS exercises — include them.
-- Do NOT skip rows just because they look like schedule headers, nutrition info, or variation labels. If in doubt, include them.
+ROW FILTERING RULES:
+- Most rows are real exercises and MUST appear in the output. When in doubt, INCLUDE the row.
+- ONLY skip a row if it is clearly NOT an exercise:
+  - Instructional text: "How this workbook works", "Instructions", multi-sentence paragraphs
+  - Schedule headers: "Weekly Schedule", "Daily Schedule", bare day names (Monday, Tuesday)
+  - Nutrition info: "Calories (kcal)", "Protein (g)", "Creatine (g)", "Daily Nutrition Targets", "Target"
+  - Generic labels: "Variation" by itself, "Rest Day", "Warm Up"
+- Short single words or exercise-like phrases (e.g. "Back Squat", "Bench Press", "Leg Curl", "Split Squat") are ALWAYS exercises — never skip them.
+- If a row could plausibly be an exercise, INCLUDE it.
 
 VARIATION HANDLING:
 - If the file has variations A, B, C of the same day type (e.g. "Chest A", "Chest B", "Chest C", "Legs A", "Legs B", "Legs C"), create SEPARATE plans for each variation and include the variation in the plan name (e.g. "Chest A", "Chest B", "Chest C").
@@ -660,7 +689,7 @@ ${JSON.stringify(rows.slice(0, 2000))}
 
 ${unmatchedSection}
 
-Analyze the data and return the structured JSON response. Remember: EVERY row must appear in the output as an exercise. When in doubt, include it.`;
+Analyze the data and return the structured JSON response. Include every real exercise in the output. Skip only obvious non-exercise rows (instructions, schedule headers, nutrition info, generic labels).`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180000);
