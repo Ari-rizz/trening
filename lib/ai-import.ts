@@ -4,7 +4,7 @@ export interface AnalyzedExercise {
   exerciseId: string;
   originalName: string;
   matchedName: string | null;
-  matchType: 'exact' | 'nickname' | 'ai_similarity' | 'new';
+  matchType: 'exact' | 'nickname' | 'normalized' | 'ai_similarity' | 'new';
   isNew: boolean;
   sets: number;
   reps: number;

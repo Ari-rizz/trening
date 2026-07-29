@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -16,9 +16,14 @@ import {
   Trash2,
   Tag,
   Plus,
+  Search,
+  Pencil,
 } from 'lucide-react';
 import { parsePastedText, parseWorkbook } from '@/lib/excel-import';
 import { analyzeImport, saveConfirmedPlans, type AnalyzedPlan, type AnalyzedExercise } from '@/lib/ai-import';
+import { supabase } from '@/lib/supabase';
+import { getMuscleGroupLabel, getMuscleGroupColor } from '@/lib/exercises-data';
+import type { Exercise } from '@/lib/supabase';
 
 interface Props {
   open: boolean;
@@ -40,7 +45,53 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
   const [editedPlanNames, setEditedPlanNames] = useState<Record<number, string>>({});
   const [removedExercises, setRemovedExercises] = useState<Record<number, Set<number>>>({});
   const [skippedPlans, setSkippedPlans] = useState<Set<number>>(new Set());
+  const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, string>>({});
+  const [searchOpen, setSearchOpen] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Exercise[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) {
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  }, [searchOpen]);
+
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!searchOpen || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      const { data } = await supabase
+        .from('exercises')
+        .select('*')
+        .or(`name.ilike.%${searchQuery.trim()}%,nicknames.cs.{${searchQuery.trim()}}`)
+        .limit(20);
+      setSearchResults((data as Exercise[]) ?? []);
+      setSearchLoading(false);
+    }, 300);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [searchOpen, searchQuery]);
+
+  const applyOverride = (originalName: string, exercise: Exercise) => {
+    setExerciseOverrides(prev => ({ ...prev, [originalName]: exercise.id }));
+    setSearchOpen(null);
+  };
 
   const resetState = () => {
     setPhase('input');
@@ -51,6 +102,8 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
     setEditedPlanNames({});
     setRemovedExercises({});
     setSkippedPlans(new Set());
+    setExerciseOverrides({});
+    setSearchOpen(null);
   };
 
   const handleFile = async (file: File) => {
@@ -139,10 +192,17 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
         if (skippedPlans.has(idx)) return null;
         const visibleExs = getVisibleExercises(idx);
         if (visibleExs.length === 0) return null;
+        const exercisesWithOverrides = visibleExs.map(ex => {
+          const overrideId = exerciseOverrides[ex.originalName];
+          if (overrideId) {
+            return { ...ex, exerciseId: overrideId, isNew: false, matchType: 'exact' as const, matchedName: ex.matchedName };
+          }
+          return ex;
+        });
         return {
           name: editedPlanNames[idx] ?? plan.name,
           dayLabel: plan.dayLabel,
-          exercises: visibleExs,
+          exercises: exercisesWithOverrides,
         };
       })
       .filter((p): p is AnalyzedPlan => p !== null);
@@ -185,8 +245,16 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
     onClose();
   };
 
-  const matchBadge = (ex: AnalyzedExercise) => {
-    if (ex.matchType === 'exact') {
+  const matchBadge = (ex: AnalyzedExercise, hasOverride = false) => {
+    if (hasOverride) {
+      return (
+        <div className="flex items-center gap-1 text-green-400 text-[10px] font-semibold">
+          <Check size={10} />
+          Endret
+        </div>
+      );
+    }
+    if (ex.matchType === 'exact' || ex.matchType === 'normalized') {
       return (
         <div className="flex items-center gap-1 text-green-400 text-[10px] font-semibold">
           <Check size={10} />
@@ -422,17 +490,22 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                         {plans[currentPlanIdx].exercises.map((ex, exIdx) => {
                           const isRemoved = (removedExercises[currentPlanIdx] ?? new Set()).has(exIdx);
                           if (isRemoved) return null;
+                          const hasOverride = !!exerciseOverrides[ex.originalName];
                           return (
                             <div
                               key={exIdx}
-                              className="flex items-center gap-2 px-4 py-2.5 text-xs border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                              className={`flex items-center gap-2 px-4 py-2.5 text-xs border-b border-zinc-800/50 transition-colors ${
+                                ex.matchType === 'ai_similarity' && !hasOverride
+                                  ? 'bg-amber-500/5'
+                                  : 'hover:bg-zinc-800/30'
+                              }`}
                             >
                               <Dumbbell size={12} className="text-zinc-600 flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <p className="text-white truncate">{ex.originalName}</p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  {matchBadge(ex)}
-                                  {ex.isNew && ex.muscleGroup && (
+                                  {matchBadge(ex, hasOverride)}
+                                  {ex.isNew && !hasOverride && ex.muscleGroup && (
                                     <span className="text-zinc-600 text-[10px] capitalize">
                                       {ex.muscleGroup} · {ex.equipment}
                                     </span>
@@ -443,6 +516,13 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                                 {ex.sets}x{ex.reps}
                                 {ex.weight > 0 && ` @ ${ex.weight}kg`}
                               </span>
+                              <button
+                                onClick={() => setSearchOpen(ex.originalName)}
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-600 hover:text-blue-400 hover:bg-blue-500/10 transition-colors flex-shrink-0"
+                                title="Endre øvelse"
+                              >
+                                <Pencil size={11} />
+                              </button>
                               <button
                                 onClick={() => removeExercise(currentPlanIdx, exIdx)}
                                 className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
@@ -489,6 +569,80 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                 <p className="text-white font-semibold text-sm mt-4">Lagrer planer...</p>
               </div>
             )}
+
+            {/* ===== Exercise Search Override Modal ===== */}
+            <AnimatePresence>
+              {searchOpen && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 bg-black/70 z-[61] flex items-end justify-center"
+                  onClick={() => setSearchOpen(null)}
+                >
+                  <motion.div
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                    className="w-full bg-zinc-950 border-t border-zinc-800 rounded-t-3xl px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] max-h-[70vh] flex flex-col"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="w-10 h-1 bg-zinc-800 rounded-full mx-auto mb-4" />
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-white font-bold text-sm">Velg riktig øvelse</p>
+                      <button onClick={() => setSearchOpen(null)} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center">
+                        <X size={14} className="text-zinc-400" />
+                      </button>
+                    </div>
+                    <p className="text-zinc-500 text-xs mb-3">
+                      Søk etter øvelsen som "<span className="text-zinc-300">{searchOpen}</span>" egentlig er
+                    </p>
+                    <div className="relative mb-3">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Søk etter øvelse..."
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600"
+                      />
+                      {searchLoading && (
+                        <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 animate-spin" />
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-1">
+                      {searchResults.length === 0 && searchQuery.trim().length >= 2 && !searchLoading && (
+                        <p className="text-zinc-600 text-xs text-center py-4">Ingen resultater funnet</p>
+                      )}
+                      {searchResults.map(ex => (
+                        <button
+                          key={ex.id}
+                          onClick={() => applyOverride(searchOpen, ex)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-zinc-800/50 transition-colors text-left"
+                        >
+                          <Dumbbell size={14} className="text-zinc-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm truncate">{ex.name}</p>
+                            <p className="text-zinc-500 text-[10px] capitalize">{getMuscleGroupLabel(ex.muscle_group)} · {ex.equipment}</p>
+                          </div>
+                          <span
+                            className="px-2 py-0.5 rounded-md text-[10px] font-semibold flex-shrink-0"
+                            style={{
+                              backgroundColor: getMuscleGroupColor(ex.muscle_group) + '22',
+                              color: getMuscleGroupColor(ex.muscle_group),
+                            }}
+                          >
+                            {getMuscleGroupLabel(ex.muscle_group)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* ===== Phase: Done ===== */}
             {phase === 'done' && (
