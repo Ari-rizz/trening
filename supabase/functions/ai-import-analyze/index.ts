@@ -212,89 +212,57 @@ interface AiResponse {
 }
 
 // ===== Non-Exercise Row Filtering =====
+// Conservative: only remove rows that are OBVIOUSLY not exercises (long paragraphs,
+// bare schedule days, single letters). Let the AI handle the rest.
 
-const NON_EXERCISE_KEYWORDS = [
-  "how this workbook", "how to use", "instructions", "read me",
-  "weekly schedule", "weekly schedule", "training schedule",
-  "nutrition", "calories", "protein", "creatine", "macros",
-  "target", "kcal", "grams",
-  "variation", "rotate",
-  "yellow cells", "log the top", "fill in",
-];
-
-const SCHEDULE_DAYS = [
+const SCHEDULE_DAYS_EXACT = new Set([
   "monday", "tuesday", "wednesday", "thursday", "friday",
   "saturday", "sunday", "mandag", "tirsdag", "onsdag",
   "torsdag", "fredag", "lørdag", "søndag",
-];
-
-const NON_EXERCISE_WORDS = [
-  "week", "uke", "day", "dag", "rest day", "hviledag",
-  "warm-up", "oppvarming", "cooldown", "nedvarming",
-  "notes", "notater", "comment", "kommentar",
-];
+  "day", "dag", "week", "uke",
+]);
 
 function isLikelyExerciseName(name: string): boolean {
   const trimmed = name.trim();
   if (!trimmed) return false;
 
-  // Too long — likely a sentence/instruction, not an exercise name
-  if (trimmed.length > 60) return false;
+  // Very long text — almost certainly a paragraph/instruction, not an exercise
+  if (trimmed.length > 80) return false;
 
   const lower = trimmed.toLowerCase();
 
-  // Check against non-exercise keywords
-  for (const kw of NON_EXERCISE_KEYWORDS) {
-    if (lower.includes(kw)) return false;
-  }
-
-  // Check against schedule days
-  for (const day of SCHEDULE_DAYS) {
-    if (lower === day || lower === day + " ") return false;
-  }
-
-  // Single common words that aren't exercises
-  for (const word of NON_EXERCISE_WORDS) {
-    if (lower === word) return false;
-  }
+  // Bare schedule day names
+  if (SCHEDULE_DAYS_EXACT.has(lower)) return false;
 
   // Single letters (A, B, C variation labels)
-  if (trimmed.length <= 2 && /^[a-z]$/i.test(trimmed)) return false;
-
-  // Check if it looks like a sentence (has multiple sentences or starts with a verb phrase)
-  if (trimmed.split(".").length > 2) return false;
-
-  // If it starts with common instructional phrases
-  const instructionalStarts = [
-    "each day", "run a", "run b", "run c",
-    "compound lifts", "this program", "this workbook",
-    "this sheet", "this tab", "follow",
-  ];
-  for (const phrase of instructionalStarts) {
-    if (lower.startsWith(phrase)) return false;
-  }
+  if (trimmed.length === 1 && /^[a-z]$/i.test(trimmed)) return false;
 
   return true;
 }
 
-function filterNonExerciseRows(rows: RawRow[]): RawRow[] {
-  return rows.filter(row => {
-    // Find the exercise name column
-    const nameKeys = Object.keys(row).filter(
-      k => k.toLowerCase().includes("øvelse") || k.toLowerCase().includes("exercise") || k.toLowerCase() === "name"
-    );
-
-    let name = "";
-    if (nameKeys.length > 0) {
-      name = String(row[nameKeys[0]] ?? "").trim();
-    } else {
-      // If no dedicated name column, check first string value
-      const firstString = Object.values(row).find(v => typeof v === "string" && v.trim());
-      name = firstString ? String(firstString).trim() : "";
+function extractRowName(row: RawRow): string {
+  const nameKeys = Object.keys(row).filter(
+    k => {
+      const lk = k.toLowerCase();
+      return lk.includes("øvelse") || lk.includes("exercise") ||
+             lk === "name" || lk === "navn" ||
+             lk.includes("movement") || lk.includes("lift") ||
+             lk.includes("bevegelse");
     }
+  );
 
-    return isLikelyExerciseName(name);
-  });
+  if (nameKeys.length > 0) {
+    return String(row[nameKeys[0]] ?? "").trim();
+  }
+
+  const firstString = Object.values(row).find(v => typeof v === "string" && String(v).trim());
+  return firstString ? String(firstString).trim() : "";
+}
+
+function filterNonExerciseRows(rows: RawRow[]): RawRow[] {
+  const filtered = rows.filter(row => isLikelyExerciseName(extractRowName(row)));
+  // Safety net: if filtering removed everything, return original rows and let AI handle it
+  return filtered.length > 0 ? filtered : rows;
 }
 
 // ===== Tempo Extraction =====
