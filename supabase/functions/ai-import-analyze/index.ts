@@ -119,7 +119,36 @@ Deno.serve(async (req: Request) => {
     }
 
     // Merge AI plan grouping with local matching results
-    const processedPlans = await processAiResult(aiResult, matchResults, userId, nameToId, exerciseList);
+    let processedPlans = await processAiResult(aiResult, matchResults, userId, nameToId, exerciseList);
+
+    // Fallback: if AI returned 0 plans, create a single default plan with all exercises
+    if (processedPlans.length === 0 && filteredRows.length > 0) {
+      const fallbackExercises: ProcessedExercise[] = [];
+      for (const name of uniqueNames) {
+        const localMatch = matchResults.get(name);
+        const meta = aiResult.unmatchedMetadata?.[name] ?? {};
+        fallbackExercises.push({
+          exerciseId: localMatch?.exerciseId ?? null,
+          originalName: name,
+          matchedName: localMatch?.matchedName ?? null,
+          matchType: localMatch?.matchType ?? "new",
+          isNew: !localMatch,
+          sets: 3,
+          reps: 10,
+          weight: 0,
+          rest: null,
+          notes: null,
+          muscleGroup: meta.muscleGroup ?? null,
+          equipment: meta.equipment ?? null,
+          difficulty: meta.difficulty ?? null,
+        });
+      }
+      processedPlans = [{
+        name: "Importert plan",
+        dayLabel: "Økt 1",
+        exercises: fallbackExercises,
+      }];
+    }
 
     // Validate: ensure every unique exercise name appears in at least one plan
     const allOutputNames = new Set<string>();
@@ -552,13 +581,11 @@ Your job is to:
 4. For the list of unmatched exercise names, generate metadata: muscleGroup, secondaryMuscles, equipment, difficulty, instructions, and a normalized name.
 5. For unmatched exercise names where candidate matches are provided, determine if the imported name refers to the same exercise as one of the candidates. If so, return the candidate name in similarityMatches. If not, return null.
 
-CRITICAL RULES:
-- Every exercise row in the input MUST appear in the output. Never skip, drop, or merge exercises. If you cannot identify an exercise, still include it with its original name.
-- ONLY include rows that are ACTUAL EXERCISES. An exercise has a name that describes a physical movement (e.g. Back Squat, Bench Press, Romanian Deadlift, Leg Curl). 
-- SKIP any row that is NOT an exercise: instructional text, "How this workbook works", schedule headers (Monday, Tuesday, Weekly Schedule), nutrition info (Calories, Protein, Creatine, macros), variation labels (A, B, C by themselves), rest day notes, or any descriptive paragraph.
-- If a row contains a sentence or paragraph of text, it is NOT an exercise — skip it.
-- If a row is just a single letter like "A", "B", "C", it is a variation label — skip it.
-- If a row says "Monday", "Tuesday", etc., it is a schedule header — skip it.
+CRITICAL RULE - INCLUDE EVERYTHING:
+- EVERY row in the input MUST appear in the output as an exercise. Never skip, drop, or exclude any row.
+- When in doubt, INCLUDE the row as an exercise. It is far better to include a non-exercise by mistake than to drop a real exercise.
+- The ONLY rows you may skip are rows where the name field is a multi-sentence paragraph (3+ sentences of instructional text like "How this workbook works: Each day you should..."). Single words or short phrases are ALWAYS exercises — include them.
+- Do NOT skip rows just because they look like schedule headers, nutrition info, or variation labels. If in doubt, include them.
 
 VARIATION HANDLING:
 - If the file has variations A, B, C of the same day type (e.g. "Chest A", "Chest B", "Chest C", "Legs A", "Legs B", "Legs C"), create SEPARATE plans for each variation and include the variation in the plan name (e.g. "Chest A", "Chest B", "Chest C").
@@ -629,11 +656,11 @@ Rules:
   }
 
   const userMessage = `Here is the raw data from the imported file (JSON array of row objects):
-${JSON.stringify(rows.slice(0, 500))}
+${JSON.stringify(rows.slice(0, 2000))}
 
 ${unmatchedSection}
 
-Analyze the data and return the structured JSON response. Remember: EVERY exercise must appear in the output.`;
+Analyze the data and return the structured JSON response. Remember: EVERY row must appear in the output as an exercise. When in doubt, include it.`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 180000);
