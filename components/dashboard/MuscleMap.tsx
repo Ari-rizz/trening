@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
+import { getRegionLabel, getRegionParent } from '@/lib/muscle-regions';
 
 // Human body SVG adapted from https://codepen.io/mrulrick_/pen/qBrBqGJ
 // Copyright (c) 2026 by Vilson — MIT License. See THIRD_PARTY_LICENSES.md.
 
 interface Props {
   trainedMuscles?: string[];
+  trainedRegions?: string[];
+  regionIntensities?: Record<string, number>;
   mode?: 'default' | 'balance';
   balanceScores?: Record<string, number>;
   onGroupSelect?: (group: string) => void;
@@ -16,59 +19,79 @@ interface Props {
 const INACTIVE = '#3f3f46';
 const HOVER = '#52525b';
 
-// Map each SVG path id to the app's muscle group key.
-const PATH_TO_GROUP: Record<string, string> = {
+// Map each SVG path id to a fine-grained activation region key.
+// These match the 17 keys in MUSCLE_REGIONS (lib/muscle-regions.ts).
+const PATH_TO_REGION: Record<string, string> = {
   // Front
-  head: 'shoulders',
-  face: 'shoulders',
-  neck: 'shoulders',
-  'shoulder-left': 'shoulders',
-  'shoulder-right': 'shoulders',
+  head: 'shoulders_front',
+  face: 'shoulders_front',
+  neck: 'shoulders_front',
+  'shoulder-left': 'shoulders_front',
+  'shoulder-right': 'shoulders_front',
   'arm-left': 'biceps',
   'arm-right': 'biceps',
   'forearm-left': 'forearms',
   'forearm-right': 'forearms',
-  'chest-left': 'chest',
-  'chest-right': 'chest',
+  'chest-left': 'chest_middle',
+  'chest-right': 'chest_middle',
   'ribs-left': 'abs',
   'ribs-right': 'abs',
   'belly-left': 'abs',
   'belly-right': 'abs',
   belly: 'abs',
-  'thigh-left': 'legs',
-  'thigh-right': 'legs',
-  'innerthigh-left': 'legs',
-  'innerthigh-right': 'legs',
-  'knee-left': 'legs',
-  'knee-right': 'legs',
-  'calf-left': 'legs',
-  'calf-right': 'legs',
-  'feet-left': 'legs',
-  'right-feet': 'legs',
+  'thigh-left': 'legs_quads',
+  'thigh-right': 'legs_quads',
+  'innerthigh-left': 'legs_quads',
+  'innerthigh-right': 'legs_quads',
+  'knee-left': 'legs_quads',
+  'knee-right': 'legs_quads',
+  'calf-left': 'legs_calves',
+  'calf-right': 'legs_calves',
+  'feet-left': 'legs_calves',
+  'right-feet': 'legs_calves',
   'elbow-left': 'forearms',
   'elbow-right': 'forearms',
   'hand-right': 'forearms',
   'hands-left': 'forearms',
-  genitalia: 'legs',
+  genitalia: 'legs_quads',
   // Back
-  'head-back': 'shoulders',
-  nape: 'shoulders',
+  'head-back': 'shoulders_front',
+  nape: 'shoulders_rear',
   'armback-left': 'triceps',
   'armback-right': 'triceps',
-  'leg-left': 'legs',
-  'leg-right': 'legs',
-  buttock: 'glutes',
-  loin: 'back',
-  column: 'back',
-  'back-left': 'back',
-  'back-right': 'back',
-  'clavicule-left': 'shoulders',
-  'clavicule-right': 'shoulders',
+  'leg-left': 'legs_hams',
+  'leg-right': 'legs_hams',
+  buttock: 'legs_glutes',
+  loin: 'back_lower',
+  column: 'back_upper',
+  'back-left': 'back_lats',
+  'back-right': 'back_lats',
+  'clavicule-left': 'shoulders_front',
+  'clavicule-right': 'shoulders_front',
 };
 
-function partStyle(group: string, trained: Set<string>, mode: string, balanceScores?: Record<string, number>) {
+// Region → coarse muscle group (for color and label fallbacks)
+const REGION_TO_GROUP: Record<string, string> = {
+  chest_upper: 'chest', chest_middle: 'chest', chest_lower: 'chest',
+  shoulders_front: 'shoulders', shoulders_side: 'shoulders', shoulders_rear: 'shoulders',
+  back_upper: 'back', back_lats: 'back', back_lower: 'back',
+  biceps: 'biceps', triceps: 'triceps',
+  legs_quads: 'legs', legs_hams: 'legs', legs_glutes: 'glutes', legs_calves: 'legs',
+  abs: 'abs', forearms: 'forearms',
+};
+
+function partStyle(
+  region: string,
+  trainedRegions: Set<string>,
+  trainedGroups: Set<string>,
+  mode: string,
+  regionIntensities?: Record<string, number>,
+  balanceScores?: Record<string, number>,
+) {
+  const group = REGION_TO_GROUP[region] ?? region;
+
   if (mode === 'balance') {
-    const score = balanceScores?.[group] ?? 0;
+    const score = balanceScores?.[region] ?? 0;
     if (score <= 0) {
       return {
         fill: INACTIVE,
@@ -85,12 +108,32 @@ function partStyle(group: string, trained: Set<string>, mode: string, balanceSco
       cursor: 'pointer',
     } as React.CSSProperties;
   }
-  const active = trained.has(group);
-  const color = active ? getMuscleGroupColor(group) : INACTIVE;
+
+  const active = trainedRegions.has(region) || trainedGroups.has(group);
+  if (!active) {
+    return {
+      fill: INACTIVE,
+      transition: 'fill 0.4s ease, filter 0.4s ease',
+      cursor: 'pointer',
+    } as React.CSSProperties;
+  }
+
+  // Use intensity to modulate brightness if available
+  const intensity = regionIntensities?.[region];
+  const baseColor = getMuscleGroupColor(group);
+  if (intensity && intensity < 1) {
+    return {
+      fill: baseColor,
+      opacity: 0.5 + intensity * 0.5,
+      transition: 'fill 0.4s ease, filter 0.4s ease, opacity 0.4s ease',
+      filter: `drop-shadow(0 0 ${3 + intensity * 4}px ${baseColor}aa)`,
+      cursor: 'pointer',
+    } as React.CSSProperties;
+  }
   return {
-    fill: color,
+    fill: baseColor,
     transition: 'fill 0.4s ease, filter 0.4s ease',
-    filter: active ? `drop-shadow(0 0 5px ${color}cc)` : 'none',
+    filter: `drop-shadow(0 0 5px ${baseColor}cc)`,
     cursor: 'pointer',
   } as React.CSSProperties;
 }
@@ -98,18 +141,21 @@ function partStyle(group: string, trained: Set<string>, mode: string, balanceSco
 interface BodyPartProps {
   id: string;
   d: string;
-  trained: Set<string>;
+  trainedRegions: Set<string>;
+  trainedGroups: Set<string>;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   setSelected: (id: string) => void;
   mode: string;
+  regionIntensities?: Record<string, number>;
   balanceScores?: Record<string, number>;
 }
 
-function BodyPart({ id, d, trained, hovered, setHovered, setSelected, mode, balanceScores }: BodyPartProps) {
-  const group = PATH_TO_GROUP[id] ?? id;
-  const style = partStyle(group, trained, mode, balanceScores);
-  if (hovered === id && (mode === 'default' && !trained.has(group))) {
+function BodyPart({ id, d, trainedRegions, trainedGroups, hovered, setHovered, setSelected, mode, regionIntensities, balanceScores }: BodyPartProps) {
+  const region = PATH_TO_REGION[id] ?? id;
+  const style = partStyle(region, trainedRegions, trainedGroups, mode, regionIntensities, balanceScores);
+  const group = REGION_TO_GROUP[region] ?? region;
+  if (hovered === id && mode === 'default' && !trainedRegions.has(region) && !trainedGroups.has(group)) {
     (style as React.CSSProperties).fill = HOVER;
   }
   return (
@@ -139,7 +185,7 @@ const FRONT_PATHS: Record<string, string> = {
   'belly-left': 'm 19.641935,34.707615 1.81341,-1.36479 0.15748,1.83347 1.28642,2.37338 -1.98044,2.73652 -1.03109,0.16554 -0.37026,-3.88816 z',
   'ribs-left': 'm 19.288925,26.151995 -3.11202,-1.40604 0.0937,2.27965 2.80119,1.43603 z m 1.93471,1.66849 -1.29355,0.7212 0.14997,-1.70898 z m -1.05303,-1.63718 2.47968,-1.03241 -0.9336,2.52093 z m 1.53164,1.73729 -1.69005,1.03372 -0.28871,2.0678 1.64975,-1.07533 z m -2.91143,1.10421 -0.0622,1.62387 -2.30308,-0.49961 -0.12448,-2.21722 z m -0.1556,2.4045 0.0311,1.99844 -2.20953,0.59391 -0.0311,-3.1227 z m 2.65459,-0.98535 -1.48383,1.03372 -0.20622,2.10905 1.64862,-1.32355 z',
   'belly-right': 'm 12.045985,34.707615 -1.81341,-1.36479 -0.15748,1.83347 -1.2856799,2.37432 1.9804499,2.73595 1.03109,0.16554 0.37119,-3.88721 z',
-  belly: 'm 15.636055,44.919735 -0.60647,-5.91209 -0.015,-3.84879 -2.18479,-1.07533 -0.24746,7.03017 z m 0.41581,-5.7e-4 0.60628,-5.91209 0.0154,-3.84915 2.18404,-1.07515 0.24746,7.03017 z',
+  belly: 'm 15.636055,44.919735 -0.60647,-5.91209 -0.015,-3.84879 -2.18479,-1.07533 -0.24746,7.03017 z m 0.41581,-5.7e-5 0.60628,-5.91209 0.0154,-3.84915 2.18404,-1.07515 0.24746,7.03017 z',
   'ribs-right': 'm 12.399365,26.152365 3.11202,-1.40603 -0.0937,2.27965 -2.80138,1.4364 z m -1.93508,1.6685 1.29355,0.72139 -0.14997,-1.70899 z m 1.05303,-1.637 -2.4793099,-1.03259 0.93361,2.52148 z m -1.5316399,1.73729 1.6900499,1.03372 0.28871,2.06743 -1.64881,-1.07515 z m 2.9114199,1.10421 0.0623,1.62387 2.30327,-0.49961 0.12448,-2.21703 z m 0.15561,2.40432 -0.0309,1.99844 2.20973,0.59353 0.0311,-3.1227 z m -2.6546,-0.98516 1.48384,1.0339 0.20622,2.10905 -1.64975,-1.32355 z',
   'thigh-left': 'm 23.419015,50.399125 -0.15504,4.75091 -2.40263,6.60949 0.7362,1.90021 2.36401,-8.34435 z m -0.58154,-11.60825 -0.15485,4.00722 1.31793,7.93154 0.61977,-6.40308 z m -0.38731,5.12268 -2.75152,6.07258 -0.62015,4.87425 1.16232,6.85771 2.51886,-6.98144 0.15504,-7.18764 z',
   'innerthigh-left': 'm 22.063225,39.369605 v 4.21363 l -2.94574,5.82511 -1.86027,5.78349 0.19365,-4.0072 z m -3.24944,13.42596 -0.0649,0.15467 -1.21294,2.90207 0.78325,7.18803 1.23619,-0.66122 -1.0714,-6.69272 z',
@@ -151,7 +197,7 @@ const FRONT_PATHS: Record<string, string> = {
   'innerthigh-right': 'm 9.6258251,39.369415 v 4.21363 l 2.9451699,5.8253 1.86028,5.78349 -0.19366,-4.0072 z m 3.2488699,13.42559 0.0647,0.15485 1.21294,2.90207 -0.78307,7.18803 -1.23618,-0.66102 1.0714,-6.69273 z',
   'right-feet': 'm 14.433335,87.868265 -0.12448,3.45228 -0.29058,1.20637 h -0.87118 l -0.24877,-0.83181 -0.29059,-0.0416 0.0623,0.83181 -1.09934,-0.33333 -0.29058,-0.16629 -1.2448,-0.27033 -0.0412,-0.97747 1.2031899,-2.03781 0.82975,-1.04009 2.03294,-0.83181 z',
   'calf-right': 'm 13.437675,70.440945 -0.29058,0.91486 -0.62241,3.86828 -0.0829,5.15733 0.87174,5.03304 -0.0418,-6.44714 0.91298,-2.57848 0.1243,-2.82837 z m -1.99151,2.32914 0.20735,7.73637 1.65968,6.23904 -1.80497,-0.85299 -3.0079799,-10.83584 1.03728,-6.82095 z',
-  'knee-right': 'm 10.284405,64.784375 -0.12448,1.12295 0.87118,1.08171 0.29058,1.70599 0.58116,0.24933 0.49774,-2.57866 0.33182,-0.91486 -0.29058,-0.58247 z m 3.85854,0.0832 -0.62241,1.74685 -1.32767,2.57867 0.33182,2.37095 0.95423,-2.66209 0.78832,-1.4964 z m -4.9786799,-2.37058 0.9542299,5.11609 -0.6223999,-0.33313 -0.49793,1.6638 z',
+  'knee-right': 'm 10.284405,64.784375 -0.12448,1.12295 0.87118,1.08171 0.29058,1.70599 0.58116,0.24933 0.49774,-2.57866 0.33182,-0.91486 -0.29058,-0.58247 z m 3.85854,0.0832 -0.62241,1.74685 -1.32767,2.57867 0.33182,2.37095 0.95423,-2.66209 0.78832,-1.4974 z m -4.9786799,-2.37058 0.9542299,5.11609 -0.6223999,-0.33313 -0.49793,1.6638 z',
   'elbow-right': 'm 3.2054751,27.370125 0.005,3.09419 -0.57959,1.91184 -0.54539,-2.41185 z',
   'hand-right': 'm 4.3904451,43.563145 -1.5198,0.0506 -0.76631,-0.67112 -1.21261996,2.15767 -0.86245,3.32873 0.49386,0.22113 0.59814996,-2.20238 0.50016,0.25356 -0.35639,2.49422 0.62382,0.24345 0.41402,-2.49194 0.55839,0.17851 -0.2262,2.76603 0.76938,0.32268 0.25788,-2.86764 0.4578,-0.0181 0.16611,2.65239 0.65997,0.2633 0.0712,-4.56643 0.34158,-0.19428 1.35316,1.68367 0.32832,-0.34354 -0.72644,-2.0551 z',
   'elbow-left': 'm 28.325215,27.370125 -0.005,3.09419 0.57959,1.91184 0.54538,-2.41185 z',
@@ -181,21 +227,25 @@ const VIEW_BOXES: Record<'front' | 'back', string> = {
 
 function BodyView({
   paths,
-  trained,
+  trainedRegions,
+  trainedGroups,
   hovered,
   setHovered,
   setSelected,
   side,
   mode,
+  regionIntensities,
   balanceScores,
 }: {
   paths: Record<string, string>;
-  trained: Set<string>;
+  trainedRegions: Set<string>;
+  trainedGroups: Set<string>;
   hovered: string | null;
   setHovered: (id: string | null) => void;
   setSelected: (id: string) => void;
   side: 'front' | 'back';
   mode: string;
+  regionIntensities?: Record<string, number>;
   balanceScores?: Record<string, number>;
 }) {
   return (
@@ -212,11 +262,13 @@ function BodyView({
           key={id}
           id={id}
           d={d}
-          trained={trained}
+          trainedRegions={trainedRegions}
+          trainedGroups={trainedGroups}
           hovered={hovered}
           setHovered={setHovered}
           setSelected={setSelected}
           mode={mode}
+          regionIntensities={regionIntensities}
           balanceScores={balanceScores}
         />
       ))}
@@ -224,21 +276,25 @@ function BodyView({
   );
 }
 
-export function MuscleMap({ trainedMuscles = [], mode = 'default', balanceScores, onGroupSelect }: Props) {
-  const trained = new Set(trainedMuscles);
+export function MuscleMap({ trainedMuscles = [], trainedRegions, regionIntensities, mode = 'default', balanceScores, onGroupSelect }: Props) {
+  const trainedGroups = new Set(trainedMuscles);
+  const trainedRegionSet = new Set(trainedRegions ?? []);
   const [hovered, setHovered] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
   const handleSelect = (id: string) => {
     setSelected(id);
-    const group = PATH_TO_GROUP[id] ?? id;
-    onGroupSelect?.(group);
+    const region = PATH_TO_REGION[id] ?? id;
+    onGroupSelect?.(getRegionParent(region));
   };
 
-  const selectedGroup = selected ? PATH_TO_GROUP[selected] ?? null : null;
-  const selectedLabel = selectedGroup ? getMuscleGroupLabel(selectedGroup) : null;
-  const selectedActive = selectedGroup ? trained.has(selectedGroup) : false;
-  const selectedScore = selectedGroup && mode === 'balance' ? balanceScores?.[selectedGroup] ?? 0 : null;
+  const selectedRegion = selected ? PATH_TO_REGION[selected] ?? null : null;
+  const selectedLabel = selectedRegion ? getRegionLabel(selectedRegion) : null;
+  const selectedGroup = selectedRegion ? REGION_TO_GROUP[selectedRegion] ?? null : null;
+  const selectedActive = selectedRegion
+    ? trainedRegionSet.has(selectedRegion) || (selectedGroup ? trainedGroups.has(selectedGroup) : false)
+    : false;
+  const selectedScore = selectedRegion && mode === 'balance' ? balanceScores?.[selectedRegion] ?? 0 : null;
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -264,12 +320,14 @@ export function MuscleMap({ trainedMuscles = [], mode = 'default', balanceScores
           <div style={{ width: 110, height: 290 }}>
             <BodyView
               paths={FRONT_PATHS}
-              trained={trained}
+              trainedRegions={trainedRegionSet}
+              trainedGroups={trainedGroups}
               hovered={hovered}
               setHovered={setHovered}
               setSelected={handleSelect}
               side="front"
               mode={mode}
+              regionIntensities={regionIntensities}
               balanceScores={balanceScores}
             />
           </div>
@@ -279,12 +337,14 @@ export function MuscleMap({ trainedMuscles = [], mode = 'default', balanceScores
           <div style={{ width: 110, height: 290 }}>
             <BodyView
               paths={BACK_PATHS}
-              trained={trained}
+              trainedRegions={trainedRegionSet}
+              trainedGroups={trainedGroups}
               hovered={hovered}
               setHovered={setHovered}
               setSelected={handleSelect}
               side="back"
               mode={mode}
+              regionIntensities={regionIntensities}
               balanceScores={balanceScores}
             />
           </div>

@@ -12,6 +12,7 @@ import { MuscleMap } from './MuscleMap';
 import { CalorieHistorySheet } from './CalorieHistorySheet';
 import { WorkoutCalendarSheet } from './WorkoutCalendarSheet';
 import { getHealthConnection, getTodayCaloriesFromDB, syncCaloriesToDatabase } from '@/lib/health';
+import { getRegionsForExercise } from '@/lib/muscle-regions';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -22,6 +23,7 @@ interface DashboardStats {
   streak: number;
   topMuscleGroup: string | null;
   weekMuscles: string[];
+  weekRegions: string[];
   recentWorkouts: Workout[];
   prs: Array<{ exercise_name: string; weight_kg: number; reps: number; one_rep_max: number; achieved_at: string }>;
 }
@@ -34,6 +36,7 @@ export function DashboardTab() {
     streak: 0,
     topMuscleGroup: null,
     weekMuscles: [],
+    weekRegions: [],
     recentWorkouts: [],
     prs: [],
   });
@@ -56,6 +59,7 @@ export function DashboardTab() {
     streak: 5,
     topMuscleGroup: 'chest',
     weekMuscles: ['chest', 'shoulders', 'triceps', 'back', 'glutes'],
+    weekRegions: ['chest_middle', 'shoulders_front', 'shoulders_side', 'triceps', 'back_lats', 'back_upper', 'legs_glutes', 'legs_quads'],
     recentWorkouts: [],
     prs: [
       { exercise_name: 'Benkpress', weight_kg: 90, reps: 5, one_rep_max: 101, achieved_at: new Date().toISOString() },
@@ -153,15 +157,21 @@ export function DashboardTab() {
       }
 
       const weekMusclesSet = new Set<string>();
+      const weekRegionsSet = new Set<string>();
       if (weekWorkouts.length > 0) {
         const weekWorkoutIds = weekWorkouts.map(w => w.id);
         const { data: muscleData } = await supabase
           .from('workout_exercises')
-          .select('exercises(muscle_group)')
+          .select('exercises(muscle_group, name, activation_regions)')
           .in('workout_id', weekWorkoutIds);
         for (const row of muscleData ?? []) {
-          const mg = (row.exercises as any)?.muscle_group;
-          if (mg) weekMusclesSet.add(mg);
+          const ex = row.exercises as any;
+          if (!ex) continue;
+          if (ex.muscle_group) weekMusclesSet.add(ex.muscle_group);
+          const regions = getRegionsForExercise(ex.muscle_group, ex.name, ex.activation_regions);
+          for (const { region } of regions) {
+            weekRegionsSet.add(region);
+          }
         }
       }
 
@@ -187,6 +197,7 @@ export function DashboardTab() {
         streak,
         topMuscleGroup: null,
         weekMuscles: Array.from(weekMusclesSet),
+        weekRegions: Array.from(weekRegionsSet),
         recentWorkouts: ws.slice(0, 5),
         prs,
       });
@@ -215,7 +226,10 @@ export function DashboardTab() {
       <div className="px-4 mb-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <p className="text-xs text-zinc-500 font-medium mb-1">Muskelaktivitet denne uken</p>
-          <MuscleMap trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles} />
+          <MuscleMap
+            trainedMuscles={isTourMode ? MOCK_STATS.weekMuscles : stats.weekMuscles}
+            trainedRegions={isTourMode ? MOCK_STATS.weekRegions : stats.weekRegions}
+          />
         </div>
       </div>
 

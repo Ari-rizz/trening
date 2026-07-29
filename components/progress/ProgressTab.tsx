@@ -15,7 +15,7 @@ import { useAppStore } from '@/lib/store';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MuscleMap } from '@/components/dashboard/MuscleMap';
 import { fetchMuscleActivation, recomputeMuscleActivation, calculateBalance, generateRecommendations, RegionBalance, BalanceRecommendation } from '@/lib/muscle-balance';
-import { MUSCLE_REGIONS, getRegionParent } from '@/lib/muscle-regions';
+import { MUSCLE_REGIONS } from '@/lib/muscle-regions';
 import { searchExercises } from '@/lib/exercise-search';
 
 interface SessionData {
@@ -196,15 +196,14 @@ export function ProgressTab() {
     const balances = calculateBalance(activations);
     setRegionBalances(balances);
     setRecommendations(generateRecommendations(balances));
-    const groupSets = new Map<string, number>();
+    const regionSets = new Map<string, number>();
     for (const a of activations) {
-      const parent = getRegionParent(a.region);
-      groupSets.set(parent, (groupSets.get(parent) ?? 0) + Number(a.sets));
+      regionSets.set(a.region, (regionSets.get(a.region) ?? 0) + Number(a.sets));
     }
-    const totalSets = Array.from(groupSets.values()).reduce((a, v) => a + v, 0) || 1;
+    const totalSets = Array.from(regionSets.values()).reduce((a, v) => a + v, 0) || 1;
     const scores: Record<string, number> = {};
-    groupSets.forEach((sets, group) => {
-      scores[group] = Math.round((sets / totalSets) * 100);
+    regionSets.forEach((sets, region) => {
+      scores[region] = Math.round((sets / totalSets) * 100);
     });
     setBalanceScores(scores);
   };
