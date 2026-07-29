@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell } from 'lucide-react';
+import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell, Heart, Activity, Flame } from 'lucide-react';
 import { supabase, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { searchExercises } from '@/lib/exercise-search';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
+import { connectHealthApp, isHealthAvailable } from '@/lib/health';
 
 interface OnboardingFlowProps {
   userId: string;
@@ -50,7 +51,12 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   // Step 7: Terms acceptance
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  const totalSteps = 7;
+  // Step 8: Health connection
+  const [healthAvailable, setHealthAvailable] = useState(false);
+  const [healthConnecting, setHealthConnecting] = useState(false);
+  const [healthConnected, setHealthConnected] = useState(false);
+
+  const totalSteps = 8;
 
   const saveProfile = async () => {
     setLoading(true);
@@ -79,6 +85,15 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
     setLoading(false);
     if (!error) {
       onComplete();
+    }
+  };
+
+  const handleConnectHealth = async () => {
+    setHealthConnecting(true);
+    const result = await connectHealthApp(userId);
+    setHealthConnecting(false);
+    if (result.success) {
+      setHealthConnected(true);
     }
   };
 
@@ -137,7 +152,10 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
           if (data) setAllExercises(data as Exercise[]);
         });
     }
-  }, [step, allExercises.length]);
+    if (step === 8 && !healthAvailable) {
+      isHealthAvailable().then(a => setHealthAvailable(a.available));
+    }
+  }, [step, allExercises.length, healthAvailable]);
 
   const equipmentOptions = [
     { value: 'barbell', label: 'Stang' },
@@ -616,6 +634,69 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
               <TermsAcceptanceCheckbox checked={termsAccepted} onChange={setTermsAccepted} />
             </div>
+          </motion.div>
+        )}
+
+        {step === 8 && (
+          <motion.div
+            key="step8"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.25 }}
+            className="flex-1 flex flex-col min-w-0"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center mb-5">
+              <Heart size={24} className="text-orange-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Koble til helse</h1>
+            <p className="text-zinc-500 text-sm mb-8">Se kalorier brent direkte på hjem-skjermen</p>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                  <Activity size={18} className="text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium text-sm">Kalorier fra treningsklokke</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Les kalorier fra Apple Health eller Health Connect</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                  <Flame size={18} className="text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium text-sm">Daglig oversikt</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Se total kalorier brent hver dag, og sveip gjennom historikk</p>
+                </div>
+              </div>
+            </div>
+
+            {healthConnected ? (
+              <div className="mt-4 flex items-center gap-2 text-green-400 text-sm">
+                <Check size={18} />
+                <span>Helseappen er koblet til!</span>
+              </div>
+            ) : healthAvailable ? (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleConnectHealth}
+                disabled={healthConnecting}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {healthConnecting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Heart size={16} />
+                    Koble til helse
+                  </>
+                )}
+              </motion.button>
+            ) : (
+              <p className="text-zinc-600 text-xs mt-4 text-center">Helseappen er ikke tilgjengelig på denne enheten</p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

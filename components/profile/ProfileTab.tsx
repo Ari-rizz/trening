@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield, Trash2 } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield, Trash2, Heart } from 'lucide-react';
 import { format, fromUnixTime } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,7 @@ import { useAppStore } from '@/lib/store';
 import { FeedbackSheet } from '@/components/profile/FeedbackSheet';
 import { NotificationSettingsSheet } from '@/components/profile/NotificationSettingsSheet';
 import { getTrialDaysLeft } from '@/lib/trial';
+import { connectHealthApp, getHealthConnection, removeHealthConnection, syncCaloriesToDatabase } from '@/lib/health';
 
 const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
 
@@ -56,6 +57,9 @@ export function ProfileTab() {
   const [cancelError, setCancelError] = useState('');
   const [subscribeLoading, setSubscribeLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [healthConnected, setHealthConnected] = useState(false);
+  const [healthConnecting, setHealthConnecting] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -110,12 +114,13 @@ export function ProfileTab() {
   const fetchProfile = async (uid: string) => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username, trial_ends_at, is_lifetime')
+      .select('full_name, date_of_birth, height_cm, weight_kg, gender, fitness_level, training_goal, username, trial_ends_at, is_lifetime, health_connected')
       .eq('id', uid)
       .maybeSingle();
     if (data) {
       setProfile(data);
       setUsernameInput(data.username ?? '');
+      setHealthConnected(data.health_connected ?? false);
     }
   };
 
@@ -531,6 +536,49 @@ export function ProfileTab() {
           <History size={18} className="text-zinc-400" />
           Treningshistorikk
         </motion.button>
+
+        {/* Health connection */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={async () => {
+            if (!session?.user?.id) return;
+            const uid = session.user.id;
+            if (healthConnected) {
+              await removeHealthConnection(uid);
+              setHealthConnected(false);
+            } else {
+              setHealthConnecting(true);
+              setHealthError(null);
+              const result = await connectHealthApp(uid);
+              setHealthConnecting(false);
+              if (result.success) {
+                setHealthConnected(true);
+                await syncCaloriesToDatabase(uid);
+              } else if (result.error === 'health_connect_not_installed') {
+                setHealthError('Health Connect er ikke installert. Installer det fra Google Play for å koble til.');
+              } else if (result.error === 'permission_denied') {
+                setHealthError('Tillatelse nektet. Du kan prøve igjen senere.');
+              } else {
+                setHealthError('Kunne ikke koble til helseappen.');
+              }
+            }
+          }}
+          className={`w-full flex items-center gap-3 rounded-2xl px-5 py-4 font-semibold transition-colors ${
+            healthConnected
+              ? 'bg-orange-500/10 border border-orange-500/20 text-white'
+              : 'bg-zinc-900 border border-zinc-800 text-white'
+          }`}
+        >
+          {healthConnecting ? (
+            <div className="w-5 h-5 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+          ) : (
+            <Heart size={18} className={healthConnected ? 'text-orange-400 fill-orange-400' : 'text-zinc-400'} />
+          )}
+          {healthConnected ? 'Helseappen er koblet til' : 'Koble til helse'}
+        </motion.button>
+        {healthError && (
+          <p className="text-red-400 text-xs px-1">{healthError}</p>
+        )}
 
         {/* Feedback */}
         <motion.button

@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale } from 'lucide-react';
+import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Workout } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
 import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { WeightLogModal } from './WeightLogModal';
 import { MuscleMap } from './MuscleMap';
+import { CalorieHistorySheet } from './CalorieHistorySheet';
+import { getHealthConnection, getTodayCaloriesFromDB, syncCaloriesToDatabase } from '@/lib/health';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -41,6 +43,9 @@ export function DashboardTab() {
   const [showStartSheet, setShowStartSheet] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [todayWeight, setTodayWeight] = useState<number | null>(null);
+  const [todayCalories, setTodayCalories] = useState<number | null>(null);
+  const [healthConnected, setHealthConnected] = useState(false);
+  const [showCalorieSheet, setShowCalorieSheet] = useState(false);
 
   const MOCK_STATS: DashboardStats = {
     weekSessions: 3,
@@ -68,11 +73,22 @@ export function DashboardTab() {
       if (uid) {
         fetchStats(uid);
         fetchTodayWeight(uid);
+        fetchHealthData(uid);
       } else {
         setLoading(false);
       }
     });
   }, [isTourMode]);
+
+  const fetchHealthData = async (uid: string) => {
+    const conn = await getHealthConnection(uid);
+    setHealthConnected(conn.connected);
+    if (conn.connected) {
+      await syncCaloriesToDatabase(uid);
+      const cal = await getTodayCaloriesFromDB(uid);
+      setTodayCalories(cal);
+    }
+  };
 
   const fetchTodayWeight = async (uid: string) => {
     const today = new Date().toISOString().split('T')[0];
@@ -271,13 +287,22 @@ export function DashboardTab() {
           sub="kg løftet"
           color="blue"
         />
-        <StatCard
-          icon={<Flame size={18} className="text-orange-400" />}
-          label="Streak"
-          value={stats.streak.toString()}
-          sub="dager på rad"
-          color="orange"
-        />
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => healthConnected ? setShowCalorieSheet(true) : setCurrentTab('profile')}
+          className={`rounded-2xl border p-4 text-left ${healthConnected ? 'bg-orange-500/10 border-orange-500/20' : 'bg-zinc-900 border-zinc-800'}`}
+        >
+          <div className="mb-2">
+            {healthConnected
+              ? <Flame size={18} className="text-orange-400" />
+              : <Heart size={18} className="text-zinc-500" />}
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {healthConnected ? (todayCalories ?? 0) : '—'}
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">{healthConnected ? 'kcal i dag' : 'koble til helse'}</p>
+          <p className="text-xs text-zinc-600 mt-1">{healthConnected ? 'Kalorier brent' : 'for å se kalorier'}</p>
+        </motion.button>
         <StatCard
           icon={<BarChart2 size={18} className="text-green-400" />}
           label="Totalt"
@@ -385,6 +410,14 @@ export function DashboardTab() {
       )}
 
       <StartWorkoutSheet open={showStartSheet} onClose={() => setShowStartSheet(false)} />
+
+      {userId && healthConnected && (
+        <CalorieHistorySheet
+          open={showCalorieSheet}
+          onClose={() => setShowCalorieSheet(false)}
+          userId={userId}
+        />
+      )}
 
       {userId && (
         <WeightLogModal

@@ -21,6 +21,7 @@ import { AddExerciseSaveSheet } from './AddExerciseSaveSheet';
 import { supabase } from '@/lib/supabase';
 import { calculate1RM, getMuscleGroupColor } from '@/lib/exercises-data';
 import { useToast } from '@/hooks/use-toast';
+import { writeWorkoutToHealth } from '@/lib/health';
 
 interface PreviousSessionSet {
   set_number: number;
@@ -404,6 +405,12 @@ export function WorkoutTab() {
         title: 'Økt lagret!',
         description: `${activeWorkout.name} - ${formatTime(elapsed)}`,
       });
+
+      // Write workout to health app if connected
+      const startDate = new Date(activeWorkout.startTime);
+      const endDate = new Date();
+      await writeWorkoutToHealth('traditionalStrengthTraining', startDate, endDate, 0).catch(() => {});
+
       endWorkout();
     } catch (err) {
       console.error('Failed to save workout', err);
