@@ -7,6 +7,14 @@ import { supabase, WorkoutTemplate, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor } from '@/lib/exercises-data';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface TemplateEditorProps {
   template: WorkoutTemplate | null;
@@ -38,8 +46,26 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   const [saving, setSaving] = useState(false);
   const [supersetPickerFor, setSupersetPickerFor] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  const [draggingRowIdx, setDraggingRowIdx] = useState<number | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+  const [rowOrder, setRowOrder] = useState<string[]>([]);
+  useEffect(() => {
+    setRowOrder(rows.map((r, i) => `row-${i}`));
+  }, [exercises.length]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldRowIdx = rowOrder.indexOf(active.id as string);
+    const newRowIdx = rowOrder.indexOf(over.id as string);
+    if (oldRowIdx === -1 || newRowIdx === -1) return;
+    setRowOrder(prev => arrayMove(prev, oldRowIdx, newRowIdx));
+    const fromRow = rows[oldRowIdx];
+    const toRow = rows[newRowIdx];
+    if (fromRow.type === 'superset' || toRow.type === 'superset') return;
+    moveExercise(fromRow.index, toRow.index);
+  };
   const [weightInputs, setWeightInputs] = useState<Record<number, string>>({});
   const [setsInputs, setSetsInputs] = useState<Record<number, string>>({});
 
@@ -310,8 +336,13 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         <div>
           <p className="text-xs text-zinc-500 font-medium mb-2">Øvelser ({exercises.length})</p>
           <div className="space-y-2">
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
             <AnimatePresence>
-              {rows.map((row, rowIdx) => {
+              {rowOrder.map((rowKey, rowIdx) => {
+                const rowIdxNum = parseInt(rowKey.replace('row-', ''));
+                const row = rows[rowIdxNum];
+                if (!row) return null;
                 if (row.type === 'superset') {
                   const exA = exercises[row.indexA];
                   const exB = exercises[row.indexB];
@@ -399,33 +430,15 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                 const isPickingSuperset = supersetPickerFor === row.index;
 
                 return (
-                  <div key={`${ex.exercise_id}-${row.index}`}>
+                  <SortableExerciseRow key={`single-${row.index}`} id={rowKey}>
                     <motion.div
-                      data-row-idx={rowIdx}
                       initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0, scale: draggingRowIdx === row.index ? 1.03 : 1 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}
-                      className={`bg-zinc-900 border rounded-xl p-3 ${draggingRowIdx === row.index ? 'border-red-500/50 shadow-lg shadow-red-500/10' : 'border-zinc-800'}`}
+                      className="bg-zinc-900 border rounded-xl p-3"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <button
-                          className="touch-none text-zinc-600 active:text-zinc-300 transition-colors p-0.5 -ml-1"
-                          onTouchStart={() => {
-                            longPressTimer.current = setTimeout(() => {
-                              setDraggingRowIdx(row.index);
-                            }, 400);
-                          }}
-                          onTouchEnd={() => {
-                            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-                          }}
-                          onTouchMove={() => {
-                            if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-                          }}
-                          onClick={() => {
-                            if (draggingRowIdx === row.index) setDraggingRowIdx(null);
-                            else setDraggingRowIdx(row.index);
-                          }}
-                        >
+                        <button className="touch-none text-zinc-600 active:text-zinc-300 transition-colors p-0.5 -ml-1 cursor-grab active:cursor-grabbing">
                           <GripVertical size={16} />
                         </button>
                         <div
@@ -458,35 +471,6 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                           <Trash2 size={14} />
                         </motion.button>
                       </div>
-                      {draggingRowIdx === row.index && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="flex items-center justify-center gap-3 py-2 border-b border-zinc-800 mb-2"
-                        >
-                          <button
-                            onClick={() => { moveExercise(row.index, row.index - 1); setDraggingRowIdx(row.index - 1); }}
-                            disabled={row.index === 0}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium disabled:opacity-30"
-                          >
-                            <ArrowLeft size={12} className="rotate-90" /> Opp
-                          </button>
-                          <button
-                            onClick={() => { moveExercise(row.index, row.index + 1); setDraggingRowIdx(row.index + 1); }}
-                            disabled={row.index === exercises.length - 1}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-medium disabled:opacity-30"
-                          >
-                            Ned <ArrowLeft size={12} className="-rotate-90" />
-                          </button>
-                          <button
-                            onClick={() => setDraggingRowIdx(null)}
-                            className="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 text-xs font-medium"
-                          >
-                            Ferdig
-                          </button>
-                        </motion.div>
-                      )}
                       <div className="grid grid-cols-4 gap-2">
                         <div>
                           <label className="text-[10px] text-zinc-600 block mb-0.5">Sett</label>
@@ -594,10 +578,12 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
+                  </SortableExerciseRow>
                 );
               })}
             </AnimatePresence>
+            </SortableContext>
+            </DndContext>
           </div>
 
           <motion.button
@@ -735,6 +721,21 @@ function SupersetExerciseRow({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function SortableExerciseRow({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? 'opacity-50 z-50' : ''}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
     </div>
   );
 }

@@ -5,8 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Square, Plus, Trash2, ChevronLeft, ChevronRight,
   Clock, CircleCheck as CheckCircle2, Circle, Pencil, X,
-  GripVertical, ArrowUp, ArrowDown, ListOrdered, History, Timer, Info, Repeat2, Dumbbell,
+  GripVertical, ListOrdered, History, Timer, Info, Repeat2, Dumbbell,
 } from 'lucide-react';
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/lib/store';
 import { Exercise } from '@/lib/supabase';
 import { hapticMedium, hapticLight } from '@/lib/native';
@@ -598,43 +606,11 @@ export function WorkoutTab() {
   }
 
   if (showReorder) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-zinc-900">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowReorder(false)} className="text-zinc-400">
-            <X size={20} />
-          </motion.button>
-          <h2 className="text-lg font-bold text-white flex-1">Endre rekkefølge</h2>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 pb-24">
-          {activeWorkout.exercises.map((ex, index) => (
-            <div key={ex.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-3">
-              <div className="flex flex-col gap-0.5">
-                <button
-                  onClick={() => { if (index > 0) { reorderExercises(index, index - 1); } }}
-                  disabled={index === 0}
-                  className="p-1 text-zinc-500 disabled:text-zinc-800"
-                >
-                  <ArrowUp size={14} />
-                </button>
-                <button
-                  onClick={() => { if (index < activeWorkout.exercises.length - 1) { reorderExercises(index, index + 1); } }}
-                  disabled={index === activeWorkout.exercises.length - 1}
-                  className="p-1 text-zinc-500 disabled:text-zinc-800"
-                >
-                  <ArrowDown size={14} />
-                </button>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm truncate">{ex.exercise.name}</p>
-                <p className="text-xs text-zinc-500 capitalize">{ex.exercise.muscle_group}</p>
-              </div>
-              <span className="text-zinc-600 text-xs font-mono">{index + 1}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <ReorderScreen
+      exercises={activeWorkout.exercises}
+      onReorder={reorderExercises}
+      onClose={() => setShowReorder(false)}
+    />;
   }
 
   // If we land on a superset partner index, jump to the primary (first of pair)
@@ -1540,6 +1516,82 @@ export function WorkoutTab() {
         onSelect={handleConfirmAddExercise}
         onClose={() => setPendingAddExercise(null)}
       />
+    </div>
+  );
+}
+
+function SortableExerciseCard({ id, name, muscleGroup, index }: { id: string; name: string; muscleGroup: string; index: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center gap-3 bg-zinc-900 border rounded-xl p-3 ${isDragging ? 'border-red-500/50 shadow-lg shadow-red-500/20 opacity-80 z-50' : 'border-zinc-800'}`}
+    >
+      <button {...attributes} {...listeners} className="touch-none text-zinc-600 active:text-zinc-300 transition-colors p-1 -ml-1 cursor-grab active:cursor-grabbing">
+        <GripVertical size={18} />
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-sm truncate">{name}</p>
+        <p className="text-xs text-zinc-500 capitalize">{muscleGroup}</p>
+      </div>
+      <span className="text-zinc-600 text-xs font-mono">{index + 1}</span>
+    </div>
+  );
+}
+
+function ReorderScreen({
+  exercises,
+  onReorder,
+  onClose,
+}: {
+  exercises: Array<{ id: string; exercise: { name: string; muscle_group: string } }>;
+  onReorder: (from: number, to: number) => void;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState(() => exercises.map(e => e.id));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.indexOf(active.id as string);
+    const newIndex = items.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setItems(prev => arrayMove(prev, oldIndex, newIndex));
+    onReorder(oldIndex, newIndex);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-zinc-900">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onClose} className="text-zinc-400">
+          <X size={20} />
+        </motion.button>
+        <h2 className="text-lg font-bold text-white flex-1">Endre rekkefølge</h2>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 pb-24">
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            {items.map((id, index) => {
+              const ex = exercises.find(e => e.id === id);
+              if (!ex) return null;
+              return (
+                <SortableExerciseCard
+                  key={id}
+                  id={id}
+                  name={ex.exercise.name}
+                  muscleGroup={ex.exercise.muscle_group}
+                  index={index}
+                />
+              );
+            })}
+          </SortableContext>
+        </DndContext>
+        <p className="text-center text-zinc-600 text-xs mt-4">Hold og dra håndtaket for å endre rekkefølge</p>
+      </div>
     </div>
   );
 }
