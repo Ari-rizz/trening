@@ -75,6 +75,8 @@ export interface Exercise {
   cardio_type?: CardioType | null;
   // Alternative names, abbreviations, gym slang, and translations (NO/EN)
   nicknames?: string[] | null;
+  // Muscle activation ratios stored per-exercise (array of { region, intensity })
+  activation_regions?: { region: string; intensity: number }[] | null;
 }
 
 export interface Workout {
