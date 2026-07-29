@@ -13,6 +13,7 @@ import {
   Dumbbell,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   Trash2,
   Tag,
   Plus,
@@ -214,6 +215,12 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
     } else {
       setPhase('saving');
       handleSave();
+    }
+  };
+
+  const handleGoBack = () => {
+    if (currentPlanIdx > 0) {
+      setCurrentPlanIdx(currentPlanIdx - 1);
     }
   };
 
@@ -511,6 +518,11 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                                     </span>
                                   )}
                                 </div>
+                                {ex.matchedName && ex.matchedName.toLowerCase() !== ex.originalName.toLowerCase() && !hasOverride && (
+                                  <p className="text-zinc-500 text-[10px] mt-0.5 truncate">
+                                    Matchet: <span className="text-zinc-400">{ex.matchedName}</span>
+                                  </p>
+                                )}
                               </div>
                               <span className="text-zinc-500 flex-shrink-0">
                                 {ex.sets}x{ex.reps}
@@ -540,23 +552,35 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                       </div>
                     </div>
 
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={handleConfirmPlan}
-                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-blue-500 text-white"
-                    >
-                      {currentPlanIdx < plans.length - 1 ? (
-                        <>
-                          Bekreft plan {currentPlanIdx + 1} av {plans.length}
-                          <ChevronRight size={16} />
-                        </>
-                      ) : (
-                        <>
-                          <Check size={16} />
-                          Lagre alle planer
-                        </>
+                    <div className="flex gap-2">
+                      {currentPlanIdx > 0 && (
+                        <motion.button
+                          whileTap={{ scale: 0.97 }}
+                          onClick={handleGoBack}
+                          className="flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-bold text-sm bg-zinc-800 text-zinc-300 border border-zinc-700"
+                        >
+                          <ChevronLeft size={16} />
+                          Tilbake
+                        </motion.button>
                       )}
-                    </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        onClick={handleConfirmPlan}
+                        className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-blue-500 text-white"
+                      >
+                        {currentPlanIdx < plans.length - 1 ? (
+                          <>
+                            Bekreft plan {currentPlanIdx + 1} av {plans.length}
+                            <ChevronRight size={16} />
+                          </>
+                        ) : (
+                          <>
+                            <Check size={16} />
+                            Lagre alle planer
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
                   </motion.div>
                 )}
               </div>

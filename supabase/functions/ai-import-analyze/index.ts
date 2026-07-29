@@ -47,6 +47,12 @@ Deno.serve(async (req: Request) => {
     // Extract tempo from rows before sending to AI
     const processedRows = rows.map(extractTempo);
 
+    // Pre-filter: remove rows that are clearly NOT exercises
+    const filteredRows = filterNonExerciseRows(processedRows);
+    if (filteredRows.length === 0) {
+      return jsonError("Ingen gyldige øvelser funnet i filen. Filen ser ut til å inneholde kun instruksjoner, tidsplaner eller ernæringsinfo.", 400);
+    }
+
     // Fetch exercise names + nicknames + metadata for local matching
     const { data: exercises, error: exError } = await supabase
       .from("exercises")
@@ -83,7 +89,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Extract unique exercise names from the imported rows
-    const uniqueNames = extractUniqueExerciseNames(processedRows);
+    const uniqueNames = extractUniqueExerciseNames(filteredRows);
 
     // Match each unique name locally
     const matchResults = new Map<string, LocalMatch>();
@@ -106,7 +112,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Call AI for: plan grouping + metadata for unmatched + similarity matching
-    const aiResult = await callOpenAI(processedRows, unmatchedNames, aiCandidates);
+    const aiResult = await callOpenAI(filteredRows, unmatchedNames, aiCandidates);
 
     if (!aiResult) {
       return jsonError("AI returnerte ingen gyldig respons. Prøv igjen.", 502);
@@ -123,27 +129,24 @@ Deno.serve(async (req: Request) => {
       }
     }
     for (const name of uniqueNames) {
-      if (!allOutputNames.has(name)) {
-        // Add missing exercise to first plan as safety net
-        if (processedPlans.length > 0) {
-          const localMatch = matchResults.get(name);
-          const meta = aiResult.unmatchedMetadata?.[name] ?? {};
-          processedPlans[0].exercises.push({
-            exerciseId: localMatch?.exerciseId ?? null,
-            originalName: name,
-            matchedName: localMatch?.matchedName ?? null,
-            matchType: localMatch?.matchType ?? "new",
-            isNew: !localMatch,
-            sets: 3,
-            reps: 10,
-            weight: 0,
-            rest: null,
-            notes: null,
-            muscleGroup: meta.muscleGroup ?? null,
-            equipment: meta.equipment ?? null,
-            difficulty: meta.difficulty ?? null,
-          });
-        }
+      if (!allOutputNames.has(name) && processedPlans.length > 0) {
+        const localMatch = matchResults.get(name);
+        const meta = aiResult.unmatchedMetadata?.[name] ?? {};
+        processedPlans[0].exercises.push({
+          exerciseId: localMatch?.exerciseId ?? null,
+          originalName: name,
+          matchedName: localMatch?.matchedName ?? null,
+          matchType: localMatch?.matchType ?? "new",
+          isNew: !localMatch,
+          sets: 3,
+          reps: 10,
+          weight: 0,
+          rest: null,
+          notes: null,
+          muscleGroup: meta.muscleGroup ?? null,
+          equipment: meta.equipment ?? null,
+          difficulty: meta.difficulty ?? null,
+        });
       }
     }
 
@@ -206,6 +209,92 @@ interface AiResponse {
     instructions?: string | null;
   }>;
   similarityMatches?: Record<string, string | null>;
+}
+
+// ===== Non-Exercise Row Filtering =====
+
+const NON_EXERCISE_KEYWORDS = [
+  "how this workbook", "how to use", "instructions", "read me",
+  "weekly schedule", "weekly schedule", "training schedule",
+  "nutrition", "calories", "protein", "creatine", "macros",
+  "target", "kcal", "grams",
+  "variation", "rotate",
+  "yellow cells", "log the top", "fill in",
+];
+
+const SCHEDULE_DAYS = [
+  "monday", "tuesday", "wednesday", "thursday", "friday",
+  "saturday", "sunday", "mandag", "tirsdag", "onsdag",
+  "torsdag", "fredag", "lørdag", "søndag",
+];
+
+const NON_EXERCISE_WORDS = [
+  "week", "uke", "day", "dag", "rest day", "hviledag",
+  "warm-up", "oppvarming", "cooldown", "nedvarming",
+  "notes", "notater", "comment", "kommentar",
+];
+
+function isLikelyExerciseName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+
+  // Too long — likely a sentence/instruction, not an exercise name
+  if (trimmed.length > 60) return false;
+
+  const lower = trimmed.toLowerCase();
+
+  // Check against non-exercise keywords
+  for (const kw of NON_EXERCISE_KEYWORDS) {
+    if (lower.includes(kw)) return false;
+  }
+
+  // Check against schedule days
+  for (const day of SCHEDULE_DAYS) {
+    if (lower === day || lower === day + " ") return false;
+  }
+
+  // Single common words that aren't exercises
+  for (const word of NON_EXERCISE_WORDS) {
+    if (lower === word) return false;
+  }
+
+  // Single letters (A, B, C variation labels)
+  if (trimmed.length <= 2 && /^[a-z]$/i.test(trimmed)) return false;
+
+  // Check if it looks like a sentence (has multiple sentences or starts with a verb phrase)
+  if (trimmed.split(".").length > 2) return false;
+
+  // If it starts with common instructional phrases
+  const instructionalStarts = [
+    "each day", "run a", "run b", "run c",
+    "compound lifts", "this program", "this workbook",
+    "this sheet", "this tab", "follow",
+  ];
+  for (const phrase of instructionalStarts) {
+    if (lower.startsWith(phrase)) return false;
+  }
+
+  return true;
+}
+
+function filterNonExerciseRows(rows: RawRow[]): RawRow[] {
+  return rows.filter(row => {
+    // Find the exercise name column
+    const nameKeys = Object.keys(row).filter(
+      k => k.toLowerCase().includes("øvelse") || k.toLowerCase().includes("exercise") || k.toLowerCase() === "name"
+    );
+
+    let name = "";
+    if (nameKeys.length > 0) {
+      name = String(row[nameKeys[0]] ?? "").trim();
+    } else {
+      // If no dedicated name column, check first string value
+      const firstString = Object.values(row).find(v => typeof v === "string" && v.trim());
+      name = firstString ? String(firstString).trim() : "";
+    }
+
+    return isLikelyExerciseName(name);
+  });
 }
 
 // ===== Tempo Extraction =====
@@ -495,7 +584,18 @@ Your job is to:
 4. For the list of unmatched exercise names, generate metadata: muscleGroup, secondaryMuscles, equipment, difficulty, instructions, and a normalized name.
 5. For unmatched exercise names where candidate matches are provided, determine if the imported name refers to the same exercise as one of the candidates. If so, return the candidate name in similarityMatches. If not, return null.
 
-CRITICAL RULE: Every exercise row in the input MUST appear in the output. Never skip, drop, or merge exercises. If you cannot identify an exercise, still include it with its original name.
+CRITICAL RULES:
+- Every exercise row in the input MUST appear in the output. Never skip, drop, or merge exercises. If you cannot identify an exercise, still include it with its original name.
+- ONLY include rows that are ACTUAL EXERCISES. An exercise has a name that describes a physical movement (e.g. Back Squat, Bench Press, Romanian Deadlift, Leg Curl). 
+- SKIP any row that is NOT an exercise: instructional text, "How this workbook works", schedule headers (Monday, Tuesday, Weekly Schedule), nutrition info (Calories, Protein, Creatine, macros), variation labels (A, B, C by themselves), rest day notes, or any descriptive paragraph.
+- If a row contains a sentence or paragraph of text, it is NOT an exercise — skip it.
+- If a row is just a single letter like "A", "B", "C", it is a variation label — skip it.
+- If a row says "Monday", "Tuesday", etc., it is a schedule header — skip it.
+
+VARIATION HANDLING:
+- If the file has variations A, B, C of the same day type (e.g. "Chest A", "Chest B", "Chest C", "Legs A", "Legs B", "Legs C"), create SEPARATE plans for each variation and include the variation in the plan name (e.g. "Chest A", "Chest B", "Chest C").
+- Do NOT collapse A/B/C variations into one plan — they contain different exercises.
+- ONLY collapse sessions that are truly identical: same exercises, same sets, same reps, repeated across different weeks.
 
 You must respond with a JSON object matching this exact structure:
 {
