@@ -104,6 +104,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Normalized-key view of local matches so grouping can recover a match even
+    // when the AI echoes the name back with slightly different spelling/casing.
+    const matchByNorm = new Map<string, LocalMatch>();
+    for (const [rawName, m] of matchResults) {
+      matchByNorm.set(normalizeName(rawName), m);
+    }
+
     // For unmatched names, find top-5 candidates by token similarity for AI
     const aiCandidates = new Map<string, string[]>();
     for (const name of unmatchedNames) {
@@ -119,13 +126,13 @@ Deno.serve(async (req: Request) => {
     }
 
     // Merge AI plan grouping with local matching results
-    let processedPlans = await processAiResult(aiResult, matchResults, exerciseList);
+    let processedPlans = await processAiResult(aiResult, matchResults, matchByNorm, nameToId, nameToExerciseName, exerciseList);
 
     // Fallback: if AI returned 0 plans, create a single default plan with all exercises
     if (processedPlans.length === 0 && filteredRows.length > 0) {
       const fallbackExercises: ProcessedExercise[] = [];
       for (const name of uniqueNames) {
-        fallbackExercises.push(buildExerciseFromName(name, matchResults, aiResult));
+        fallbackExercises.push(buildExerciseFromName(name, matchResults, matchByNorm, nameToId, nameToExerciseName, exerciseList, aiResult));
       }
       processedPlans = [{
         name: "Importert plan",
@@ -143,7 +150,7 @@ Deno.serve(async (req: Request) => {
     }
     for (const name of uniqueNames) {
       if (!allOutputNames.has(name) && processedPlans.length > 0) {
-        processedPlans[0].exercises.push(buildExerciseFromName(name, matchResults, aiResult));
+        processedPlans[0].exercises.push(buildExerciseFromName(name, matchResults, matchByNorm, nameToId, nameToExerciseName, exerciseList, aiResult));
       }
     }
 
@@ -426,7 +433,17 @@ function tokenize(name: string): string[] {
   // Remove filler words
   tokens = tokens.filter(t => !FILLER_WORDS.has(t));
 
+  // Stem simple plurals so "lunges" == "lunge", "squats" == "squat"
+  tokens = tokens.map(stemToken);
+
   return tokens;
+}
+
+function stemToken(t: string): string {
+  if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) {
+    return t.slice(0, -1);
+  }
+  return t;
 }
 
 function tokenSet(tokens: string[]): Set<string> {
@@ -727,9 +744,30 @@ Analyze the data and return the structured JSON response. Include every real exe
 // Analysis is READ-ONLY: it resolves matches against existing exercises but
 // never writes to the database. New exercises are created only when the user
 // confirms and saves (see saveConfirmedPlans on the client).
+// Recover a local match for a name even when the AI echoed it back with
+// slightly different spelling: exact key, then normalized key, then a full
+// re-run of the local matcher (which covers nicknames, plurals, synonyms).
+function resolveLocalMatch(
+  name: string,
+  matchResults: Map<string, LocalMatch>,
+  matchByNorm: Map<string, LocalMatch>,
+  nameToId: Map<string, string>,
+  nameToExerciseName: Map<string, string>,
+  exerciseList: ExerciseRecord[],
+): LocalMatch | null {
+  const direct = matchResults.get(name);
+  if (direct) return direct;
+  const norm = matchByNorm.get(normalizeName(name));
+  if (norm) return norm;
+  return matchLocally(name, nameToId, nameToExerciseName, exerciseList);
+}
+
 async function processAiResult(
   aiResult: AiResponse,
   matchResults: Map<string, LocalMatch>,
+  matchByNorm: Map<string, LocalMatch>,
+  nameToId: Map<string, string>,
+  nameToExerciseName: Map<string, string>,
   exerciseList: ExerciseRecord[]
 ) {
   const processedPlans: ProcessedPlan[] = [];
@@ -749,8 +787,8 @@ async function processAiResult(
       let matchType: string = "new";
       let matchedName: string | null = null;
 
-      // 1. Check local match first
-      const localMatch = matchResults.get(ex.originalName);
+      // 1. Check local match first (robust: exact, normalized, or re-run matcher)
+      const localMatch = resolveLocalMatch(ex.originalName, matchResults, matchByNorm, nameToId, nameToExerciseName, exerciseList);
       if (localMatch) {
         exerciseId = localMatch.exerciseId;
         matchedName = localMatch.matchedName;
@@ -820,9 +858,13 @@ async function processAiResult(
 function buildExerciseFromName(
   name: string,
   matchResults: Map<string, LocalMatch>,
+  matchByNorm: Map<string, LocalMatch>,
+  nameToId: Map<string, string>,
+  nameToExerciseName: Map<string, string>,
+  exerciseList: ExerciseRecord[],
   aiResult: AiResponse,
 ): ProcessedExercise {
-  const localMatch = matchResults.get(name);
+  const localMatch = resolveLocalMatch(name, matchResults, matchByNorm, nameToId, nameToExerciseName, exerciseList);
   const meta = aiResult.unmatchedMetadata?.[name] ?? {};
   return {
     exerciseId: localMatch?.exerciseId ?? null,

@@ -79,6 +79,9 @@ export async function saveConfirmedPlans(
   // Every exercise the user keeps (new or matched) is registered as "used" so the
   // shared library can promote a private exercise to public once 5 users have it.
   const usedExerciseIds = new Set<string>();
+  // Imported names that resolved to an existing exercise are saved back as shared
+  // alternate names so the next import matches them instantly.
+  const aliasesToLearn = new Map<string, { exerciseId: string; alias: string }>();
 
   const resolveExerciseId = async (ex: AnalyzedExercise): Promise<string | null> => {
     if (ex.exerciseId) return ex.exerciseId;
@@ -111,6 +114,12 @@ export async function saveConfirmedPlans(
   for (const plan of plansToSave) {
     const resolved: Array<{ ex: AnalyzedExercise; exerciseId: string }> = [];
     for (const ex of plan.exercises) {
+      // Matched (not newly created) exercises: remember the imported name as a
+      // shared alternate name so future imports match it automatically.
+      if (ex.exerciseId) {
+        const key = `${ex.exerciseId}::${ex.originalName.trim().toLowerCase()}`;
+        aliasesToLearn.set(key, { exerciseId: ex.exerciseId, alias: ex.originalName.trim() });
+      }
       const exerciseId = await resolveExerciseId(ex);
       if (!exerciseId) {
         return { success: false, error: 'Kunne ikke opprette en av øvelsene' };
@@ -164,5 +173,29 @@ export async function saveConfirmedPlans(
       );
   }
 
+  await learnAliases(Array.from(aliasesToLearn.values()));
+
   return { success: true };
+}
+
+// Save confirmed imported names as shared alternate names on the matched
+// exercises. Best-effort: a failure here never blocks the import.
+async function learnAliases(aliases: { exerciseId: string; alias: string }[]) {
+  if (aliases.length === 0) return;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) return;
+    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/add-exercise-aliases`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+      body: JSON.stringify({ aliases }),
+    });
+  } catch (err) {
+    console.error('Kunne ikke lagre alternative navn:', err);
+  }
 }
