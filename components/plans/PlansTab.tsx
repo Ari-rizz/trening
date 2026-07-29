@@ -335,10 +335,16 @@ export function PlansTab() {
               onClick={() => isOnline && setShowExcelImport(true)}
               disabled={!isOnline}
               title={isOnline ? undefined : 'Import krever internett'}
-              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="h-9 px-3 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed relative overflow-hidden"
             >
               <FileSpreadsheet size={15} className="text-green-400" />
               <span className="text-zinc-400 text-xs font-medium">Importer Excel</span>
+              <span
+                aria-hidden="true"
+                className="absolute top-[4px] right-[-14px] w-[44px] text-center bg-green-500 text-white text-[7px] font-bold leading-none py-[3px] rotate-45 pointer-events-none tracking-wide"
+              >
+                BETA
+              </span>
             </motion.button>
             <motion.button
               whileTap={{ scale: isOnline ? 0.9 : 1 }}
