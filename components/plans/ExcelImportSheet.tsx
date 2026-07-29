@@ -2,8 +2,23 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, FileSpreadsheet, ClipboardPaste, Upload, CircleAlert as AlertCircle, Check, RefreshCw, Dumbbell } from 'lucide-react';
-import { ParsedProgram, parsePastedText, parseWorkbook, importParsedProgram } from '@/lib/excel-import';
+import {
+  X,
+  FileSpreadsheet,
+  ClipboardPaste,
+  Upload,
+  CircleAlert as AlertCircle,
+  Check,
+  RefreshCw,
+  Dumbbell,
+  Sparkles,
+  ChevronRight,
+  Trash2,
+  Tag,
+  Plus,
+} from 'lucide-react';
+import { parsePastedText, parseWorkbook } from '@/lib/excel-import';
+import { analyzeImport, saveConfirmedPlans, type AnalyzedPlan, type AnalyzedExercise } from '@/lib/ai-import';
 
 interface Props {
   open: boolean;
@@ -13,75 +28,186 @@ interface Props {
 }
 
 type Mode = 'file' | 'paste';
+type Phase = 'input' | 'analyzing' | 'confirming' | 'saving' | 'done';
 
 export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
   const [mode, setMode] = useState<Mode>('paste');
-  const [parsed, setParsed] = useState<ParsedProgram | null>(null);
-  const [parsing, setParsing] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [phase, setPhase] = useState<Phase>('input');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [pasteText, setPasteText] = useState('');
-  const [planName, setPlanName] = useState('');
+  const [plans, setPlans] = useState<AnalyzedPlan[]>([]);
+  const [currentPlanIdx, setCurrentPlanIdx] = useState(0);
+  const [editedPlanNames, setEditedPlanNames] = useState<Record<number, string>>({});
+  const [removedExercises, setRemovedExercises] = useState<Record<number, Set<number>>>({});
+  const [skippedPlans, setSkippedPlans] = useState<Set<number>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = async (file: File) => {
-    setParsing(true);
+  const resetState = () => {
+    setPhase('input');
     setError(null);
-    setParsed(null);
+    setPasteText('');
+    setPlans([]);
+    setCurrentPlanIdx(0);
+    setEditedPlanNames({});
+    setRemovedExercises({});
+    setSkippedPlans(new Set());
+  };
+
+  const handleFile = async (file: File) => {
+    setPhase('analyzing');
+    setError(null);
     try {
-      const result = await parseWorkbook(file);
-      setParsed(result);
-      setPlanName(result.name);
-      if (result.rows.length === 0) {
-        setError(result.errors[0] ?? 'Ingen gyldige øvelser funnet i filen. Sjekk at kolonnene har navn som "Øvelse", "Sett", "Reps", "Vekt".');
+      const parsed = await parseWorkbook(file);
+      if (parsed.rows.length === 0) {
+        setError(parsed.errors[0] ?? 'Ingen gyldige øvelser funnet i filen.');
+        setPhase('input');
+        return;
       }
+      await runAnalysis(parsed.rows);
     } catch (err) {
       console.error('Excel import error:', err);
       setError('Kunne ikke lese filen. Sjekk at det er en gyldig Excel- eller CSV-fil.');
+      setPhase('input');
     }
-    setParsing(false);
   };
 
-  const handleParsePaste = () => {
-    setParsing(true);
+  const handleParsePaste = async () => {
+    setPhase('analyzing');
     setError(null);
-    setParsed(null);
-    const result = parsePastedText(pasteText);
-    setParsed(result);
-    setParsing(false);
+    try {
+      const parsed = parsePastedText(pasteText);
+      if (parsed.rows.length === 0) {
+        setError(parsed.errors[0] ?? 'Ingen gyldige øvelser funnet.');
+        setPhase('input');
+        return;
+      }
+      await runAnalysis(parsed.rows);
+    } catch (err) {
+      console.error('Paste import error:', err);
+      setError('Kunne ikke tolke teksten.');
+      setPhase('input');
+    }
   };
 
-  const handleImport = async () => {
-    if (!parsed || parsed.rows.length === 0) return;
-    setImporting(true);
-    setError(null);
-    const program: ParsedProgram = { ...parsed, name: planName || parsed.name || 'Importert plan' };
-    const result = await importParsedProgram(program, userId);
-    setImporting(false);
+  const runAnalysis = async (rows: Record<string, string | number>[]) => {
+    try {
+      const result = await analyzeImport(rows, userId);
+      if (result.plans.length === 0) {
+        setError('AI fant ingen planer i dataene. Prøv å formatere dataene tydeligere.');
+        setPhase('input');
+        return;
+      }
+      setPlans(result.plans);
+      setCurrentPlanIdx(0);
+      setEditedPlanNames({});
+      setRemovedExercises({});
+      setSkippedPlans(new Set());
+      setPhase('confirming');
+    } catch (err: any) {
+      console.error('AI analysis error:', err);
+      setError(err.message ?? 'AI-analyse feilet. Prøv igjen.');
+      setPhase('input');
+    }
+  };
+
+  const toggleSkipPlan = (idx: number) => {
+    setSkippedPlans(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
+  const removeExercise = (planIdx: number, exIdx: number) => {
+    setRemovedExercises(prev => {
+      const next = { ...prev };
+      if (!next[planIdx]) next[planIdx] = new Set();
+      next[planIdx].add(exIdx);
+      return next;
+    });
+  };
+
+  const getVisibleExercises = (planIdx: number) => {
+    const removed = removedExercises[planIdx] ?? new Set<number>();
+    return (plans[planIdx]?.exercises ?? []).filter((_, i) => !removed.has(i));
+  };
+
+  const getFinalPlans = (): AnalyzedPlan[] => {
+    return plans
+      .map((plan, idx) => {
+        if (skippedPlans.has(idx)) return null;
+        const visibleExs = getVisibleExercises(idx);
+        if (visibleExs.length === 0) return null;
+        return {
+          name: editedPlanNames[idx] ?? plan.name,
+          dayLabel: plan.dayLabel,
+          exercises: visibleExs,
+        };
+      })
+      .filter((p): p is AnalyzedPlan => p !== null);
+  };
+
+  const handleConfirmPlan = () => {
+    if (currentPlanIdx < plans.length - 1) {
+      setCurrentPlanIdx(currentPlanIdx + 1);
+    } else {
+      setPhase('saving');
+      handleSave();
+    }
+  };
+
+  const handleSave = async () => {
+    const finalPlans = getFinalPlans();
+    if (finalPlans.length === 0) {
+      setError('Ingen planer å lagre — alle er hoppet over.');
+      setPhase('confirming');
+      return;
+    }
+
+    setPhase('saving');
+    const result = await saveConfirmedPlans(finalPlans, userId);
     if (result.success) {
-      setSuccess(true);
-      if (result.error) setError(result.error);
+      setPhase('done');
       setTimeout(() => {
-        setSuccess(false);
-        setParsed(null);
-        setPasteText('');
-        setPlanName('');
+        resetState();
         onImported();
         onClose();
-      }, 1500);
+      }, 1800);
     } else {
-      setError(result.error ?? 'Noe gikk galt under importering');
+      setError(result.error ?? 'Noe gikk galt under lagring.');
+      setPhase('confirming');
     }
   };
 
   const handleClose = () => {
-    setParsed(null);
-    setPasteText('');
-    setPlanName('');
-    setError(null);
-    setSuccess(false);
+    resetState();
     onClose();
+  };
+
+  const matchBadge = (ex: AnalyzedExercise) => {
+    if (ex.matchType === 'exact') {
+      return (
+        <div className="flex items-center gap-1 text-green-400 text-[10px] font-semibold">
+          <Check size={10} />
+          Funnet
+        </div>
+      );
+    }
+    if (ex.matchType === 'nickname' || ex.matchType === 'ai_similarity') {
+      return (
+        <div className="flex items-center gap-1 text-amber-400 text-[10px] font-semibold">
+          <Tag size={10} />
+          {ex.matchedName ?? 'Matchet'}
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1 text-blue-400 text-[10px] font-semibold">
+        <Plus size={10} />
+        Ny øvelse
+      </div>
+    );
   };
 
   return (
@@ -111,7 +237,7 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
                 </div>
                 <div>
                   <p className="text-white font-bold">Importer fra Excel/CSV</p>
-                  <p className="text-zinc-500 text-xs">Last opp fil eller lim inn fra notater</p>
+                  <p className="text-zinc-500 text-xs">AI-analyse med smart øvelsesgjenkjenning</p>
                 </div>
               </div>
               <button onClick={handleClose} className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center">
@@ -119,132 +245,265 @@ export function ExcelImportSheet({ open, userId, onClose, onImported }: Props) {
               </button>
             </div>
 
-            {/* Mode toggle */}
-            <div className="flex gap-2 mb-4 bg-zinc-900 rounded-xl p-1">
-              <button
-                onClick={() => setMode('paste')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                  mode === 'paste' ? 'bg-blue-500 text-white' : 'text-zinc-500'
-                }`}
-              >
-                <ClipboardPaste size={14} />
-                Lim inn
-              </button>
-              <button
-                onClick={() => setMode('file')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                  mode === 'file' ? 'bg-blue-500 text-white' : 'text-zinc-500'
-                }`}
-              >
-                <Upload size={14} />
-                Last opp fil
-              </button>
-            </div>
-
-            {mode === 'paste' && (
-              <div className="space-y-3">
-                <textarea
-                  value={pasteText}
-                  onChange={e => setPasteText(e.target.value)}
-                  placeholder={`Lim inn øvelser her. Støtter:\nØvelse;Sett;Reps;Vekt;Hvile\nBenkpress;3;8;80;90\nKnebøy;5;5;100;180`}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 min-h-[120px] resize-none"
-                />
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleParsePaste}
-                  disabled={!pasteText.trim() || parsing}
-                  className="w-full bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-                >
-                  {parsing ? <RefreshCw size={16} className="animate-spin" /> : <ClipboardPaste size={16} />}
-                  Forhåndsvis
-                </motion.button>
-              </div>
-            )}
-
-            {mode === 'file' && (
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed border-zinc-800 rounded-2xl py-10 px-4 text-center cursor-pointer hover:border-zinc-700 transition-colors"
-              >
-                <FileSpreadsheet size={32} className="text-zinc-600 mx-auto mb-3" />
-                <p className="text-white font-medium text-sm">Trykk for å velge fil</p>
-                <p className="text-zinc-600 text-xs mt-1">Støtter .xlsx, .xls og .csv</p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".xlsx,.xls,.csv"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFile(file);
-                    e.target.value = '';
-                  }}
-                />
-              </div>
-            )}
-
             {error && (
-              <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mt-4">
+              <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-4">
                 <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
                 <p className="text-amber-400 text-sm">{error}</p>
               </div>
             )}
 
-            {/* Preview */}
-            {parsed && parsed.rows.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 space-y-3"
-              >
-                <input
-                  type="text"
-                  value={planName}
-                  onChange={e => setPlanName(e.target.value)}
-                  placeholder="Navn på planen"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600"
-                />
-
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-zinc-800 bg-zinc-800/50">
-                    <p className="text-zinc-400 text-xs font-semibold">
-                      {parsed.rows.length} øvelser funnet
-                    </p>
-                  </div>
-                  <div className="max-h-48 overflow-y-auto">
-                    {parsed.rows.map((row, i) => (
-                      <div
-                        key={i}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs ${
-                          i % 2 === 0 ? 'bg-zinc-900' : 'bg-zinc-900/50'
-                        } border-b border-zinc-800/50`}
-                      >
-                        <Dumbbell size={10} className="text-zinc-600 flex-shrink-0" />
-                        <span className="text-white truncate flex-1">{row.exerciseName}</span>
-                        <span className="text-zinc-500 flex-shrink-0">{row.sets}x{row.reps}</span>
-                        {row.weight > 0 && <span className="text-zinc-500 flex-shrink-0">{row.weight}kg</span>}
-                        {row.warnings.length > 0 && (
-                          <AlertCircle size={10} className="text-amber-400 flex-shrink-0" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
+            {/* ===== Phase: Input ===== */}
+            {phase === 'input' && (
+              <>
+                <div className="flex gap-2 mb-4 bg-zinc-900 rounded-xl p-1">
+                  <button
+                    onClick={() => setMode('paste')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                      mode === 'paste' ? 'bg-blue-500 text-white' : 'text-zinc-500'
+                    }`}
+                  >
+                    <ClipboardPaste size={14} />
+                    Lim inn
+                  </button>
+                  <button
+                    onClick={() => setMode('file')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                      mode === 'file' ? 'bg-blue-500 text-white' : 'text-zinc-500'
+                    }`}
+                  >
+                    <Upload size={14} />
+                    Last opp fil
+                  </button>
                 </div>
 
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleImport}
-                  disabled={importing || success}
-                  className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-colors ${
-                    success
-                      ? 'bg-green-500/20 border border-green-500/30 text-green-400'
-                      : 'bg-green-500 text-white'
-                  }`}
+                {mode === 'paste' && (
+                  <div className="space-y-3">
+                    <textarea
+                      value={pasteText}
+                      onChange={e => setPasteText(e.target.value)}
+                      placeholder={`Lim inn øvelser her. Støtter:\nØvelse;Sett;Reps;Vekt;Hvile\nBenkpress;3;8;80;90\nKnebøy;5;5;100;180`}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm font-mono placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 min-h-[120px] resize-none"
+                    />
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleParsePaste}
+                      disabled={!pasteText.trim()}
+                      className="w-full bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <Sparkles size={16} />
+                      Analyser med AI
+                    </motion.button>
+                  </div>
+                )}
+
+                {mode === 'file' && (
+                  <div
+                    onClick={() => fileRef.current?.click()}
+                    className="border-2 border-dashed border-zinc-800 rounded-2xl py-10 px-4 text-center cursor-pointer hover:border-zinc-700 transition-colors"
+                  >
+                    <FileSpreadsheet size={32} className="text-zinc-600 mx-auto mb-3" />
+                    <p className="text-white font-medium text-sm">Trykk for å velge fil</p>
+                    <p className="text-zinc-600 text-xs mt-1">Støtter .xlsx, .xls og .csv</p>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept=".xlsx,.xls,.csv"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFile(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ===== Phase: Analyzing ===== */}
+            {phase === 'analyzing' && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
                 >
-                  {importing ? <RefreshCw size={16} className="animate-spin" /> : success ? <Check size={16} /> : <Upload size={16} />}
-                  {success ? 'Importert!' : importing ? 'Importerer...' : 'Importer plan'}
-                </motion.button>
-              </motion.div>
+                  <Sparkles size={40} className="text-blue-400" />
+                </motion.div>
+                <p className="text-white font-semibold text-sm mt-4">AI analyserer treningsprogrammet ditt...</p>
+                <p className="text-zinc-500 text-xs mt-1">Gjenkjenner øvelser og struktur</p>
+              </div>
+            )}
+
+            {/* ===== Phase: Confirming ===== */}
+            {phase === 'confirming' && plans.length > 0 && (
+              <div className="space-y-4">
+                {/* Plan count banner */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3 flex items-center gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles size={16} className="text-blue-400" />
+                  </div>
+                  <p className="text-blue-300 text-sm font-semibold">
+                    {plans.length} {plans.length === 1 ? 'plan' : 'planer'} funnet — gå gjennom hver plan under
+                  </p>
+                </motion.div>
+
+                {/* Plan stepper */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  {plans.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-1.5 rounded-full flex-1 transition-colors ${
+                        idx === currentPlanIdx
+                          ? 'bg-blue-500'
+                          : skippedPlans.has(idx)
+                          ? 'bg-zinc-700'
+                          : idx < currentPlanIdx
+                          ? 'bg-green-500/50'
+                          : 'bg-zinc-800'
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                <p className="text-zinc-500 text-xs text-center">
+                  Plan {currentPlanIdx + 1} av {plans.length}
+                </p>
+
+                {/* Current plan card */}
+                {plans[currentPlanIdx] && (
+                  <motion.div
+                    key={currentPlanIdx}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editedPlanNames[currentPlanIdx] ?? plans[currentPlanIdx].name}
+                        onChange={e =>
+                          setEditedPlanNames(prev => ({ ...prev, [currentPlanIdx]: e.target.value }))
+                        }
+                        placeholder="Navn på plan"
+                        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600"
+                      />
+                      <button
+                        onClick={() => toggleSkipPlan(currentPlanIdx)}
+                        className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                          skippedPlans.has(currentPlanIdx)
+                            ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                            : 'bg-zinc-900 border border-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {skippedPlans.has(currentPlanIdx) ? (
+                          <>
+                            <Check size={12} /> Ta med
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 size={12} /> Hopp over
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-zinc-800 bg-zinc-800/50 flex items-center justify-between">
+                        <p className="text-zinc-400 text-xs font-semibold">
+                          {getVisibleExercises(currentPlanIdx).length} øvelser
+                        </p>
+                        <span className="text-zinc-600 text-[10px]">{plans[currentPlanIdx].dayLabel}</span>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {plans[currentPlanIdx].exercises.map((ex, exIdx) => {
+                          const isRemoved = (removedExercises[currentPlanIdx] ?? new Set()).has(exIdx);
+                          if (isRemoved) return null;
+                          return (
+                            <div
+                              key={exIdx}
+                              className="flex items-center gap-2 px-4 py-2.5 text-xs border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors"
+                            >
+                              <Dumbbell size={12} className="text-zinc-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white truncate">{ex.originalName}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {matchBadge(ex)}
+                                  {ex.isNew && ex.muscleGroup && (
+                                    <span className="text-zinc-600 text-[10px] capitalize">
+                                      {ex.muscleGroup} · {ex.equipment}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-zinc-500 flex-shrink-0">
+                                {ex.sets}x{ex.reps}
+                                {ex.weight > 0 && ` @ ${ex.weight}kg`}
+                              </span>
+                              <button
+                                onClick={() => removeExercise(currentPlanIdx, exIdx)}
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {getVisibleExercises(currentPlanIdx).length === 0 && (
+                          <div className="px-4 py-6 text-center text-zinc-600 text-xs">
+                            Alle øvelser er fjernet. Hopp over denne planen.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleConfirmPlan}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm bg-blue-500 text-white"
+                    >
+                      {currentPlanIdx < plans.length - 1 ? (
+                        <>
+                          Bekreft plan {currentPlanIdx + 1} av {plans.length}
+                          <ChevronRight size={16} />
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          Lagre alle planer
+                        </>
+                      )}
+                    </motion.button>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* ===== Phase: Saving ===== */}
+            {phase === 'saving' && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <RefreshCw size={32} className="text-blue-400 animate-spin" />
+                <p className="text-white font-semibold text-sm mt-4">Lagrer planer...</p>
+              </div>
+            )}
+
+            {/* ===== Phase: Done ===== */}
+            {phase === 'done' && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+                  className="w-16 h-16 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center"
+                >
+                  <Check size={28} className="text-green-400" />
+                </motion.div>
+                <p className="text-white font-semibold text-sm mt-4">Planer importert!</p>
+                <p className="text-zinc-500 text-xs mt-1">{getFinalPlans().length} planer lagret</p>
+              </div>
             )}
           </motion.div>
         </>
