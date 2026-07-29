@@ -151,6 +151,22 @@ export function ProgressTab() {
     });
   }, [isTourMode]);
 
+  // Auto-refresh when a workout is saved (online or synced from offline)
+  useEffect(() => {
+    const handler = () => {
+      if (userId) {
+        fetchHistory(userId);
+        fetchBalanceScores();
+      }
+    };
+    window.addEventListener('workout-saved', handler);
+    window.addEventListener('offline-sync-complete', handler);
+    return () => {
+      window.removeEventListener('workout-saved', handler);
+      window.removeEventListener('offline-sync-complete', handler);
+    };
+  }, [userId]);
+
   useEffect(() => {
     if (isTourMode && tourSelectedExerciseId) {
       const match = MOCK_HISTORIES.find(h => h.exerciseId === tourSelectedExerciseId);

@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { calculate1RM, getMuscleGroupColor } from '@/lib/exercises-data';
 import { useToast } from '@/hooks/use-toast';
 import { writeWorkoutToHealth } from '@/lib/health';
+import { isOnline, addQueuedWorkout, syncQueuedWorkouts, getQueueCount } from '@/lib/offline-sync';
 
 interface PreviousSessionSet {
   set_number: number;
@@ -342,6 +343,44 @@ export function WorkoutTab() {
         }, 0);
       }, 0);
 
+      // Offline mode: queue the workout for later sync
+      if (!isOnline()) {
+        addQueuedWorkout({
+          id: crypto.randomUUID(),
+          name: activeWorkout.name,
+          date: new Date(activeWorkout.startTime).toISOString(),
+          durationSeconds: elapsed,
+          totalVolumeKg: totalVolume,
+          exercises: activeWorkout.exercises.map(ex => ({
+            exerciseId: ex.exerciseId,
+            orderIndex: ex.orderIndex,
+            setType: ex.setType,
+            notes: ex.notes,
+            isUnilateral: ex.isUnilateral ?? false,
+            supersetGroup: ex.supersetGroup ?? null,
+            sets: ex.sets
+              .filter(s => s.isCompleted || s.weight > 0 || s.reps > 0 || s.duration > 0)
+              .map(s => ({
+                setNumber: s.setNumber,
+                reps: s.reps,
+                weight: s.weight,
+                rpe: s.rpe,
+                duration: s.duration || 0,
+                isWarmup: s.isWarmup,
+              })),
+          })),
+          queuedAt: Date.now(),
+        });
+
+        toast({
+          title: 'Økt lagret offline',
+          description: `${activeWorkout.name} sendes automatisk når du er online igjen.`,
+        });
+
+        endWorkout();
+        return;
+      }
+
       const { data: workout, error: wErr } = await supabase.from('workouts').insert({
         user_id: currentUserId,
         name: activeWorkout.name,
@@ -379,32 +418,43 @@ export function WorkoutTab() {
             is_completed: true,
           });
 
-          const oneRM = calculate1RM(set.weight, set.reps);
-          const { data: existingPR } = await supabase
-            .from('personal_records')
-            .select('one_rep_max')
-            .eq('user_id', currentUserId)
-            .eq('exercise_id', ex.exerciseId)
-            .maybeSingle();
+          if (!set.isWarmup && set.weight > 0 && set.reps > 0) {
+            const oneRM = calculate1RM(set.weight, set.reps);
+            const { data: existingPR } = await supabase
+              .from('personal_records')
+              .select('one_rep_max')
+              .eq('user_id', currentUserId)
+              .eq('exercise_id', ex.exerciseId)
+              .maybeSingle();
 
-          if (!existingPR || oneRM > (existingPR.one_rep_max ?? 0)) {
-            await supabase.from('personal_records').upsert({
-              user_id: currentUserId,
-              exercise_id: ex.exerciseId,
-              weight_kg: set.weight,
-              reps: set.reps,
-              one_rep_max: oneRM,
-              achieved_at: new Date().toISOString(),
-              workout_id: workout.id,
-            }, { onConflict: 'user_id,exercise_id' });
+            if (!existingPR || oneRM > (existingPR.one_rep_max ?? 0)) {
+              await supabase.from('personal_records').upsert({
+                user_id: currentUserId,
+                exercise_id: ex.exerciseId,
+                weight_kg: set.weight,
+                reps: set.reps,
+                one_rep_max: oneRM,
+                achieved_at: new Date().toISOString(),
+                workout_id: workout.id,
+              }, { onConflict: 'user_id,exercise_id' });
+            }
           }
         }
+      }
+
+      // Sync any previously queued workouts
+      const queueCount = getQueueCount();
+      if (queueCount > 0) {
+        await syncQueuedWorkouts(currentUserId);
       }
 
       toast({
         title: 'Økt lagret!',
         description: `${activeWorkout.name} - ${formatTime(elapsed)}`,
       });
+
+      // Notify other tabs to refresh
+      window.dispatchEvent(new Event('workout-saved'));
 
       // Write workout to health app if connected
       const startDate = new Date(activeWorkout.startTime);

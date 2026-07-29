@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale, Heart } from 'lucide-react';
+import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale, Heart, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Workout } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
@@ -10,6 +10,7 @@ import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { WeightLogModal } from './WeightLogModal';
 import { MuscleMap } from './MuscleMap';
 import { CalorieHistorySheet } from './CalorieHistorySheet';
+import { WorkoutCalendarSheet } from './WorkoutCalendarSheet';
 import { getHealthConnection, getTodayCaloriesFromDB, syncCaloriesToDatabase } from '@/lib/health';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
@@ -46,6 +47,7 @@ export function DashboardTab() {
   const [todayCalories, setTodayCalories] = useState<number | null>(null);
   const [healthConnected, setHealthConnected] = useState(false);
   const [showCalorieSheet, setShowCalorieSheet] = useState(false);
+  const [showCalendarSheet, setShowCalendarSheet] = useState(false);
 
   const MOCK_STATS: DashboardStats = {
     weekSessions: 3,
@@ -79,6 +81,22 @@ export function DashboardTab() {
       }
     });
   }, [isTourMode]);
+
+  // Auto-refresh when a workout is saved (online or synced from offline)
+  useEffect(() => {
+    const handler = () => {
+      if (userId) {
+        fetchStats(userId);
+        fetchTodayWeight(userId);
+      }
+    };
+    window.addEventListener('workout-saved', handler);
+    window.addEventListener('offline-sync-complete', handler);
+    return () => {
+      window.removeEventListener('workout-saved', handler);
+      window.removeEventListener('offline-sync-complete', handler);
+    };
+  }, [userId]);
 
   const fetchHealthData = async (uid: string) => {
     const conn = await getHealthConnection(uid);
@@ -224,8 +242,20 @@ export function DashboardTab() {
 
       {/* Week calendar */}
       <div className="px-4 mb-4">
-        <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-4">
-          <p className="text-xs text-zinc-500 font-medium mb-3">Denne uken</p>
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => userId && setShowCalendarSheet(true)}
+          className="w-full bg-zinc-900 rounded-2xl border border-zinc-800 p-4 text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-zinc-500 font-medium">Denne uken</p>
+            {userId && (
+              <span className="flex items-center gap-1 text-[10px] text-zinc-600">
+                Se alle
+                <ChevronDown size={11} className="-rotate-90" />
+              </span>
+            )}
+          </div>
           <div className="flex justify-between">
             {weekDays.map((day, i) => (
               <div key={i} className="flex flex-col items-center gap-1.5">
@@ -248,7 +278,7 @@ export function DashboardTab() {
               </div>
             ))}
           </div>
-        </div>
+        </motion.button>
       </div>
 
       {/* Weight log button */}
@@ -410,6 +440,14 @@ export function DashboardTab() {
       )}
 
       <StartWorkoutSheet open={showStartSheet} onClose={() => setShowStartSheet(false)} />
+
+      {userId && (
+        <WorkoutCalendarSheet
+          open={showCalendarSheet}
+          onClose={() => setShowCalendarSheet(false)}
+          userId={userId}
+        />
+      )}
 
       {userId && healthConnected && (
         <CalorieHistorySheet

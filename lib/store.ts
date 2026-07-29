@@ -114,6 +114,12 @@ interface AppState {
   setSelectedMuscleGroup: (group: string | null) => void;
   setCachedExercises: (exercises: Exercise[]) => void;
 
+  // Offline state
+  isOnline: boolean;
+  pendingSyncCount: number;
+  setOnlineStatus: (online: boolean) => void;
+  setPendingSyncCount: (count: number) => void;
+
   // Sheet visibility
   showStartSheet: boolean;
   setShowStartSheet: (show: boolean) => void;
@@ -151,6 +157,8 @@ export const useAppStore = create<AppState>()(
       currentTab: 'dashboard',
       selectedMuscleGroup: null,
       cachedExercises: [],
+      isOnline: true,
+      pendingSyncCount: 0,
       showStartSheet: false,
       isTourMode: false,
       tourSelectedExerciseId: null,
@@ -630,6 +638,8 @@ export const useAppStore = create<AppState>()(
       setCurrentTab: (tab: string) => set({ currentTab: tab }),
       setSelectedMuscleGroup: (group: string | null) => set({ selectedMuscleGroup: group }),
       setCachedExercises: (exercises: Exercise[]) => set({ cachedExercises: exercises }),
+      setOnlineStatus: (online: boolean) => set({ isOnline: online }),
+      setPendingSyncCount: (count: number) => set({ pendingSyncCount: count }),
       setShowStartSheet: (show: boolean) => set({ showStartSheet: show }),
 
       setIsTourMode: (value: boolean) => set({ isTourMode: value }),

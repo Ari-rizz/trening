@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, WifiOff, CloudUpload } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { StartWorkoutSheet } from '@/components/workout/StartWorkoutSheet';
 import { PageHelpSheet } from '@/components/layout/PageHelpSheet';
@@ -17,14 +17,32 @@ import { AuthGate } from '@/components/auth/AuthGate';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { initStatusBar, hideSplash, requestNotificationPermission } from '@/lib/native';
+import { useOfflineSync } from '@/lib/use-offline-sync';
 
 export default function Home() {
   const currentTab = useAppStore(s => s.currentTab);
   const setCurrentTab = useAppStore(s => s.setCurrentTab);
   const showStartSheet = useAppStore(s => s.showStartSheet);
   const setShowStartSheet = useAppStore(s => s.setShowStartSheet);
+  const isOnline = useAppStore(s => s.isOnline);
+  const pendingSyncCount = useAppStore(s => s.pendingSyncCount);
   const [initials, setInitials] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  useOfflineSync();
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.synced > 0) {
+        setSyncNotice(`${detail.synced} økt(er) lagret`);
+        setTimeout(() => setSyncNotice(null), 4000);
+      }
+    };
+    window.addEventListener('offline-sync-complete', handler);
+    return () => window.removeEventListener('offline-sync-complete', handler);
+  }, []);
 
   useEffect(() => {
     initStatusBar();
@@ -108,6 +126,30 @@ export default function Home() {
           </motion.button>
         </div>
       </div>
+
+      {/* Offline / sync indicator */}
+      <AnimatePresence>
+        {(!isOnline || pendingSyncCount > 0 || syncNotice) && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex-shrink-0 overflow-hidden"
+          >
+            <div className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium ${
+              syncNotice ? 'bg-green-500/15 text-green-400' : 'bg-amber-500/15 text-amber-400'
+            }`}>
+              {syncNotice ? (
+                <><CloudUpload size={13} /> {syncNotice}</>
+              ) : !isOnline ? (
+                <><WifiOff size={13} /> Offline — økter lagres lokalt</>
+              ) : (
+                <><CloudUpload size={13} /> {pendingSyncCount} økt(er) venter på synk…</>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Tab content */}
       <div className="flex-1 overflow-hidden relative">

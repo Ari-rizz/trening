@@ -25,6 +25,19 @@ export function HistoryTab() {
     });
   }, []);
 
+  // Auto-refresh when a workout is saved (online or synced from offline)
+  useEffect(() => {
+    const handler = () => {
+      if (userId) fetchWorkouts(userId);
+    };
+    window.addEventListener('workout-saved', handler);
+    window.addEventListener('offline-sync-complete', handler);
+    return () => {
+      window.removeEventListener('workout-saved', handler);
+      window.removeEventListener('offline-sync-complete', handler);
+    };
+  }, [userId]);
+
   const fetchWorkouts = async (uid: string) => {
     setLoading(true);
     const { data } = await supabase
