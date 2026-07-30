@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, X, Loader as Loader2 } from 'lucide-react';
+import { Search, Filter, X, Loader as Loader2, Plus } from 'lucide-react';
 import { Exercise, MuscleGroup, Equipment, Difficulty } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { MUSCLE_GROUPS, EQUIPMENT_OPTIONS, DIFFICULTY_OPTIONS } from '@/lib/exercises-data';
-import { scoreExercise } from '@/lib/exercise-search';
+import { scoreExercise, isOnlyFuzzyMatches } from '@/lib/exercise-search';
 import { ExerciseCard } from './ExerciseCard';
 import { ExerciseDetail } from './ExerciseDetail';
+import { CustomExerciseSheet } from './CustomExerciseSheet';
 import { useAppStore } from '@/lib/store';
 
 interface ExercisesTabProps {
@@ -24,16 +25,25 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [showCustomSheet, setShowCustomSheet] = useState(false);
   const cachedExercises = useAppStore(s => s.cachedExercises);
   const setCachedExercises = useAppStore(s => s.setCachedExercises);
 
+  const [userId, setUserId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (cachedExercises.length > 200) {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user?.id ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (cachedExercises.length > 200 && userId === null) {
       setExercises(cachedExercises);
       return;
     }
     loadExercises();
-  }, []);
+  }, [userId]);
 
   const loadExercises = async () => {
     setLoading(true);
@@ -46,7 +56,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
         const { data, error } = await supabase
           .from('exercises')
           .select('*')
-          .eq('is_custom', false)
+          .or(`is_custom.eq.false,created_by.eq.${userId ?? ''}`)
           .order('name', { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) throw error;
@@ -85,6 +95,8 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     return result;
   }, [exercises, search, selectedMuscle, selectedEquipment, selectedDifficulty]);
 
+  const showFuzzyNotice = search.trim().length > 0 && filtered.length > 0 && isOnlyFuzzyMatches(filtered, search);
+
   const grouped = useMemo(() => {
     const groups: Record<string, Exercise[]> = {};
     filtered.forEach(e => {
@@ -115,6 +127,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
   };
 
   return (
+    <>
     <AnimatePresence mode="wait">
       {selectedExercise ? (
         <ExerciseDetail
@@ -247,7 +260,25 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           <p className="text-xs text-zinc-500">{filtered.length} øvelser</p>
           {loading && <Loader2 size={12} className="text-zinc-600 animate-spin" />}
         </div>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowCustomSheet(true)}
+          className="w-full flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 py-2.5 rounded-xl text-sm font-semibold transition-colors active:bg-red-500/20"
+        >
+          <Plus size={16} />
+          Lag egen øvelse
+        </motion.button>
       </div>
+
+      {/* Fuzzy match notice */}
+      {showFuzzyNotice && (
+        <div className="px-4 pb-1">
+          <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            <span className="text-xs text-amber-400/90">Ingen eksakt treff — viser lignende øvelser</span>
+          </div>
+        </div>
+      )}
 
       {/* Exercise list */}
       <div className="flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] space-y-4">
@@ -286,5 +317,18 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     </motion.div>
       )}
     </AnimatePresence>
+
+      <CustomExerciseSheet
+        open={showCustomSheet}
+        onClose={() => setShowCustomSheet(false)}
+        onCreated={(exercise) => {
+          setShowCustomSheet(false);
+          setExercises(prev => [...prev, exercise].sort((a, b) => a.name.localeCompare(b.name)));
+          if (onAddToWorkout) {
+            onAddToWorkout(exercise);
+          }
+        }}
+      />
+    </>
   );
 }
