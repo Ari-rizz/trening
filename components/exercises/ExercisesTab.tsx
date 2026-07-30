@@ -168,7 +168,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowCustomSheet(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
+          className="flex items-center gap-1.5 px-5 py-3 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
         >
           <Plus size={20} />
           Lag egen
