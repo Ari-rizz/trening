@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <main className="min-h-screen bg-black text-white p-6 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Brukervilkår for IronGrid</h1>
-      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 20. juli 2026</p>
+      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 30. juli 2026</p>
 
       <div className="space-y-6 text-zinc-300 leading-relaxed">
         <section>
@@ -32,12 +32,12 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">6. Betaling</h2>
-          <p>Betaling håndteres av Stripe. Betalingskortinformasjon lagres ikke av IronGrid. Alle betalinger er sikre og krypterte. Prismodifikasjoner kan forekomme med minst 30 dagers varsel.</p>
+          <p>Betaling håndteres av Stripe, som er vår databehandler for betalingstjenester. Stripe lagrer og behandler kortinformasjon i henhold til PCI DSS-krav — IronGrid har ikke tilgang til selve kortnummeret ditt. Alle betalinger er sikre og krypterte. Prismodifikasjoner kan forekomme med minst 30 dagers varsel.</p>
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-white mb-2">7. Sletting av konto</h2>
-          <p>Du kan slette kontoen din når som helst fra profil-fanen. Ved sletting slettes all din treningsdata, mål og personlige opplysninger permanent. Denne handlingen kan ikke angres.</p>
+          <h2 className="text-xl font-bold text-white mb-2">7. Sletting av konto og personvern</h2>
+          <p>Du kan slette kontoen din når som helst fra profil-fanen. Ved sletting slettes all din treningsdata, mål, personlige opplysninger og egendefinerte øvelser permanent. Eventuelt aktivt abonnement avsluttes umiddelbart. Denne handlingen kan ikke angres. For detaljer om hvilke data som slettes og lagringstid, se vår personvernerklæring.</p>
         </section>
 
         <section>
@@ -46,8 +46,13 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-white mb-2">9. Kontakt</h2>
-          <p>Spørsmål om brukervilkårene kan sendes via tilbakemeldingsfunksjonen i appen.</p>
+          <h2 className="text-xl font-bold text-white mb-2">9. Personvern og databehandlere</h2>
+          <p>IronGrid bruker Supabase (database og autentisering, EU-region) og Stripe (betaling) som databehandlere. Håndtering av personopplysninger er beskrevet i vår personvernerklæring, som utgjør en del av disse brukervilkårene. Helsedata fra Apple Health leses kun med ditt eksplisitte samtykke og kan trekkes tilbake når som helst.</p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold text-white mb-2">10. Kontakt</h2>
+          <p>Spørsmål om brukervilkårene eller personvern kan sendes via tilbakemeldingsfunksjonen i appen.</p>
         </section>
       </div>
 
