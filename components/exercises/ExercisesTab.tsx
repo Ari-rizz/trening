@@ -217,6 +217,15 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
               {mg.label}
             </motion.button>
           ))}
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCustomSheet(true)}
+            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border bg-red-500/10 border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
+          >
+            <Plus size={12} />
+            Lag egen
+          </motion.button>
         </div>
 
         <AnimatePresence>
@@ -274,15 +283,6 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           <p className="text-xs text-zinc-500">{filtered.length} øvelser</p>
           {loading && <Loader2 size={12} className="text-zinc-600 animate-spin" />}
         </div>
-
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setShowCustomSheet(true)}
-          className="w-full flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 py-2.5 rounded-xl text-sm font-semibold transition-colors active:bg-red-500/20"
-        >
-          <Plus size={16} />
-          Lag egen øvelse
-        </motion.button>
       </div>
 
       {/* Fuzzy match notice */}
