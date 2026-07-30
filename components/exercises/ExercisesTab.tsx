@@ -160,9 +160,19 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
       className="flex flex-col h-full"
     >
       {/* Header */}
-      <div className="px-4 pt-5 pb-1">
-        <h1 className="text-2xl font-bold text-white">Øvelser</h1>
-        <p className="text-zinc-500 text-sm mt-0.5">Utforsk hundrevis av øvelser med instruksjoner</p>
+      <div className="px-4 pt-5 pb-1 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Øvelser</h1>
+          <p className="text-zinc-500 text-sm mt-0.5">Utforsk hundrevis av øvelser med instruksjoner</p>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowCustomSheet(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
+        >
+          <Plus size={13} />
+          Lag egen
+        </motion.button>
       </div>
       {/* Search */}
       <div data-tour="exercises-search" className="px-4 pt-3 pb-2 space-y-3">
@@ -218,14 +228,6 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
             </motion.button>
           ))}
 
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowCustomSheet(true)}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border bg-red-500/10 border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
-          >
-            <Plus size={12} />
-            Lag egen
-          </motion.button>
         </div>
 
         <AnimatePresence>
