@@ -118,6 +118,20 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
     return groups;
   }, [filtered, selectedMuscle]);
 
+  const groupedEntries = useMemo(() => {
+    const entries = Object.entries(grouped);
+    if (selectedMuscle) {
+      entries.sort((a, b) => {
+        if (a[0] === selectedMuscle) return -1;
+        if (b[0] === selectedMuscle) return 1;
+        const ai = MUSCLE_GROUPS.findIndex(m => m.value === a[0]);
+        const bi = MUSCLE_GROUPS.findIndex(m => m.value === b[0]);
+        return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      });
+    }
+    return entries;
+  }, [grouped, selectedMuscle]);
+
   const hasFilters = selectedMuscle || selectedEquipment || selectedDifficulty;
 
   const clearFilters = () => {
@@ -290,7 +304,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           </div>
         )}
 
-        {Object.entries(grouped).map(([group, exs]) => {
+        {groupedEntries.map(([group, exs]) => {
           const mg = MUSCLE_GROUPS.find(m => m.value === group);
           return (
             <div key={group}>
