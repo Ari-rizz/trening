@@ -52,7 +52,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">10. Kontakt</h2>
-          <p>Spørsmål om brukervilkårene eller personvern kan sendes via tilbakemeldingsfunksjonen i appen.</p>
+          <p>Spørsmål om brukervilkårene eller personvern kan sendes via tilbakemeldingsfunksjonen i appen eller til <a href="mailto:utvikling@ai-assistant.no" className="text-red-400 underline">utvikling@ai-assistant.no</a>.</p>
         </section>
       </div>
 

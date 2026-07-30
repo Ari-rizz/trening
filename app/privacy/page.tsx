@@ -79,7 +79,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">6. Lagring og sikkerhet</h2>
-          <p><strong className="text-zinc-200">Lagringssted:</strong> Alle data lagres i Supabase sin database i EU-region (Frankfurt, Tyskland). Dette gir et sterkt utgangspunkt for GDPR-samsvar for en norsk app.</p>
+          <p><strong className="text-zinc-200">Lagringssted:</strong> Alle data lagres i Supabase sin database i EU-region (Irland). Dette gir et sterkt utgangspunkt for GDPR-samsvar for en norsk app.</p>
           <p><strong className="text-zinc-200">Kryptering under overføring:</strong> All kommunikasjon mellom appen og databasen er kryptert via HTTPS/TLS.</p>
           <p><strong className="text-zinc-200">Kryptering ved lagring:</strong> Supabase krypterer data ved lagring (encryption at rest) i databasen.</p>
           <p><strong className="text-zinc-200">Row Level Security (RLS):</strong> Alle tabeller i databasen har RLS aktivert. Dette betyr at hver bruker kun kan lese og skrive sine egne data — ingen andre brukere kan se treningshistorikk, profil eller mål tilhørende deg.</p>
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-bold text-white mb-2">8. Dataoverføring utenfor EU/EØS</h2>
           <p>
-            Hoveddataene dine lagres i EU-region (Supabase, Frankfurt). Stripe
+            Hoveddataene dine lagres i EU-region (Supabase, Irland). Stripe
             kan behandle betalingsdata i andre land, men overføringer skjer i
             henhold til Stripes egne GDPR-tilpasninger og Standard Contractual
             Clauses (SCC). Apple Health-data lagres lokalt på din enhet og
@@ -198,8 +198,9 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-bold text-white mb-2">15. Kontakt</h2>
           <p>
             Spørsmål om personvern eller forespørsler om å utøve dine rettigheter
-            kan sendes via tilbakemeldingsfunksjonen i appen. Du kan også slette
-            kontoen din og alle tilhørende data direkte fra profil-fanen.
+            kan sendes via tilbakemeldingsfunksjonen i appen eller til
+            <a href="mailto:utvikling@ai-assistant.no" className="text-red-400 underline"> utvikling@ai-assistant.no</a>.
+            Du kan også slette kontoen din og alle tilhørende data direkte fra profil-fanen.
           </p>
         </section>
       </div>
