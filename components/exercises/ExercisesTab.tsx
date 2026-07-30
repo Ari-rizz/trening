@@ -171,7 +171,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           className="flex items-center gap-1 px-7 py-2 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 transition-colors active:bg-red-500/20"
         >
           <Plus size={20} />
-          Lag egen
+          Opprett en egen øvelse
         </motion.button>
       </div>
       {/* Search */}
