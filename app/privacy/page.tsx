@@ -9,7 +9,7 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-bold text-white mb-2">1. Hvilke data vi samler</h2>
           <p><strong className="text-zinc-200">Kontodata:</strong> Navn, e-postadresse, og passord (kryptert).</p>
           <p><strong className="text-zinc-200">Treningsdata:</strong> Økter, øvelser, vekter, reps, sett, hviletider, notater, personlige rekorder og treningsplaner.</p>
-          <p><strong className="text-zinc-200">Helsedata:</strong> Kroppsvekt og treningsmål du velger å logge.</p>
+          <p><strong className="text-zinc-200">Helsedata (HealthKit):</strong> Med din eksplisitte tillatelse kan IronGrid lese og skrive treningsdata og kroppsvekt fra Apple Health (HealthKit). Dette brukes kun til å synkronisere treningsøkter og vektlogging mellom IronGrid og Apple Health. Helsedata lagres også i din IronGrid-konto via Supabase slik at du kan se historikk på tvers av enheter.</p>
           <p><strong className="text-zinc-200">Tilbakemeldinger:</strong> Innhold du sender via tilbakemeldingsfunksjonen.</p>
           <p><strong className="text-zinc-200">Teknisk data:</strong> Plattform (iOS/Android/web) og app-versjon. Vi samler ikke posisjonsdata eller nettleserhistorikk.</p>
         </section>
