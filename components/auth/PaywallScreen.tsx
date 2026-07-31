@@ -1,24 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Dumbbell, CreditCard, Clock, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Zap } from 'lucide-react';
+import {
+  Dumbbell,
+  CreditCard,
+  Clock,
+  CircleCheck as CheckCircle2,
+  CircleAlert as AlertCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { createCheckoutSession } from '@/lib/stripe';
+import { isNativePlatform, purchaseIAP, restoreIAPPurchases, getIAPProduct, IAP_PRODUCT_ID } from '@/lib/iap';
 
-const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
+const STRIPE_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
 
 type PaywallMode = 'fresh' | 'expired';
 
 interface PaywallScreenProps {
   userId: string;
   mode: PaywallMode;
+  onSubscribed: () => void;
   onTrialStarted: () => void;
 }
 
-export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenProps) {
-  const [loading, setLoading] = useState<'trial' | 'subscribe' | null>(null);
+const FEATURES = [
+  'Ubegrenset treningslogging',
+  'Tilpassede treningsplaner',
+  'Fremgangsanalyse og grafer',
+  'Personlige rekorder (PR)',
+  'Del planer med andre',
+];
+
+export function PaywallScreen({ userId, mode, onSubscribed, onTrialStarted }: PaywallScreenProps) {
+  const [loading, setLoading] = useState<'trial' | 'subscribe' | 'restore' | null>(null);
   const [error, setError] = useState('');
+  const [nativePlatform, setNativePlatform] = useState(false);
+  const [iapPriceString, setIapPriceString] = useState('40 kr');
+
+  useEffect(() => {
+    const native = isNativePlatform();
+    setNativePlatform(native);
+    if (native) {
+      getIAPProduct()
+        .then((product) => {
+          if (product?.priceString) setIapPriceString(product.priceString);
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   const handleStartTrial = async () => {
     setLoading('trial');
@@ -38,13 +69,39 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
     setLoading(null);
   };
 
-  const handleSubscribe = async () => {
+  const handleIAPSubscribe = async () => {
+    setLoading('subscribe');
+    setError('');
+    const result = await purchaseIAP();
+    if (result.success) {
+      onSubscribed();
+    } else if (result.error !== 'CANCELLED') {
+      setError(result.error ?? 'Noe gikk galt. Prøv igjen.');
+    }
+    setLoading(null);
+  };
+
+  const handleRestore = async () => {
+    setLoading('restore');
+    setError('');
+    const result = await restoreIAPPurchases();
+    if (result.isActive) {
+      onSubscribed();
+    } else if (!result.success) {
+      setError(result.error ?? 'Kunne ikke gjenopprette kjøp.');
+    } else {
+      setError('Ingen aktive abonnement funnet.');
+    }
+    setLoading(null);
+  };
+
+  const handleStripeSubscribe = async () => {
     setLoading('subscribe');
     setError('');
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const url = await createCheckoutSession(
-        PRICE_ID,
+        STRIPE_PRICE_ID,
         `${origin}/?payment=success`,
         `${origin}/?payment=cancel`,
       );
@@ -54,6 +111,9 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
       setLoading(null);
     }
   };
+
+  const priceLabel = nativePlatform ? iapPriceString : '30 kr';
+  const priceNote = nativePlatform ? '/ mnd · fornyes automatisk' : '/ mnd inkl. mva';
 
   return (
     <div className="flex flex-col min-h-screen bg-black px-6 pt-16 pb-10">
@@ -105,13 +165,7 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
 
         {/* Feature list */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 mb-6 space-y-3">
-          {[
-            'Ubegrenset treningslogging',
-            'Tilpassede treningsplaner',
-            'Fremgangsanalyse og grafer',
-            'Personlige rekorder (PR)',
-            'Del planer med andre',
-          ].map((feature) => (
+          {FEATURES.map((feature) => (
             <div key={feature} className="flex items-center gap-3">
               <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
               <span className="text-zinc-300 text-sm">{feature}</span>
@@ -121,9 +175,8 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
 
         {/* Price tag */}
         <div className="flex items-baseline gap-1 mb-6">
-          <span className="text-4xl font-bold text-white">30</span>
-          <span className="text-zinc-400 text-lg">kr</span>
-          <span className="text-zinc-500 text-sm ml-1">/ mnd inkl. mva</span>
+          <span className="text-4xl font-bold text-white">{priceLabel}</span>
+          <span className="text-zinc-500 text-sm ml-1">{priceNote}</span>
         </div>
 
         {error && (
@@ -140,7 +193,7 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
         <div className="space-y-3 mt-auto">
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={handleSubscribe}
+            onClick={nativePlatform ? handleIAPSubscribe : handleStripeSubscribe}
             disabled={loading !== null}
             className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-colors"
           >
@@ -149,7 +202,7 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
             ) : (
               <>
                 <CreditCard size={18} />
-                Abonner — 30 kr/mnd
+                Abonner — {priceLabel}/mnd
               </>
             )}
           </motion.button>
@@ -171,12 +224,32 @@ export function PaywallScreen({ userId, mode, onTrialStarted }: PaywallScreenPro
               )}
             </motion.button>
           )}
+
+          {nativePlatform && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleRestore}
+              disabled={loading !== null}
+              className="w-full flex items-center justify-center gap-2 text-zinc-500 text-sm py-2 disabled:opacity-50"
+            >
+              {loading === 'restore' ? (
+                <div className="w-4 h-4 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+              ) : (
+                <>
+                  <RefreshCw size={14} />
+                  Gjenopprett kjøp
+                </>
+              )}
+            </motion.button>
+          )}
         </div>
 
         <p className="text-zinc-600 text-xs text-center mt-4">
           {mode === 'fresh'
             ? 'Ingen betalingskort kreves for prøveperioden. Avbryt når som helst.'
-            : 'Betal med kort eller Vipps. Avbryt når som helst.'}
+            : nativePlatform
+              ? 'Abonnementet fornyes automatisk. Avbryt via App Store-innstillinger.'
+              : 'Betal med kort. Abonnementet fornyes automatisk. Avbryt når som helst.'}
         </p>
       </motion.div>
     </div>

@@ -95,6 +95,8 @@ Deno.serve(async (req: Request) => {
       'workouts',
       'shared_templates',
       'exercises',
+      'iap_subscriptions',
+      'daily_calorie_logs',
     ];
 
     for (const table of tables) {

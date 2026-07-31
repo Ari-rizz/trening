@@ -4,13 +4,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { checkActiveIAPSubscription, isNativePlatform } from '@/lib/iap';
 import { PaywallScreen } from './PaywallScreen';
-
-interface SubscriptionData {
-  subscription_status: string | null;
-  cancel_at_period_end: boolean | null;
-  current_period_end: number | null;
-}
 
 type AccessState =
   | 'loading'
@@ -32,24 +27,27 @@ export function SubscriptionGate({ userId, children }: SubscriptionGateProps) {
   const [trialDaysLeft, setTrialDaysLeft] = useState(0);
 
   const checkAccess = async () => {
-    const [{ data: profile }, { data: sub }] = await Promise.all([
-      supabase.from('profiles').select('trial_ends_at, is_lifetime').eq('id', userId).maybeSingle(),
+    const [{ data: profile }, { data: sub }, iapActive] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('trial_ends_at, is_lifetime')
+        .eq('id', userId)
+        .maybeSingle(),
       supabase
         .from('stripe_user_subscriptions')
         .select('subscription_status, cancel_at_period_end, current_period_end')
         .maybeSingle(),
+      isNativePlatform() ? checkActiveIAPSubscription(userId) : Promise.resolve(false),
     ]);
 
-    if (profile?.is_lifetime) {
+    if (profile?.is_lifetime || iapActive) {
       setAccess('subscribed');
       return;
     }
 
-    const subData = sub as SubscriptionData | null;
-    const status = subData?.subscription_status ?? null;
-
+    const status = (sub as any)?.subscription_status ?? null;
     if (status && ACTIVE_STATUSES.includes(status)) {
-      setAccess(subData?.cancel_at_period_end ? 'canceling' : 'subscribed');
+      setAccess((sub as any)?.cancel_at_period_end ? 'canceling' : 'subscribed');
       return;
     }
 
@@ -81,6 +79,7 @@ export function SubscriptionGate({ userId, children }: SubscriptionGateProps) {
       <PaywallScreen
         userId={userId}
         mode="fresh"
+        onSubscribed={() => checkAccess()}
         onTrialStarted={() => checkAccess()}
       />
     );
@@ -91,6 +90,7 @@ export function SubscriptionGate({ userId, children }: SubscriptionGateProps) {
       <PaywallScreen
         userId={userId}
         mode="expired"
+        onSubscribed={() => checkAccess()}
         onTrialStarted={() => {}}
       />
     );

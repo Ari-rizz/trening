@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield, Trash2, Heart } from 'lucide-react';
+import { LogOut, Dumbbell, Trophy, ChartBar as BarChart2, History, Timer, Download, X, ArrowUp, MoveHorizontal as MoreHorizontal, Plus, AtSign, Check, Pencil, CreditCard, Clock, TriangleAlert as AlertTriangle, RefreshCw, CircleCheck as CheckCircle2, MessageSquare, Bell, FileText, Shield, Trash2, Heart, ExternalLink } from 'lucide-react';
 import { format, fromUnixTime } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,7 @@ import { FeedbackSheet } from '@/components/profile/FeedbackSheet';
 import { NotificationSettingsSheet } from '@/components/profile/NotificationSettingsSheet';
 import { getTrialDaysLeft } from '@/lib/trial';
 import { connectHealthApp, getHealthConnection, removeHealthConnection, syncCaloriesToDatabase } from '@/lib/health';
+import { isNativePlatform, checkActiveIAPSubscription, openSubscriptionManagement, purchaseIAP, restoreIAPPurchases, IAP_PRODUCT_ID } from '@/lib/iap';
 
 const PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID ?? '';
 
@@ -58,6 +59,10 @@ export function ProfileTab() {
   const [subscribeLoading, setSubscribeLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [healthConnected, setHealthConnected] = useState(false);
+  const [nativePlatform] = useState(() => isNativePlatform());
+  const [iapActive, setIapActive] = useState(false);
+  const [iapSubscribeLoading, setIapSubscribeLoading] = useState(false);
+  const [iapError, setIapError] = useState('');
   const [healthConnecting, setHealthConnecting] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -98,6 +103,7 @@ export function ProfileTab() {
         fetchProfile(data.session.user.id);
         fetchStats(data.session.user.id);
         fetchSubscription();
+        if (isNativePlatform()) checkActiveIAPSubscription(data.session.user.id).then(setIapActive);
       }
     });
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -106,6 +112,7 @@ export function ProfileTab() {
         fetchProfile(session.user.id);
         fetchStats(session.user.id);
         fetchSubscription();
+        if (isNativePlatform()) checkActiveIAPSubscription(session.user.id).then(setIapActive);
       }
     });
     return () => authSub.unsubscribe();
@@ -228,6 +235,30 @@ export function ProfileTab() {
       setCancelError(err.message ?? 'Noe gikk galt.');
       setSubscribeLoading(false);
     }
+  };
+
+  const handleIAPSubscribe = async () => {
+    setIapSubscribeLoading(true);
+    setIapError('');
+    const result = await purchaseIAP();
+    if (result.success) {
+      setIapActive(true);
+    } else if (result.error !== 'CANCELLED') {
+      setIapError(result.error ?? 'Noe gikk galt.');
+    }
+    setIapSubscribeLoading(false);
+  };
+
+  const handleIAPRestore = async () => {
+    setIapSubscribeLoading(true);
+    setIapError('');
+    const result = await restoreIAPPurchases();
+    if (result.isActive) {
+      setIapActive(true);
+    } else {
+      setIapError(result.error ?? 'Ingen aktive abonnement funnet.');
+    }
+    setIapSubscribeLoading(false);
   };
 
   const displayName = profile?.full_name || session?.user?.email?.split('@')[0] || 'Bruker';
@@ -385,114 +416,163 @@ export function ProfileTab() {
             <span className="text-white font-semibold text-sm">Mitt abonnement</span>
           </div>
 
-          {profile?.is_lifetime ? (
-            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-              <Trophy size={16} className="text-amber-400 flex-shrink-0" />
-              <div>
-                <p className="text-amber-300 text-sm font-semibold">Lifetime-tilgang</p>
-                <p className="text-amber-400/70 text-xs mt-0.5">Du har permanent tilgang til IronGrid</p>
-              </div>
-            </div>
-          ) : trialActive && !isSubscribed && (
+          {/* IAP (native iOS) subscription UI */}
+          {nativePlatform ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                <Clock size={16} className="text-amber-400 flex-shrink-0" />
-                <div>
-                  <p className="text-amber-300 text-sm font-semibold">
-                    {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
-                  </p>
-                  <p className="text-amber-400/70 text-xs mt-0.5">
-                    Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
-                  </p>
-                </div>
-              </div>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSubscribe}
-                disabled={subscribeLoading}
-                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
-              >
-                {subscribeLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Abonner nå — 30 kr/mnd'
-                )}
-              </motion.button>
-            </div>
-          )}
-
-          {isSubscribed && !isCanceling && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
-                <div>
-                  <p className="text-green-300 text-sm font-semibold">Aktivt abonnement</p>
-                  {periodEndDate && (
-                    <p className="text-green-400/70 text-xs mt-0.5">Fornyes {periodEndDate}</p>
-                  )}
-                </div>
-              </div>
-              {subscription?.payment_method_brand && (
-                <p className="text-zinc-500 text-xs">
-                  Betaler med {subscription.payment_method_brand.charAt(0).toUpperCase() + subscription.payment_method_brand.slice(1)}
-                  {subscription.payment_method_last4 ? ` ···· ${subscription.payment_method_last4}` : ''}
-                </p>
+              {iapActive || profile?.is_lifetime ? (
+                <>
+                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                    <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-green-300 text-sm font-semibold">
+                        {profile?.is_lifetime ? 'Lifetime-tilgang' : 'Aktivt abonnement (App Store)'}
+                      </p>
+                      <p className="text-green-400/70 text-xs mt-0.5">Abonnementet fornyes automatisk via App Store</p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => openSubscriptionManagement()}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <ExternalLink size={14} />
+                    Administrer i App Store
+                  </motion.button>
+                </>
+              ) : trialActive ? (
+                <>
+                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                    <Clock size={16} className="text-amber-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-amber-300 text-sm font-semibold">
+                        {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
+                      </p>
+                      <p className="text-amber-400/70 text-xs mt-0.5">
+                        Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleIAPSubscribe}
+                    disabled={iapSubscribeLoading}
+                    className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {iapSubscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner nå — 40 kr/mnd'}
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleIAPSubscribe}
+                    disabled={iapSubscribeLoading}
+                    className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {iapSubscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner — 40 kr/mnd'}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleIAPRestore}
+                    disabled={iapSubscribeLoading}
+                    className="w-full flex items-center justify-center gap-2 text-zinc-500 text-xs py-2 disabled:opacity-50"
+                  >
+                    <RefreshCw size={12} /> Gjenopprett kjøp
+                  </motion.button>
+                </>
               )}
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => { setShowCancelConfirm(true); setCancelError(''); }}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm transition-colors"
-              >
-                Avbryt abonnement
-              </motion.button>
+              {iapError && <p className="text-red-400 text-xs">{iapError}</p>}
+              <p className="text-zinc-600 text-xs">40 kr/mnd · fornyes automatisk · avbryt via App Store-innstillinger</p>
             </div>
-          )}
-
-          {isCanceling && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3">
-                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
-                <div>
-                  <p className="text-zinc-200 text-sm font-semibold">Kansellert</p>
-                  {periodEndDate && (
-                    <p className="text-zinc-400 text-xs mt-0.5">Tilgang til {periodEndDate}</p>
-                  )}
+          ) : (
+            /* Web (Stripe) subscription UI */
+            <>
+              {profile?.is_lifetime ? (
+                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                  <Trophy size={16} className="text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-amber-300 text-sm font-semibold">Lifetime-tilgang</p>
+                    <p className="text-amber-400/70 text-xs mt-0.5">Du har permanent tilgang til IronGrid</p>
+                  </div>
                 </div>
-              </div>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSubscribe}
-                disabled={subscribeLoading}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
-              >
-                {subscribeLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <RefreshCw size={14} />
-                    Gjenaktiver abonnement
-                  </>
-                )}
-              </motion.button>
-            </div>
-          )}
-
-          {!trialActive && !isSubscribed && (
-            <div className="space-y-3">
-              <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSubscribe}
-                disabled={subscribeLoading}
-                className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
-              >
-                {subscribeLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Abonner — 30 kr/mnd'
-                )}
-              </motion.button>
-            </div>
+              ) : trialActive && !isSubscribed ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                    <Clock size={16} className="text-amber-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-amber-300 text-sm font-semibold">
+                        {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
+                      </p>
+                      <p className="text-amber-400/70 text-xs mt-0.5">
+                        Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
+                      </p>
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleSubscribe}
+                    disabled={subscribeLoading}
+                    className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner nå — 30 kr/mnd'}
+                  </motion.button>
+                </div>
+              ) : isSubscribed && !isCanceling ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                    <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-green-300 text-sm font-semibold">Aktivt abonnement</p>
+                      {periodEndDate && <p className="text-green-400/70 text-xs mt-0.5">Fornyes {periodEndDate}</p>}
+                    </div>
+                  </div>
+                  {subscription?.payment_method_brand && (
+                    <p className="text-zinc-500 text-xs">
+                      Betaler med {subscription.payment_method_brand.charAt(0).toUpperCase() + subscription.payment_method_brand.slice(1)}
+                      {subscription.payment_method_last4 ? ` ···· ${subscription.payment_method_last4}` : ''}
+                    </p>
+                  )}
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { setShowCancelConfirm(true); setCancelError(''); }}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm transition-colors"
+                  >
+                    Avbryt abonnement
+                  </motion.button>
+                </div>
+              ) : isCanceling ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3">
+                    <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-zinc-200 text-sm font-semibold">Kansellert</p>
+                      {periodEndDate && <p className="text-zinc-400 text-xs mt-0.5">Tilgang til {periodEndDate}</p>}
+                    </div>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleSubscribe}
+                    disabled={subscribeLoading}
+                    className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><RefreshCw size={14} />Gjenaktiver abonnement</>}
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleSubscribe}
+                    disabled={subscribeLoading}
+                    className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner — 30 kr/mnd'}
+                  </motion.button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
