@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>IronGrid</string>
+	<string>IronGrid</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,8 +22,22 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>IronGrid trenger tilgang til kameraet for å la deg ta profilbilde.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>IronGrid trenger tilgang til Apple Health for å synkronisere treningsøkter og kroppsvekt mellom appen og Apple Health.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>IronGrid trenger tillatelse til å skrive treningsøkter og kroppsvekt tilbake til Apple Health slik at dataene dine holdes oppdatert på tvers av enheter.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>IronGrid trenger tilgang til bildebiblioteket for å la deg velge et profilbilde fra dine bilder.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>IronGrid sender push-varsler for hviletids-timer, vektpåminnelser og øktpåminnelser. Du kan slå av varsler når som helst i profil-fanen.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>IronGrid sporer ikke din aktivitet på tvers av andre selskapers apper eller nettsteder.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -32,6 +46,8 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<key>UIStatusBarStyle</key>
+	<string></string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -47,19 +63,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSHealthShareUsageDescription</key>
-	<string>IronGrid trenger tilgang til Apple Health for å synkronisere treningsøkter og kroppsvekt mellom appen og Apple Health.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>IronGrid trenger tillatelse til å skrive treningsøkter og kroppsvekt tilbake til Apple Health slik at dataene dine holdes oppdatert på tvers av enheter.</string>
-	<key>NSUserNotificationsUsageDescription</key>
-	<string>IronGrid sender push-varsler for hviletids-timer, vektpåminnelser og øktpåminnelser. Du kan slå av varsler når som helst i profil-fanen.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>IronGrid sporer ikke din aktivitet på tvers av andre selskapers apper eller nettsteder.</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>NSCameraUsageDescription</key>
-	<string>IronGrid trenger tilgang til kameraet for å la deg ta profilbilde.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>IronGrid trenger tilgang til bildebiblioteket for å la deg velge et profilbilde fra dine bilder.</string>
 </dict>
 </plist>

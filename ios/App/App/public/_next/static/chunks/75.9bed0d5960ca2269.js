@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[75],{87075:function(e,n,t){t.d(n,{Health:function(){return u}});var h=t(33103);let u=(0,h.fo)("Health",{web:()=>t.e(454).then(t.bind(t,39454)).then(e=>new e.HealthWeb)})}}]);

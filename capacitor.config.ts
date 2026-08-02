@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.irongrid.app',
+  appId: 'no.irongrid.app',
   appName: 'IronGrid',
   webDir: 'out',
   server: {

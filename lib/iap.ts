@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { NativePurchases, PURCHASE_TYPE } from '@capgo/native-purchases';
 import { supabase } from './supabase';
 
-export const IAP_PRODUCT_ID = 'com.irongrid.app.monthly';
+export const IAP_PRODUCT_ID = 'no.irongrid.app.monthly';
 
 export function isNativePlatform(): boolean {
   return Capacitor.isNativePlatform();
