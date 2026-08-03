@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-black text-white p-6 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Personvernerklæring for IronGrid</h1>
-      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 30. juli 2026</p>
+      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 2. august 2026</p>
 
       <div className="space-y-6 text-zinc-300 leading-relaxed">
         <section>
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           <p><strong className="text-zinc-200">Mål og preferanser:</strong> Treningsmål, varigheter, og personlige øvelsesinnstillinger (f.eks. alternative navn på øvelser).</p>
           <p><strong className="text-zinc-200">Tilbakemeldinger:</strong> Innhold du sender via tilbakemeldingsfunksjonen i appen.</p>
           <p><strong className="text-zinc-200">Varselinnstillinger:</strong> Hvilke push-varsler du har slått på eller av (hviletid, vektpåminnelse, øktpåminnelse, målpåminnelse).</p>
-          <p><strong className="text-zinc-200">Abonnementsdata:</strong> Abonnementsstatus og betalingshistorikk (håndtert av Stripe — se punkt 5).</p>
+          <p><strong className="text-zinc-200">Abonnementsdata:</strong> Abonnementsstatus og kjøpsbekreftelse (håndtert av Apple In-App Purchases i iOS og Stripe på web — se punkt 5).</p>
           <p><strong className="text-zinc-200">Teknisk data:</strong> Plattform (iOS/Android/web) og app-versjon. Vi samler ikke posisjonsdata, nettleserhistorikk eller enhets-ID-er for sporing.</p>
         </section>
 
@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             <li>Lagre og synkronisere treningsplaner på tvers av enheter</li>
             <li>Synkronisere treningsøkter og kroppsvekt med Apple Health</li>
             <li>Beregne muskelbalanse og gi personlige anbefalinger basert på din trening</li>
-            <li>Behandle abonnement og betaling via Stripe</li>
+            <li>Behandle abonnement og betaling via Apple In-App Purchases (iOS) og Stripe (web)</li>
             <li>Send push-varsler du har aktivert</li>
             <li>Forbedre appens funksjonalitet og brukeropplevelse</li>
           </ul>
@@ -56,7 +56,8 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside mt-2 space-y-1">
             <li><strong className="text-zinc-200">Plan-deling:</strong> Når du deler en treningsplan, genereres en unik 6-tegns kode. Andre brukere kan kun se ditt brukernavn — ikke e-post, navn eller andre profildata.</li>
             <li><strong className="text-zinc-200">Apple Health:</strong> Helsedata deles kun mellom appen og Apple Health på din enhet, og kun med ditt samtykke.</li>
-            <li><strong className="text-zinc-200">Stripe (betaling):</strong> Betalingsinformasjon behandles av Stripe og lagres ikke på IronGrids servere. Se punkt 5 for detaljer.</li>
+            <li><strong className="text-zinc-200">Apple In-App Purchases (betaling i iOS):</strong> Kjøp og abonnementer i iOS-appen behandles av Apple. Apple lagrer betalingsinformasjon — IronGrid lagrer kun bekreftelse på aktivt abonnement, ikke selve betalingsdetaljene. Se punkt 5 for detaljer.</li>
+            <li><strong className="text-zinc-200">Stripe (betaling på web):</strong> For web-versjonen behandles betalinger av Stripe. Betalingsinformasjon lagres ikke på IronGrids servere. Se punkt 5 for detaljer.</li>
           </ul>
           <p className="mt-3">
             Vi deler ikke data med myndigheter med mindre vi er lovpålagt å gjøre det.
@@ -72,7 +73,8 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1">
             <li><strong className="text-zinc-200">Supabase (databehandler):</strong> Lagrer all treningsdata, kontodata, mål, tilbakemeldinger og varselinnstillinger i en PostgreSQL-database. Supabase leverer også autentisering (innlogging). Dataene lagres i EU-region (se punkt 6). Supabase er sertifisert i henhold til GDPR og SOC 2 Type II. Nettside: supabase.com.</li>
-            <li><strong className="text-zinc-200">Stripe (databehandler):</strong> Behandler betalinger og abonnementer. Stripe lagrer kortinformasjon og betalingshistorikk — IronGrid har ikke tilgang til selve kortnummeret. Stripe er PCI DSS-sertifisert og GDPR-kompatibel. Nettside: stripe.com.</li>
+            <li><strong className="text-zinc-200">Apple (In-App Purchases):</strong> Behandler kjøp og abonnementer i iOS-appen. Apple lagrer betalingsinformasjon i henhold til sine egne sikkerhetskrav — IronGrid har ikke tilgang til selve betalingsdetaljene. Apple er GDPR-kompatibel. Nettside: apple.com.</li>
+            <li><strong className="text-zinc-200">Stripe (databehandler for web-betaling):</strong> Behandler betalinger og abonnementer for web-versjonen. Stripe lagrer kortinformasjon og betalingshistorikk — IronGrid har ikke tilgang til selve kortnummeret. Stripe er PCI DSS-sertifisert og GDPR-kompatibel. Nettside: stripe.com.</li>
             <li><strong className="text-zinc-200">Apple (Apple Health):</strong> Helsedata på din enhet håndteres av Apple HealthKit. Apple er databehandler for helsedata som lagres lokalt på enheten din.</li>
           </ul>
         </section>
@@ -84,7 +86,7 @@ export default function PrivacyPage() {
           <p><strong className="text-zinc-200">Kryptering ved lagring:</strong> Supabase krypterer data ved lagring (encryption at rest) i databasen.</p>
           <p><strong className="text-zinc-200">Row Level Security (RLS):</strong> Alle tabeller i databasen har RLS aktivert. Dette betyr at hver bruker kun kan lese og skrive sine egne data — ingen andre brukere kan se treningshistorikk, profil eller mål tilhørende deg.</p>
           <p><strong className="text-zinc-200">Passord:</strong> Passord lagres aldri i klartekst. Supabase Auth bruker bcrypt-hashing med salt.</p>
-          <p><strong className="text-zinc-200">Betaling:</strong> Kortinformasjon håndteres utelukkende av Stripe og lagres aldri på IronGrids servere.</p>
+          <p><strong className="text-zinc-200">Betaling:</strong> Betalingsinformasjon håndteres utelukkende av Apple (iOS) eller Stripe (web) og lagres aldri på IronGrids servere.</p>
         </section>
 
         <section>
@@ -93,7 +95,7 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside mt-2 space-y-1">
             <li><strong className="text-zinc-200">Konto- og treningsdata:</strong> Lagres så lenge kontoen din er aktiv. Når du sletter kontoen, slettes alle data permanent (se punkt 9).</li>
             <li><strong className="text-zinc-200">Tilbakemeldinger:</strong> Lagres i opptil 12 måneder etter mottatt, deretter slettes de automatisk.</li>
-            <li><strong className="text-zinc-200">Abonnementsdata:</strong> Betalingshistorikk hos Stripe lagres i henhold til Stripes retningslinjer og bokføringskrav (normalt 5–7 år). IronGrid lagrer kun abonnementsstatus, ikke selve betalingsdetaljene.</li>
+            <li><strong className="text-zinc-200">Abonnementsdata:</strong> Kjøpsbekreftelse hos Apple lagres i henhold til Apples retningslinjer og bokføringskrav. IronGrid lagrer kun abonnementsstatus, ikke selve betalingsdetaljene. For web-betaling lagres betalingshistorikk hos Stripe i henhold til Stripes retningslinjer (normalt 5–7 år).</li>
             <li><strong className="text-zinc-200">Teknisk data:</strong> Slettes når kontoen slettes.</li>
           </ul>
         </section>
@@ -101,9 +103,12 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-xl font-bold text-white mb-2">8. Dataoverføring utenfor EU/EØS</h2>
           <p>
-            Hoveddataene dine lagres i EU-region (Supabase, Irland). Stripe
-            kan behandle betalingsdata i andre land, men overføringer skjer i
-            henhold til Stripes egne GDPR-tilpasninger og Standard Contractual
+            Hoveddataene dine lagres i EU-region (Supabase, Irland). Apple
+            behandler In-App Purchases-data i henhold til Apples egne
+            personvernprinsipper, som inkluderer Standard Contractual Clauses
+            (SCC) for overføringer til land utenfor EU/EØS. Stripe kan behandle
+            betalingsdata for web-versjonen i andre land, men overføringer skjer
+            i henhold til Stripes egne GDPR-tilpasninger og Standard Contractual
             Clauses (SCC). Apple Health-data lagres lokalt på din enhet og
             overføres ikke til IronGrids servere uten ditt samtykke.
           </p>
@@ -116,7 +121,7 @@ export default function PrivacyPage() {
             appen. Når du sletter kontoen:
           </p>
           <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Eventuelt aktivt Stripe-abonnement kanselleres umiddelbart</li>
+            <li>Eventuelt aktivt abonnement kanselleres umiddelbart (iOS: via App Store-innstillinger, web: via profil-fanen)</li>
             <li>All treningshistorikk, mål, vektlogger, personlige rekorder og øvelsespreferanser slettes permanent</li>
             <li>Egendefinerte øvelser du har laget slettes</li>
             <li>Delte planer og delingskoder slettes</li>
@@ -124,8 +129,8 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-3">
             Slettingen er permanent og kan ikke angres. Betalingshistorikk hos
-            Stripe kan være beholdt i henhold til bokføringskrav, men knyttes
-            ikke lenger til en aktiv brukerkonto hos IronGrid.
+            Apple eller Stripe kan være beholdt i henhold til bokføringskrav,
+            men knyttes ikke lenger til en aktiv brukerkonto hos IronGrid.
           </p>
         </section>
 

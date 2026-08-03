@@ -56,7 +56,7 @@ export function TermsAcceptanceCheckbox({ checked, onChange }: Props) {
               <p>Ved å bruke IronGrid godtar du disse vilkårene:</p>
               <p><strong className="text-zinc-300">1. Tjenesten:</strong> IronGrid er en treningapp som lar deg logge økter, spore fremgang og opprette treningsplaner.</p>
               <p><strong className="text-zinc-300">2. Konto:</strong> Du er ansvarlig for din konto og alt innhold du laster opp.</p>
-              <p><strong className="text-zinc-300">3. Abonnement:</strong> Prøveperioden varer 7 dager. Etter det koster abonnementet 30 kr/mnd. Du kan avbryte når som helst.</p>
+              <p><strong className="text-zinc-300">3. Abonnement:</strong> Prøveperioden varer 30 dager. Etter det koster abonnementet 30 kr/mnd. Betaling via Apple In-App Purchases (iOS) eller Stripe (web). Du kan avbryte når som helst.</p>
               <p><strong className="text-zinc-300">4. Ansvar:</strong> IronGrid er et verktøy for trening. Du trener på eget ansvar. Rådfør deg med lege ved helseproblemer.</p>
               <p><strong className="text-zinc-300">5. Endringer:</strong> Vi kan oppdatere vilkårene. Fortsatt bruk betyr godkjenning av nye vilkår.</p>
               <p><strong className="text-zinc-300">6. Sletting:</strong> Du kan slette kontoen din når som helst fra profil-fanen.</p>
@@ -87,7 +87,7 @@ export function TermsAcceptanceCheckbox({ checked, onChange }: Props) {
               <p><strong className="text-zinc-300">Hva vi samler:</strong> Navn, e-post, treningsdata (økter, vekter, mål), kroppsvekt og eventuelle tilbakemeldinger.</p>
               <p><strong className="text-zinc-300">Hvordan vi bruker det:</strong> For å levere treningstjenesten, vise fremgang og forbedre appen.</p>
               <p><strong className="text-zinc-300">Deling:</strong> Vi selger ikke dataene dine. Treningsplaner du deler med andre brukere viser kun brukernavnet ditt.</p>
-              <p><strong className="text-zinc-300">Lagring:</strong> Data lagres hos Supabase (EU-region). Betaling håndteres av Stripe.</p>
+              <p><strong className="text-zinc-300">Lagring:</strong> Data lagres hos Supabase (EU-region). Betaling håndteres av Apple In-App Purchases (iOS) og Stripe (web).</p>
               <p><strong className="text-zinc-300">Dine rettigheter:</strong> Du kan eksportere, endre og slette dataene dine når som helst.</p>
               <p><strong className="text-zinc-300">Kontakt:</strong> Spørsmål om personvern kan sendes via tilbakemelding i appen.</p>
             </div>

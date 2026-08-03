@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 30;
 
 export async function startTrial(): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();

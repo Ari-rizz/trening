@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <main className="min-h-screen bg-black text-white p-6 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Brukervilkår for IronGrid</h1>
-      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 30. juli 2026</p>
+      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 2. august 2026</p>
 
       <div className="space-y-6 text-zinc-300 leading-relaxed">
         <section>
@@ -17,7 +17,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">3. Prøveperiode og abonnement</h2>
-          <p>Nye brukere får en gratis prøveperiode på 7 dager. Etter prøveperioden koster abonnementet 30 kr per måned. Abonnementet fornyes automatisk hver måned og kan avbrytes når som helst fra profil-fanen. Ved avbrytelse beholder du tilgang frem til slutten av den betalte perioden.</p>
+          <p>Nye brukere får en gratis prøveperiode på 30 dager. Ingen betalingskort kreves for prøveperioden. Etter prøveperioden koster abonnementet 30 kr per måned. Abonnementet fornyes automatisk hver måned og kan avbrytes når som helst. På iOS avbrytes abonnementet via App Store-innstillinger; på web avbrytes fra profil-fanen. Ved avbrytelse beholder du tilgang frem til slutten av den betalte perioden.</p>
         </section>
 
         <section>
@@ -32,7 +32,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">6. Betaling</h2>
-          <p>Betaling håndteres av Stripe, som er vår databehandler for betalingstjenester. Stripe lagrer og behandler kortinformasjon i henhold til PCI DSS-krav — IronGrid har ikke tilgang til selve kortnummeret ditt. Alle betalinger er sikre og krypterte. Prismodifikasjoner kan forekomme med minst 30 dagers varsel.</p>
+          <p>Betaling håndteres av Apple In-App Purchases (IAP) i iOS-appen og av Stripe på web-versjonen. Apple lagrer og behandler betalingsinformasjon i henhold til sine egne sikkerhetskrav — IronGrid har ikke tilgang til selve betalingsdetaljene dine. For web-betaling lagrer Stripe kortinformasjon i henhold til PCI DSS-krav — IronGrid har ikke tilgang til selve kortnummeret. Alle betalinger er sikre og krypterte. Prismodifikasjoner kan forekomme med minst 30 dagers varsel.</p>
         </section>
 
         <section>
@@ -47,7 +47,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">9. Personvern og databehandlere</h2>
-          <p>IronGrid bruker Supabase (database og autentisering, EU-region) og Stripe (betaling) som databehandlere. Håndtering av personopplysninger er beskrevet i vår personvernerklæring, som utgjør en del av disse brukervilkårene. Helsedata fra Apple Health leses kun med ditt eksplisitte samtykke og kan trekkes tilbake når som helst.</p>
+          <p>IronGrid bruker Supabase (database og autentisering, EU-region), Apple In-App Purchases (betaling i iOS-appen) og Stripe (betaling på web) som databehandlere. Håndtering av personopplysninger er beskrevet i vår personvernerklæring, som utgjør en del av disse brukervilkårene. Helsedata fra Apple Health leses kun med ditt eksplisitte samtykke og kan trekkes tilbake når som helst.</p>
         </section>
 
         <section>

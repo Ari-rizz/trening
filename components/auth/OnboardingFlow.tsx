@@ -55,6 +55,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   const [healthAvailable, setHealthAvailable] = useState(false);
   const [healthConnecting, setHealthConnecting] = useState(false);
   const [healthConnected, setHealthConnected] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
 
   const totalSteps = 8;
 
@@ -90,10 +91,18 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
 
   const handleConnectHealth = async () => {
     setHealthConnecting(true);
+    setHealthError(null);
     const result = await connectHealthApp(userId);
     setHealthConnecting(false);
     if (result.success) {
       setHealthConnected(true);
+    } else {
+      const errorMessages: Record<string, string> = {
+        health_not_available: 'Helseappen er ikke tilgjengelig på denne enheten. Du trenger iOS 11 eller nyere med Apple Health installert.',
+        permission_denied: 'Tillatelse nektet. Gå til Innstillinger > Personvern > Helse for å gi IronGrid tilgang til Apple Health.',
+        health_connect_not_installed: 'Health Connect er ikke installert. Last den ned fra Google Play.',
+      };
+      setHealthError(errorMessages[result.error ?? ''] ?? 'Kunne ikke koble til helseappen. Prøv igjen senere.');
     }
   };
 
@@ -679,21 +688,29 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
                 <span>Helseappen er koblet til!</span>
               </div>
             ) : healthAvailable ? (
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={handleConnectHealth}
-                disabled={healthConnecting}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {healthConnecting ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Heart size={16} />
-                    Koble til helse
-                  </>
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleConnectHealth}
+                  disabled={healthConnecting}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {healthConnecting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Heart size={16} />
+                      Koble til helse
+                    </>
+                  )}
+                </motion.button>
+                {healthError && (
+                  <div className="mt-3 flex items-start gap-2 text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                    <X size={14} className="flex-shrink-0 mt-0.5" />
+                    <span>{healthError}</span>
+                  </div>
                 )}
-              </motion.button>
+              </>
             ) : (
               <p className="text-zinc-600 text-xs mt-4 text-center">Helseappen er ikke tilgjengelig på denne enheten</p>
             )}
