@@ -6,7 +6,7 @@ import { supabase } from './supabase';
 type HealthDataType = 'calories' | 'totalCalories' | 'activeEnergyBurned';
 type WorkoutType = 'strengthTraining' | 'traditionalStrengthTraining' | 'functionalStrengthTraining' | 'running' | 'cycling' | 'walking' | 'swimming' | 'rowing' | 'elliptical' | 'other';
 
-const READ_TYPES: HealthDataType[] = ['calories', 'totalCalories'];
+const READ_TYPES: HealthDataType[] = ['totalCalories', 'activeEnergyBurned', 'calories'];
 const WRITE_TYPES: HealthDataType[] = ['calories'];
 
 export interface HealthAvailability {
@@ -70,21 +70,34 @@ export async function readCaloriesForDay(date: Date): Promise<number> {
     const end = new Date(date);
     end.setHours(23, 59, 59, 999);
 
+    // Try totalCalories first (active + basal)
+    let value = await queryCalories(Health, 'totalCalories', start, end);
+    // Fallback to calories if totalCalories returned 0
+    if (value === 0) {
+      value = await queryCalories(Health, 'calories', start, end);
+    }
+    return value;
+  } catch {
+    return 0;
+  }
+}
+
+async function queryCalories(Health: any, dataType: string, start: Date, end: Date): Promise<number> {
+  try {
     const result = await Health.queryAggregated({
-      dataType: 'calories' as any,
+      dataType: dataType as any,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
       bucket: 'day',
       aggregation: 'sum',
     } as any);
-
     if (result.samples && result.samples.length > 0) {
       return Math.round(result.samples[0].value);
     }
-    return 0;
   } catch {
-    return 0;
+    // dataType not available
   }
+  return 0;
 }
 
 export async function readCaloriesForDateRange(startDate: Date, endDate: Date): Promise<DailyCalorieData[]> {
@@ -96,14 +109,27 @@ export async function readCaloriesForDateRange(startDate: Date, endDate: Date): 
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
+    // Try totalCalories first
+    let samples = await queryCaloriesRange(Health, 'totalCalories', start, end);
+    // Fallback to calories if empty
+    if (samples.length === 0) {
+      samples = await queryCaloriesRange(Health, 'calories', start, end);
+    }
+    return samples;
+  } catch {
+    return [];
+  }
+}
+
+async function queryCaloriesRange(Health: any, dataType: string, start: Date, end: Date): Promise<DailyCalorieData[]> {
+  try {
     const result = await Health.queryAggregated({
-      dataType: 'calories' as any,
+      dataType: dataType as any,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
       bucket: 'day',
       aggregation: 'sum',
     } as any);
-
     return (result.samples || []).map((s: any) => ({
       date: s.startDate.split('T')[0],
       calories: Math.round(s.value),

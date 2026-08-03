@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell, Heart, Activity, Flame } from 'lucide-react';
+import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell, Heart, Activity, Flame, Bell, BellRing, CircleAlert as AlertCircle } from 'lucide-react';
 import { supabase, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { searchExercises } from '@/lib/exercise-search';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
 import { connectHealthApp, isHealthAvailable } from '@/lib/health';
+import { registerPushNotifications, updateNotificationPreferences } from '@/lib/push';
 
 interface OnboardingFlowProps {
   userId: string;
@@ -57,7 +58,12 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   const [healthConnected, setHealthConnected] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
 
-  const totalSteps = 8;
+  // Step 9: Notification permission
+  const [notifRequesting, setNotifRequesting] = useState(false);
+  const [notifGranted, setNotifGranted] = useState(false);
+  const [notifDenied, setNotifDenied] = useState(false);
+
+  const totalSteps = 9;
 
   const saveProfile = async () => {
     setLoading(true);
@@ -86,6 +92,24 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
     setLoading(false);
     if (!error) {
       onComplete();
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    setNotifRequesting(true);
+    const ok = await registerPushNotifications();
+    setNotifRequesting(false);
+    if (ok) {
+      setNotifGranted(true);
+      setNotifDenied(false);
+      await updateNotificationPreferences({
+        rest_timer: true,
+        weight_reminder: true,
+        workout_reminder: true,
+        goal_reminder: true,
+      });
+    } else {
+      setNotifDenied(true);
     }
   };
 
@@ -148,8 +172,16 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
     if (step === 1) return fullName.trim().length > 0;
     if (step === 2) return username.trim().length >= 3 && !usernameError;
     if (step === 7) return termsAccepted;
+    if (step === 9) return notifGranted || notifDenied;
     return true;
   };
+
+  useEffect(() => {
+    if (step === 9 && !notifGranted && !notifDenied) {
+      // Auto-trigger permission prompt when entering step 9
+      handleEnableNotifications();
+    }
+  }, [step]);
 
   useEffect(() => {
     if (step === 6 && allExercises.length === 0) {
@@ -716,6 +748,82 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             )}
           </motion.div>
         )}
+
+        {step === 9 && (
+          <motion.div
+            key="step9"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.25 }}
+            className="flex-1 flex flex-col min-w-0"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center mb-5">
+              <Bell size={24} className="text-blue-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Slå på varsler</h1>
+            <p className="text-zinc-500 text-sm mb-8">Få mest ut av IronGrid med varsler</p>
+
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <BellRing size={18} className="text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium text-sm">Hviletids-timer</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Få varsel når hviletiden mellom settene er ferdig</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <Bell size={18} className="text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-white font-medium text-sm">Daglige påminnelser</p>
+                  <p className="text-zinc-500 text-xs mt-0.5">Påminnelse om å logge vekt og motivasjon til å trene</p>
+                </div>
+              </div>
+            </div>
+
+            {notifGranted ? (
+              <div className="mt-4 flex items-center gap-2 text-green-400 text-sm">
+                <Check size={18} />
+                <span>Varsler er aktivert!</span>
+              </div>
+            ) : notifDenied ? (
+              <>
+                <div className="mt-4 flex items-start gap-2 text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                  <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                  <span>Varsler er avslått. Du kan slå dem på senere i Innstillinger &gt; IronGrid &gt; Varsler, eller i profilen din i appen.</span>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleEnableNotifications}
+                  disabled={notifRequesting}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {notifRequesting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Bell size={16} />
+                      Prøv igjen
+                    </>
+                  )}
+                </motion.button>
+              </>
+            ) : (
+              <div className="mt-4 flex items-center gap-2 text-zinc-400 text-sm">
+                <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+                <span>Venter på tillatelse...</span>
+              </div>
+            )}
+
+            <p className="text-zinc-600 text-xs mt-4 text-center">
+              Du kan alltid slå varselet av eller på i profilen din senere
+            </p>
+          </motion.div>
+        )}
       </AnimatePresence>
       </div>
 
@@ -739,7 +847,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
           )}
         </motion.button>
 
-        {step > 1 && step !== 2 && step !== 7 && (
+        {step > 1 && step !== 2 && step !== 7 && step !== 9 && (
           <button
             onClick={handleSkip}
             className="w-full text-zinc-500 hover:text-zinc-300 text-sm font-medium py-2 transition-colors"

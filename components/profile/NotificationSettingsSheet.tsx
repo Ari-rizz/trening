@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bell, RefreshCw, Check } from 'lucide-react';
-import { getNotificationPreferences, updateNotificationPreferences } from '@/lib/push';
-import { registerPushNotifications } from '@/lib/push';
+import { X, Bell, RefreshCw, Check, CircleAlert as AlertCircle, BellRing } from 'lucide-react';
+import { getNotificationPreferences, updateNotificationPreferences, registerPushNotifications } from '@/lib/push';
+import { Capacitor } from '@capacitor/core';
 
 interface Props {
   open: boolean;
@@ -17,6 +17,7 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [permissionStatus, setPermissionStatus] = useState<'granted' | 'denied' | 'unknown'>('unknown');
 
   useEffect(() => {
     if (!open) return;
@@ -32,7 +33,34 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
       workout_reminder: false,
       goal_reminder: false,
       reminder_time: '18:00',
+      weight_reminder_time: '06:00',
+      workout_reminder_time: '12:00',
     });
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        const perm = await LocalNotifications.checkPermissions();
+        if (perm.display === 'granted') {
+          setPermissionStatus('granted');
+          setRegistered(true);
+        } else if (perm.display === 'denied') {
+          setPermissionStatus('denied');
+        } else {
+          setPermissionStatus('unknown');
+        }
+      } catch {
+        setPermissionStatus('unknown');
+      }
+    } else {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        setPermissionStatus('granted');
+        setRegistered(true);
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+        setPermissionStatus('denied');
+      }
+    }
+
     setLoading(false);
   };
 
@@ -44,11 +72,11 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
     setSaving(false);
   };
 
-  const handleTimeChange = async (time: string) => {
-    const updated = { ...prefs, reminder_time: time };
+  const handleTimeChange = async (key: string, time: string) => {
+    const updated = { ...prefs, [key]: time };
     setPrefs(updated);
     setSaving(true);
-    await updateNotificationPreferences({ reminder_time: time });
+    await updateNotificationPreferences({ [key]: time });
     setSaving(false);
   };
 
@@ -56,13 +84,14 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
     setRegistering(true);
     const ok = await registerPushNotifications();
     setRegistered(ok);
+    setPermissionStatus(ok ? 'granted' : 'denied');
     setRegistering(false);
   };
 
   const toggles = [
     { key: 'rest_timer', label: 'Hviletids-timer', desc: 'Varsler når hviletiden er ferdig' },
     { key: 'weight_reminder', label: 'Vektpåminnelse', desc: 'Påminnelse om å logge vekten' },
-    { key: 'workout_reminder', label: 'Øktpåminnelse', desc: 'Påminnelse om å trene' },
+    { key: 'workout_reminder', label: 'Øktpåminnelse', desc: 'Motivasjonsmelding hvis du ikke har trent' },
     { key: 'goal_reminder', label: 'Målpåminnelse', desc: 'Påminnelse om målfrist' },
   ];
 
@@ -104,8 +133,33 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
               <div className="h-40 bg-zinc-900 rounded-2xl animate-pulse" />
             ) : (
               <>
-                {/* Enable push button */}
-                {!registered && (
+                {/* Permission status banner */}
+                {permissionStatus === 'granted' && (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 mb-4">
+                    <Check size={14} className="text-green-400" />
+                    <p className="text-green-400 text-sm">Varsler er aktivert</p>
+                  </div>
+                )}
+                {permissionStatus === 'denied' && (
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+                      <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-amber-400 text-sm">
+                        Varsler er slått av i telefonens innstillinger. Slå dem på for å motta påminnelser.
+                      </p>
+                    </div>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleRegister}
+                      disabled={registering}
+                      className="w-full bg-blue-500 disabled:bg-zinc-800 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      {registering ? <RefreshCw size={16} className="animate-spin" /> : <BellRing size={16} />}
+                      Slå på varsler
+                    </motion.button>
+                  </div>
+                )}
+                {permissionStatus === 'unknown' && !registered && (
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={handleRegister}
@@ -115,12 +169,6 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
                     {registering ? <RefreshCw size={16} className="animate-spin" /> : <Bell size={16} />}
                     Aktiver push-varsler
                   </motion.button>
-                )}
-                {registered && (
-                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 mb-4">
-                    <Check size={14} className="text-green-400" />
-                    <p className="text-green-400 text-sm">Push-varsler aktivert</p>
-                  </div>
                 )}
 
                 <div className="space-y-2 mb-4">
@@ -148,18 +196,49 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
                   ))}
                 </div>
 
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-4">
-                  <p className="text-zinc-400 text-xs font-semibold mb-2">Tidspunkt for påminnelser</p>
-                  <input
-                    type="time"
-                    value={prefs.reminder_time ?? '18:00'}
-                    onChange={e => handleTimeChange(e.target.value)}
-                    className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none"
-                  />
-                </div>
+                {/* Separate time pickers */}
+                {prefs.weight_reminder && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-3">
+                    <p className="text-zinc-400 text-xs font-semibold mb-2">Tid for vektpåminnelse</p>
+                    <input
+                      type="time"
+                      value={prefs.weight_reminder_time ?? '06:00'}
+                      onChange={e => handleTimeChange('weight_reminder_time', e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {prefs.workout_reminder && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-3">
+                    <p className="text-zinc-400 text-xs font-semibold mb-2">Tid for øktpåminnelse</p>
+                    <input
+                      type="time"
+                      value={prefs.workout_reminder_time ?? '12:00'}
+                      onChange={e => handleTimeChange('workout_reminder_time', e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {prefs.goal_reminder && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-3">
+                    <p className="text-zinc-400 text-xs font-semibold mb-2">Tid for målpåminnelse</p>
+                    <input
+                      type="time"
+                      value={prefs.reminder_time ?? '18:00'}
+                      onChange={e => handleTimeChange('reminder_time', e.target.value)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                <p className="text-zinc-600 text-xs text-center mt-2">
+                  Du kan alltid slå varselet av eller på her når som helst
+                </p>
 
                 {saving && (
-                  <p className="text-zinc-500 text-xs text-center">Lagrer...</p>
+                  <p className="text-zinc-500 text-xs text-center mt-2">Lagrer...</p>
                 )}
               </>
             )}

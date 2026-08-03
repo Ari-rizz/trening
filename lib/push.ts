@@ -102,6 +102,8 @@ export async function updateNotificationPreferences(
     workout_reminder: boolean;
     goal_reminder: boolean;
     reminder_time: string;
+    weight_reminder_time: string;
+    workout_reminder_time: string;
   }>
 ): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
