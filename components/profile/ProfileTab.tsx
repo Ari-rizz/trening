@@ -54,6 +54,8 @@ export function ProfileTab() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [subscribeLoading, setSubscribeLoading] = useState(false);
@@ -681,26 +683,24 @@ export function ProfileTab() {
         </motion.button>
 
         {/* Terms */}
-        <a
-          href="/terms"
-          target="_blank"
-          rel="noopener noreferrer"
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowTerms(true)}
           className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
         >
           <FileText size={18} className="text-zinc-400" />
           Brukervilkår
-        </a>
+        </motion.button>
 
         {/* Privacy */}
-        <a
-          href="/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowPrivacy(true)}
           className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-white font-semibold"
         >
           <Shield size={18} className="text-zinc-400" />
           Personvern
-        </a>
+        </motion.button>
 
         {/* Sign out */}
         <motion.button
@@ -964,6 +964,214 @@ export function ProfileTab() {
 
       <FeedbackSheet open={showFeedback} onClose={() => setShowFeedback(false)} />
       <NotificationSettingsSheet open={showNotifications} onClose={() => setShowNotifications(false)} />
+
+      {/* Terms modal */}
+      <AnimatePresence>
+        {showTerms && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/60"
+              onClick={() => setShowTerms(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              className="fixed bottom-0 left-0 right-0 top-0 z-[101] bg-zinc-950 flex flex-col"
+            >
+              <div className="flex items-center justify-between px-5 pt-14 pb-4 flex-shrink-0 border-b border-zinc-800">
+                <h2 className="text-white font-bold text-lg">Brukervilkår</h2>
+                <button
+                  onClick={() => setShowTerms(false)}
+                  className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center"
+                >
+                  <X size={18} className="text-zinc-400" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-5 py-6">
+                <h1 className="text-2xl font-bold text-white mb-2">Brukervilkår for IronGrid</h1>
+                <p className="text-zinc-500 text-sm mb-6">Sist oppdatert: 2. august 2026</p>
+                <div className="space-y-6 text-zinc-300 leading-relaxed">
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">1. Om tjenesten</h2>
+                    <p>IronGrid er en treningapp som lar brukere logge treningsøkter, spore fremgang, opprette treningsplaner og dele disse med andre. Tjenesten tilbys av IronGrid og er tilgjengelig via nettleser og mobilapp.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">2. Brukerkonto</h2>
+                    <p>For å bruke IronGrid må du opprette en konto med e-post og passord. Du er ansvarlig for å holde kontodetaljene dine sikre og for all aktivitet som skjer via kontoen din. Du må være minst 16 år for å opprette konto.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">3. Prøveperiode og abonnement</h2>
+                    <p>Nye brukere får en gratis prøveperiode på 30 dager. Ingen betalingskort kreves for prøveperioden. Etter prøveperioden koster abonnementet 30 kr per måned. Abonnementet fornyes automatisk hver måned og kan avbrytes når som helst. På iOS avbrytes abonnementet via App Store-innstillinger; på web avbrytes fra profil-fanen. Ved avbrytelse beholder du tilgang frem til slutten av den betalte perioden.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">4. Brukerinnhold</h2>
+                    <p>Du beholder eierskapet til all treningsdata og innhold du laster opp. Ved å bruke tjenesten gir du IronGrid en begrenset lisens til å lagre, vise og behandle dataene dine for å levere tjenesten. Du deler treningsplaner med andre brukere kun ved å generere en delingskode.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">5. Ansvar og helse</h2>
+                    <p>IronGrid er et verktøy for trening og gir ikke medisinsk råd. Du trener på eget ansvar. Ved helseproblemer eller skader skal du rådføre deg med lege før du starter eller fortsetter trening. IronGrid er ikke ansvarlig for skader som oppstår som følge av bruk av appen.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">6. Betaling</h2>
+                    <p>Betaling håndteres av Apple In-App Purchases (IAP) i iOS-appen og av Stripe på web-versjonen. Apple lagrer og behandler betalingsinformasjon i henhold til sine egne sikkerhetskrav — IronGrid har ikke tilgang til selve betalingsdetaljene dine. For web-betaling lagrer Stripe kortinformasjon i henhold til PCI DSS-krav — IronGrid har ikke tilgang til selve kortnummeret. Alle betalinger er sikre og krypterte. Prismodifikasjoner kan forekomme med minst 30 dagers varsel.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">7. Sletting av konto og personvern</h2>
+                    <p>Du kan slette kontoen din når som helst fra profil-fanen. Ved sletting slettes all din treningsdata, mål, personlige opplysninger og egendefinerte øvelser permanent. Eventuelt aktivt abonnement avsluttes umiddelbart. Denne handlingen kan ikke angres. For detaljer om hvilke data som slettes og lagringstid, se vår personvernerklæring.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">8. Endringer av vilkår</h2>
+                    <p>Vi kan oppdatere disse brukervilkårene fra tid til annen. Ved vesentlige endringer vil vi varsle deg i appen eller via e-post. Fortsatt bruk av IronGrid etter endringer betyr at du godtar de oppdaterte vilkårene.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">9. Personvern og databehandlere</h2>
+                    <p>IronGrid bruker Supabase (database og autentisering, EU-region), Apple In-App Purchases (betaling i iOS-appen) og Stripe (betaling på web) som databehandlere. Håndtering av personopplysninger er beskrevet i vår personvernerklæring, som utgjør en del av disse brukervilkårene. Helsedata fra Apple Health leses kun med ditt eksplisitte samtykke og kan trekkes tilbake når som helst.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">10. Kontakt</h2>
+                    <p>Spørsmål om brukervilkårene eller personvern kan sendes via tilbakemeldingsfunksjonen i appen eller til utvikling@ai-assistant.no.</p>
+                  </section>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Privacy modal */}
+      <AnimatePresence>
+        {showPrivacy && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/60"
+              onClick={() => setShowPrivacy(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 320 }}
+              className="fixed bottom-0 left-0 right-0 top-0 z-[101] bg-zinc-950 flex flex-col"
+            >
+              <div className="flex items-center justify-between px-5 pt-14 pb-4 flex-shrink-0 border-b border-zinc-800">
+                <h2 className="text-white font-bold text-lg">Personvern</h2>
+                <button
+                  onClick={() => setShowPrivacy(false)}
+                  className="w-9 h-9 rounded-full bg-zinc-800 flex items-center justify-center"
+                >
+                  <X size={18} className="text-zinc-400" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-5 py-6">
+                <h1 className="text-2xl font-bold text-white mb-2">Personvernerklæring for IronGrid</h1>
+                <p className="text-zinc-500 text-sm mb-6">Sist oppdatert: 2. august 2026</p>
+                <div className="space-y-6 text-zinc-300 leading-relaxed">
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">1. Hvilke data vi samler inn</h2>
+                    <p className="mb-3">IronGrid samler inn personopplysninger som er nødvendige for å levere tjenesten. Vi kategoriserer dataene slik:</p>
+                    <p><strong className="text-zinc-200">Kontodata:</strong> E-postadresse og passord (kryptert via Supabase Auth). Navn oppgis frivillig under onboarding.</p>
+                    <p><strong className="text-zinc-200">Treningsdata:</strong> Økter, øvelser, vekter, reps, sett, hviletider, notater, personlige rekorder, superset-grupper og treningsplaner.</p>
+                    <p><strong className="text-zinc-200">Kroppsdata:</strong> Kroppsvekt og eventuelle kalorilogger du registrerer manuelt i appen.</p>
+                    <p><strong className="text-zinc-200">Helsedata (Apple Health / HealthKit):</strong> Med din eksplisitte tillatelse kan IronGrid lese og skrive treningsdata og kroppsvekt fra Apple Health. Helsedata lagres også i din IronGrid-konto via Supabase slik at du kan se historikk på tvers av enheter.</p>
+                    <p><strong className="text-zinc-200">Mål og preferanser:</strong> Treningsmål, varigheter, og personlige øvelsesinnstillinger.</p>
+                    <p><strong className="text-zinc-200">Tilbakemeldinger:</strong> Innhold du sender via tilbakemeldingsfunksjonen i appen.</p>
+                    <p><strong className="text-zinc-200">Varselinnstillinger:</strong> Hvilke push-varsler du har slått på eller av.</p>
+                    <p><strong className="text-zinc-200">Abonnementsdata:</strong> Abonnementsstatus og kjøpsbekreftelse (håndtert av Apple IAP i iOS og Stripe på web).</p>
+                    <p><strong className="text-zinc-200">Teknisk data:</strong> Plattform (iOS/Android/web) og app-versjon. Vi samler ikke posisjonsdata, nettleserhistorikk eller enhets-ID-er for sporing.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">2. Hvordan vi bruker dataene</h2>
+                    <p>Vi bruker dataene utelukkende for å:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>Levere treningstjenesten og vise fremgang over tid</li>
+                      <li>Lagre og synkronisere treningsplaner på tvers av enheter</li>
+                      <li>Synkronisere treningsøkter og kroppsvekt med Apple Health</li>
+                      <li>Beregne muskelbalanse og gi personlige anbefalinger</li>
+                      <li>Behandle abonnement og betaling via Apple IAP (iOS) og Stripe (web)</li>
+                      <li>Send push-varsler du har aktivert</li>
+                      <li>Forbedre appens funksjonalitet og brukeropplevelse</li>
+                    </ul>
+                    <p className="mt-3">Dataene dine brukes <strong className="text-zinc-200">ikke</strong> til å trene AI-modeller, profilere deg for markedsføring, eller selges til tredjeparter.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">3. Rettslig grunnlag for behandling</h2>
+                    <p>Behandlingen av personopplysningene dine bygger på følgende rettslige grunnlag i henhold til GDPR:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li><strong className="text-zinc-200">Avtale (art. 6(1)(b)):</strong> Behandling som er nødvendig for å levere tjenesten.</li>
+                      <li><strong className="text-zinc-200">Samtykke (art. 6(1)(a) og art. 9(2)(a)):</strong> For helsedata fra Apple Health og for push-varsler. Du kan trekke tilbake samtykket når som helst.</li>
+                      <li><strong className="text-zinc-200">Berettiget interesse (art. 6(1)(f)):</strong> For teknisk data som trengs for å drifte og feilsøke tjenesten.</li>
+                    </ul>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">4. Deling av data</h2>
+                    <p>Vi selger aldri dataene dine til tredjeparter. Deling skjer kun i følgende tilfeller:</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li><strong className="text-zinc-200">Plan-deling:</strong> Når du deler en treningsplan, genereres en unik 6-tegns kode. Andre brukere kan kun se ditt brukernavn.</li>
+                      <li><strong className="text-zinc-200">Apple Health:</strong> Helsedata deles kun mellom appen og Apple Health på din enhet, og kun med ditt samtykke.</li>
+                      <li><strong className="text-zinc-200">Apple In-App Purchases:</strong> Kjøp i iOS-appen behandles av Apple. IronGrid lagrer kun bekreftelse på aktivt abonnement.</li>
+                      <li><strong className="text-zinc-200">Stripe (web-betaling):</strong> Betalinger for web-versjonen behandles av Stripe. Betalingsinformasjon lagres ikke på IronGrids servere.</li>
+                    </ul>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">5. Databehandlere</h2>
+                    <p>IronGrid bruker følgende databehandlere. Alle leverandører er GDPR-kompatible og har inngått databehandleravtaler (DPA):</p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li><strong className="text-zinc-200">Supabase:</strong> Lagrer all treningsdata, kontodata, mål og tilbakemeldinger i en PostgreSQL-database i EU-region (Irland). Leverer også autentisering.</li>
+                      <li><strong className="text-zinc-200">Apple (In-App Purchases):</strong> Behandler kjøp og abonnementer i iOS-appen.</li>
+                      <li><strong className="text-zinc-200">Stripe:</strong> Behandler betalinger for web-versjonen. PCI DSS-sertifisert og GDPR-kompatibel.</li>
+                      <li><strong className="text-zinc-200">Apple (Apple Health):</strong> Helsedata på din enhet håndteres av Apple HealthKit.</li>
+                    </ul>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">6. Lagring og sikkerhet</h2>
+                    <p><strong className="text-zinc-200">Lagringssted:</strong> Alle data lagres i Supabase sin database i EU-region (Irland).</p>
+                    <p><strong className="text-zinc-200">Kryptering:</strong> All kommunikasjon er kryptert via HTTPS/TLS. Supabase krypterer data ved lagring (encryption at rest).</p>
+                    <p><strong className="text-zinc-200">Row Level Security (RLS):</strong> Alle tabeller har RLS aktivert — hver bruker kan kun lese og skrive sine egne data.</p>
+                    <p><strong className="text-zinc-200">Passord:</strong> Passord lagres aldri i klartekst. Supabase Auth bruker bcrypt-hashing med salt.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">7. Lagringstid</h2>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li><strong className="text-zinc-200">Konto- og treningsdata:</strong> Lagres så lenge kontoen er aktiv. Slettes permanent ved kontosletting.</li>
+                      <li><strong className="text-zinc-200">Tilbakemeldinger:</strong> Slettes automatisk etter 12 måneder.</li>
+                      <li><strong className="text-zinc-200">Teknisk data:</strong> Slettes når kontoen slettes.</li>
+                    </ul>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">8. Dine rettigheter (GDPR)</h2>
+                    <p>I henhold til GDPR har du rett til innsyn, rettelse, sletting, begrensning av behandling, dataportabilitet og innsigelse. Du kan også trekke tilbake samtykket for helsedata og push-varsler når som helst.</p>
+                    <p className="mt-3">For å utøve disse rettighetene: slett kontoen fra profil-fanen, eller send en forespørsel via tilbakemeldingsfunksjonen. Vi besvarer forespørsler innen 30 dager. Du kan også klage til Datatilsynet (datatilsynet.no).</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">9. Varsler</h2>
+                    <p>Push-varsler sendes kun for funksjoner du har aktivert. Du kan når som helst slå av alle varsler i profil-fanen. Varsler sendes lokalt fra enheten din og lagres ikke på IronGrids servere.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">10. Barns personvern</h2>
+                    <p>IronGrid er ikke rettet mot barn under 16 år. Vi samler ikke bevisst data fra barn.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">11. Endringer i personvernerklæringen</h2>
+                    <p>Vi kan oppdatere denne erklæringen fra tid til annen. Vesentlige endringer vil varsles i appen eller via e-post. Fortsatt bruk av IronGrid etter en endring betyr at du godtar den oppdaterte erklæringen.</p>
+                  </section>
+                  <section>
+                    <h2 className="text-lg font-bold text-white mb-2">12. Kontakt</h2>
+                    <p>Spørsmål om personvern kan sendes via tilbakemeldingsfunksjonen i appen eller til utvikling@ai-assistant.no.</p>
+                  </section>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

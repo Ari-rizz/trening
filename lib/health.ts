@@ -3,11 +3,11 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
 
-type HealthDataType = 'calories' | 'totalCalories' | 'workouts' | 'activeEnergyBurned';
+type HealthDataType = 'calories' | 'totalCalories' | 'activeEnergyBurned';
 type WorkoutType = 'strengthTraining' | 'traditionalStrengthTraining' | 'functionalStrengthTraining' | 'running' | 'cycling' | 'walking' | 'swimming' | 'rowing' | 'elliptical' | 'other';
 
-const READ_TYPES: HealthDataType[] = ['calories', 'totalCalories', 'workouts'];
-const WRITE_TYPES: HealthDataType[] = ['calories', 'workouts'];
+const READ_TYPES: HealthDataType[] = ['calories', 'totalCalories'];
+const WRITE_TYPES: HealthDataType[] = ['calories'];
 
 export interface HealthAvailability {
   available: boolean;
