@@ -1,8 +1,13 @@
+import { Capacitor } from '@capacitor/core';
+
 export default function TermsPage() {
+  const isMobile = Capacitor.isNativePlatform();
+  const priceLabel = isMobile ? '39,9 kr' : '30 kr';
+
   return (
     <main className="min-h-screen bg-black text-white p-6 max-w-2xl mx-auto">
       <h1 className="text-3xl font-bold mb-6">Brukervilkår for IronGrid</h1>
-      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 2. august 2026</p>
+      <p className="text-zinc-400 text-sm mb-8">Sist oppdatert: 3. august 2026</p>
 
       <div className="space-y-6 text-zinc-300 leading-relaxed">
         <section>
@@ -17,7 +22,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-xl font-bold text-white mb-2">3. Prøveperiode og abonnement</h2>
-          <p>Nye brukere får en gratis prøveperiode på 30 dager. Ingen betalingskort kreves for prøveperioden. Etter prøveperioden koster abonnementet 30 kr per måned. Abonnementet fornyes automatisk hver måned og kan avbrytes når som helst. På iOS avbrytes abonnementet via App Store-innstillinger; på web avbrytes fra profil-fanen. Ved avbrytelse beholder du tilgang frem til slutten av den betalte perioden.</p>
+          <p>Nye brukere får en gratis prøveperiode på 30 dager. Ingen betalingskort kreves for prøveperioden. Etter prøveperioden koster abonnementet {priceLabel} per måned. Abonnementet fornyes automatisk hver måned og kan avbrytes når som helst. På iOS koster abonnementet 39,9 kr per måned og håndteres via Apple In-App Purchases; på web koster det 30 kr per måned og håndteres via Stripe. Prisforskjellen skyldes ulike betalingsplattformer og gebyrer. På iOS avbrytes abonnementet via App Store-innstillinger; på web avbrytes fra profil-fanen. Ved avbrytelse beholder du tilgang frem til slutten av den betalte perioden.</p>
         </section>
 
         <section>

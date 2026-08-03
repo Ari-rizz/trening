@@ -37,7 +37,7 @@ export function PaywallScreen({ userId, mode, onSubscribed, onTrialStarted }: Pa
   const [loading, setLoading] = useState<'trial' | 'subscribe' | 'restore' | null>(null);
   const [error, setError] = useState('');
   const [nativePlatform, setNativePlatform] = useState(false);
-  const [iapPriceString, setIapPriceString] = useState('40 kr');
+  const [iapPriceString, setIapPriceString] = useState('39,9 kr');
 
   useEffect(() => {
     const native = isNativePlatform();
