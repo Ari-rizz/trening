@@ -91,6 +91,40 @@ export async function cancelNotification(id: number | null) {
   await LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => {});
 }
 
+// ---- Workout Reminders -------------------------------------------------------
+
+let workoutReminderId: number | null = null;
+
+export async function scheduleWorkoutReminder(minutes: number, title: string, body: string): Promise<void> {
+  if (!isNative()) return;
+  if (notificationPermission === 'denied') return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  if (workoutReminderId !== null) {
+    await LocalNotifications.cancel({ notifications: [{ id: workoutReminderId }] }).catch(() => {});
+  }
+  const id = nextNotificationId++;
+  const at = new Date(Date.now() + Math.max(minutes * 60 * 1000, 5000));
+  await LocalNotifications.schedule({
+    notifications: [{
+      id,
+      title,
+      body,
+      schedule: { at },
+      sound: undefined,
+      actionTypeId: '',
+      extra: null,
+    }],
+  }).catch(() => {});
+  workoutReminderId = id;
+}
+
+export async function cancelWorkoutReminder() {
+  if (!isNative() || workoutReminderId === null) return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: workoutReminderId }] }).catch(() => {});
+  workoutReminderId = null;
+}
+
 // ---- Keep Awake -------------------------------------------------------------
 
 export async function keepScreenAwake(_on: boolean) {

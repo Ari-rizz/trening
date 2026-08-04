@@ -38,11 +38,31 @@ export function FeedbackSheet({ open, onClose }: Props) {
       app_version: '1.0.0',
     });
 
-    setLoading(false);
     if (insertError) {
+      setLoading(false);
       setError('Kunne ikke sende tilbakemelding. Prøv igjen.');
       return;
     }
+
+    // Send email notification (fire-and-forget — DB save already succeeded)
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/feedback-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token ?? ''}`,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+      body: JSON.stringify({
+        type,
+        subject: subject.trim(),
+        body: body.trim(),
+        user_email: session?.user?.email ?? null,
+        platform,
+        app_version: '1.0.0',
+      }),
+    }).catch(() => {});
+
+    setLoading(false);
     setSuccess(true);
     setSubject('');
     setBody('');

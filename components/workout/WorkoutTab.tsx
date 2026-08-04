@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Square, Plus, Trash2, ChevronLeft, ChevronRight,
   Clock, CircleCheck as CheckCircle2, Circle, Pencil, X,
-  GripVertical, ListOrdered, History, Timer, Info, Repeat2, Dumbbell,
+  GripVertical, ListOrdered, History, Timer, Info, Repeat2, Dumbbell, Star,
 } from 'lucide-react';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -31,6 +31,12 @@ import { calculate1RM, getMuscleGroupColor } from '@/lib/exercises-data';
 import { useToast } from '@/hooks/use-toast';
 import { writeWorkoutToHealth } from '@/lib/health';
 import { isOnline, addQueuedWorkout, syncQueuedWorkouts, getQueueCount } from '@/lib/offline-sync';
+import { useWorkoutReminders } from '@/lib/use-workout-reminders';
+import { isNative } from '@/lib/native';
+
+const APP_STORE_URL = 'https://apps.apple.com/app/id6797285632';
+const WEB_APP_URL = 'https://irongrid.netlify.app';
+const RATING_THRESHOLD = 3;
 
 interface PreviousSessionSet {
   set_number: number;
@@ -88,6 +94,7 @@ export function WorkoutTab() {
   const [showSwapSheet, setShowSwapSheet] = useState(false);
   const [showSupersetPicker, setShowSupersetPicker] = useState(false);
   const [showStartSheet, setShowStartSheet] = useState(false);
+  const [showRatingPrompt, setShowRatingPrompt] = useState(false);
   const [pendingAddExercise, setPendingAddExercise] = useState<{
     exercise: Exercise;
     prevSets?: Array<{ weight: number; reps: number; rpe: number }>;
@@ -98,6 +105,8 @@ export function WorkoutTab() {
   const [rpeInputs, setRpeInputs] = useState<Record<string, string>>({});
   const historyToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const lastActivityRef = useRef(Date.now());
+  useWorkoutReminders(lastActivityRef);
 
   const weightInputKey = (exerciseId: string, setNumber: number) => `${exerciseId}-${setNumber}`;
   const getWeightDisplay = (exerciseId: string, setNumber: number, storedWeight: number) => {
@@ -469,6 +478,31 @@ export function WorkoutTab() {
       const endDate = new Date();
       await writeWorkoutToHealth('traditionalStrengthTraining', startDate, endDate, 0).catch(() => {});
 
+      // Check if we should prompt for App Store rating
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('has_been_asked_to_rate')
+          .eq('id', currentUserId)
+          .maybeSingle();
+
+        if (profile && !profile.has_been_asked_to_rate) {
+          const { count } = await supabase
+            .from('workouts')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', currentUserId)
+            .eq('is_completed', true);
+
+          if (count && count >= RATING_THRESHOLD) {
+            await supabase
+              .from('profiles')
+              .update({ has_been_asked_to_rate: true })
+              .eq('id', currentUserId);
+            setShowRatingPrompt(true);
+          }
+        }
+      } catch {}
+
       endWorkout();
     } catch (err) {
       console.error('Failed to save workout', err);
@@ -628,7 +662,7 @@ export function WorkoutTab() {
   const prevHistory = currentEx ? previousSessions[currentEx.exerciseId] : undefined;
 
   return (
-    <div className="relative flex flex-col h-full">
+    <div className="relative flex flex-col h-full" onPointerDown={() => { lastActivityRef.current = Date.now(); }}>
       {/* Top bar */}
       <div className="px-4 pt-3 pb-2 border-b border-zinc-900">
         <div className="flex items-center justify-between mb-1.5">
@@ -1516,6 +1550,53 @@ export function WorkoutTab() {
         onSelect={handleConfirmAddExercise}
         onClose={() => setPendingAddExercise(null)}
       />
+
+      {/* App Store rating prompt */}
+      <AnimatePresence>
+        {showRatingPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center px-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 w-full max-w-sm text-center"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-5">
+                <Star size={32} className="text-amber-400 fill-amber-400" />
+              </div>
+              <h3 className="text-white font-bold text-xl mb-2">Liker du IronGrid?</h3>
+              <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
+                Vi jobber hardt for å gi deg den beste treningsappen. Hvis du liker IronGrid, vil vi sette pris på en vurdering i App Store!
+              </p>
+              <div className="space-y-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    setShowRatingPrompt(false);
+                    window.open(isNative() ? APP_STORE_URL : WEB_APP_URL, '_blank');
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2"
+                >
+                  <Star size={16} className="fill-current" />
+                  Vurder i App Store
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowRatingPrompt(false)}
+                  className="w-full py-3.5 rounded-2xl bg-zinc-800 text-zinc-400 text-sm font-medium"
+                >
+                  Kanskje senere
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
