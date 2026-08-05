@@ -9,6 +9,7 @@ import { ForgotPasswordScreen } from './ForgotPasswordScreen';
 import { OnboardingFlow } from './OnboardingFlow';
 import { IntroTour } from './IntroTour';
 import { SubscriptionGate } from './SubscriptionGate';
+import { UpdatePasswordScreen } from './UpdatePasswordScreen';
 
 type AuthScreen = 'login' | 'register' | 'forgot-password';
 
@@ -22,6 +23,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [introTourDone, setIntroTourDone] = useState<boolean | null>(null);
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -34,6 +36,11 @@ export function AuthGate({ children }: AuthGateProps) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       if (session?.user?.id) {
         checkOnboarding(session.user.id);
@@ -80,6 +87,17 @@ export function AuthGate({ children }: AuthGateProps) {
           <div className="w-6 h-6 border-2 border-zinc-700 border-t-zinc-300 rounded-full animate-spin" />
         </motion.div>
       </div>
+    );
+  }
+
+  if (passwordRecovery) {
+    return (
+      <UpdatePasswordScreen
+        onComplete={() => {
+          setPasswordRecovery(false);
+          setAuthScreen('login');
+        }}
+      />
     );
   }
 

@@ -3,10 +3,10 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
 
-type HealthDataType = 'calories' | 'totalCalories';
+type HealthDataType = 'calories' | 'totalCalories' | 'stepCount';
 type WorkoutType = 'strengthTraining' | 'traditionalStrengthTraining' | 'functionalStrengthTraining' | 'running' | 'cycling' | 'walking' | 'swimming' | 'rowing' | 'elliptical' | 'other';
 
-const READ_TYPES: HealthDataType[] = ['totalCalories', 'calories'];
+const READ_TYPES: HealthDataType[] = ['totalCalories', 'calories', 'stepCount'];
 const WRITE_TYPES: HealthDataType[] = ['calories'];
 
 export interface HealthAvailability {
@@ -59,6 +59,7 @@ export async function checkHealthAuthorization(): Promise<boolean> {
 export interface DailyCalorieData {
   date: string;
   calories: number;
+  steps?: number;
 }
 
 export async function readCaloriesForDay(date: Date): Promise<number> {
@@ -76,10 +77,39 @@ export async function readCaloriesForDay(date: Date): Promise<number> {
     if (value === 0) {
       value = await queryCalories(Health, 'calories', start, end);
     }
+    // Add step-based calorie estimate
+    const steps = await readStepsForDay(Health, start, end);
+    if (steps > 0) {
+      value += estimateCaloriesFromSteps(steps);
+    }
     return value;
   } catch {
     return 0;
   }
+}
+
+export async function readStepsForDay(Health: any, start: Date, end: Date): Promise<number> {
+  try {
+    const result = await Health.queryAggregated({
+      dataType: 'stepCount' as any,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      bucket: 'day',
+      aggregation: 'sum',
+    } as any);
+    if (result.samples && result.samples.length > 0) {
+      return Math.round(result.samples[0].value);
+    }
+  } catch {
+    // stepCount not available
+  }
+  return 0;
+}
+
+export function estimateCaloriesFromSteps(steps: number, weightKg?: number | null): number {
+  // Roughly 0.04 kcal per step for a 70kg person, scaled by body weight
+  const weight = weightKg && weightKg > 0 ? weightKg : 70;
+  return Math.round(steps * 0.0004 * weight);
 }
 
 async function queryCalories(Health: any, dataType: string, start: Date, end: Date): Promise<number> {
@@ -115,7 +145,39 @@ export async function readCaloriesForDateRange(startDate: Date, endDate: Date): 
     if (samples.length === 0) {
       samples = await queryCaloriesRange(Health, 'calories', start, end);
     }
+
+    // Merge step-based calories
+    const stepSamples = await queryStepsRange(Health, start, end);
+    if (stepSamples.length > 0) {
+      const stepMap = new Map(stepSamples.map(s => [s.date, s.steps]));
+      for (const s of samples) {
+        const steps = stepMap.get(s.date) ?? 0;
+        if (steps > 0) {
+          s.calories += estimateCaloriesFromSteps(steps);
+          s.steps = steps;
+        }
+      }
+    }
+
     return samples;
+  } catch {
+    return [];
+  }
+}
+
+async function queryStepsRange(Health: any, start: Date, end: Date): Promise<Array<{ date: string; steps: number }>> {
+  try {
+    const result = await Health.queryAggregated({
+      dataType: 'stepCount' as any,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      bucket: 'day',
+      aggregation: 'sum',
+    } as any);
+    return (result.samples || []).map((s: any) => ({
+      date: s.startDate.split('T')[0],
+      steps: Math.round(s.value),
+    }));
   } catch {
     return [];
   }
@@ -177,6 +239,7 @@ export async function syncCaloriesToDatabase(userId: string, days = 365): Promis
       user_id: userId,
       date: d.date,
       calories: d.calories,
+      steps: d.steps ?? 0,
       source: 'health_app',
       synced_at: new Date().toISOString(),
     }));

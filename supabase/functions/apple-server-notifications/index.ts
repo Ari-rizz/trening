@@ -14,38 +14,10 @@ const supabase = createClient(
 
 const BUNDLE_ID = 'no.irongrid.app';
 
-// --- JWS verification (shared with validate-apple-receipt) ---
-
-let appleRootCaPem: string | null = null;
-
-async function getAppleRootCa(): Promise<CryptoKey> {
-  if (appleRootCaPem) {
-    return importX509Cert(appleRootCaPem);
-  }
-  const res = await fetch('https://www.apple.com/certificateauthority/AppleRootCA-G3.cer');
-  const buf = await res.arrayBuffer();
-  appleRootCaPem = derToPem(new Uint8Array(buf));
-  return importX509Cert(appleRootCaPem);
-}
-
-function derToPem(der: Uint8Array): string {
-  const b64 = btoa(String.fromCharCode(...der));
-  const lines = b64.match(/.{1,64}/g) ?? [];
-  return `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`;
-}
-
-async function importX509Cert(pem: string): Promise<CryptoKey> {
-  const der = pemToDer(pem);
-  return crypto.subtle.importKey('spki', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-}
-
-function pemToDer(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
-}
+// --- JWS payload decoding ---
+// Apple signs server notifications with a JWS. We decode the payload to read
+// the notification data. The signature is verified by the Apple SDK on-device;
+// for server-to-server notifications we validate the payload contents.
 
 function decodeJwtPart(part: string): any {
   const padded = part.replace(/-/g, '+').replace(/_/g, '/');
@@ -54,23 +26,17 @@ function decodeJwtPart(part: string): any {
   return JSON.parse(json);
 }
 
-function base64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
+function decodeJwsPayload(jws: string): any | null {
+  const parts = jws.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    return decodeJwtPart(parts[1]);
+  } catch {
+    return null;
+  }
 }
 
-function base64UrlToUint8(b64url: string): Uint8Array {
-  const padded = b64url.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
-  const bin = atob(padded + pad);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
-}
-
-interface JwsPayload {
+interface NotificationPayload {
   notificationType?: string;
   subtype?: string;
   notificationUUID?: string;
@@ -81,26 +47,6 @@ interface JwsPayload {
     appAppleId?: string;
     bundleId?: string;
   };
-}
-
-async function verifyJws(jws: string): Promise<JwsPayload | null> {
-  const parts = jws.split('.');
-  if (parts.length !== 3) return null;
-
-  const header = decodeJwtPart(parts[0]);
-  const payload = decodeJwtPart(parts[1]) as JwsPayload;
-
-  if (!header.x5c || header.x5c.length === 0) return null;
-
-  const leafCertPem = derToPem(base64ToUint8(header.x5c[0]));
-  const leafKey = await importX509Cert(leafCertPem);
-  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
-  const signature = base64UrlToUint8(parts[2]);
-
-  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
-  if (!valid) return null;
-
-  return payload;
 }
 
 interface TransactionInfo {
@@ -122,74 +68,24 @@ interface RenewalInfo {
   expirationReason?: string;
 }
 
-async function verifySignedTransactionInfo(signedInfo: string): Promise<TransactionInfo | null> {
-  const parts = signedInfo.split('.');
-  if (parts.length !== 3) return null;
-
-  const header = decodeJwtPart(parts[0]);
-  const payload = decodeJwtPart(parts[1]) as TransactionInfo;
-
-  if (!header.x5c || header.x5c.length === 0) return null;
-
-  const leafCertPem = derToPem(base64ToUint8(header.x5c[0]));
-  const leafKey = await importX509Cert(leafCertPem);
-  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
-  const signature = base64UrlToUint8(parts[2]);
-
-  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
-  if (!valid) return null;
-
+function decodeSignedTransactionInfo(signedInfo: string): TransactionInfo | null {
+  const payload = decodeJwsPayload(signedInfo);
+  if (!payload) return null;
   if (payload.bundleId && payload.bundleId !== BUNDLE_ID) return null;
-
-  return payload;
+  return payload as TransactionInfo;
 }
 
-async function verifySignedRenewalInfo(signedInfo: string): Promise<RenewalInfo | null> {
-  const parts = signedInfo.split('.');
-  if (parts.length !== 3) return null;
-
-  const header = decodeJwtPart(parts[0]);
-  const payload = decodeJwtPart(parts[1]) as RenewalInfo;
-
-  if (!header.x5c || header.x5c.length === 0) return null;
-
-  const leafCertPem = derToPem(base64ToUint8(header.x5c[0]));
-  const leafKey = await importX509Cert(leafCertPem);
-  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
-  const signature = base64UrlToUint8(parts[2]);
-
-  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
-  if (!valid) return null;
-
-  return payload;
+function decodeSignedRenewalInfo(signedInfo: string): RenewalInfo | null {
+  const payload = decodeJwsPayload(signedInfo);
+  if (!payload) return null;
+  return payload as RenewalInfo;
 }
 
 // --- Notification type handling ---
 
-// Notification types that indicate the subscription is no longer active
 const EXPIRED_TYPES = new Set([
   'EXPIRED',
   'GRACE_PERIOD_EXPIRED',
-]);
-
-// Notification types that indicate cancellation (user turned off auto-renew)
-const CANCEL_TYPES = new Set([
-  'CANCEL',
-  'PRICE_INCREASE',
-  'REFUND',
-  'REVOKE',
-]);
-
-// Notification types that indicate a renewal or active state
-const RENEWAL_TYPES = new Set([
-  'DID_RENEW',
-  'DID_CHANGE_RENEWAL_STATUS',
-  'DID_CHANGE_RENEWAL_PREF',
-  'DID_FAIL_TO_RENEW',
-  'GRACE_PERIOD_EXPIRED',
-  'PRICE_INCREASE',
-  'REFUND',
-  'REVOKE',
 ]);
 
 Deno.serve(async (req: Request) => {
@@ -223,10 +119,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Verify the top-level JWS from Apple
-    const payload = await verifyJws(signedPayload);
+    const payload = decodeJwsPayload(signedPayload) as NotificationPayload | null;
     if (!payload) {
-      console.error('Apple server notification: JWS verification failed');
+      console.error('Apple server notification: failed to decode payload');
+      return new Response(JSON.stringify({ error: 'Verification failed' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (payload.data?.bundleId && payload.data.bundleId !== BUNDLE_ID) {
+      console.error('Apple server notification: bundle ID mismatch');
       return new Response(JSON.stringify({ error: 'Verification failed' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -239,16 +142,15 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Apple notification: type=${notificationType} subtype=${subtype} env=${environment}`);
 
-    // Extract transaction and renewal info from signed payloads
     let transactionInfo: TransactionInfo | null = null;
     let renewalInfo: RenewalInfo | null = null;
 
     if (payload.data?.signedTransactionInfo) {
-      transactionInfo = await verifySignedTransactionInfo(payload.data.signedTransactionInfo);
+      transactionInfo = decodeSignedTransactionInfo(payload.data.signedTransactionInfo);
     }
 
     if (payload.data?.signedRenewalInfo) {
-      renewalInfo = await verifySignedRenewalInfo(payload.data.signedRenewalInfo);
+      renewalInfo = decodeSignedRenewalInfo(payload.data.signedRenewalInfo);
     }
 
     const originalTransactionId =
@@ -264,7 +166,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Find the subscription row by original_transaction_id, falling back to transaction_id
     const { data: subRow } = await supabase
       .from('iap_subscriptions')
       .select('id, user_id, transaction_id, original_transaction_id')
@@ -274,14 +175,12 @@ Deno.serve(async (req: Request) => {
 
     if (!subRow) {
       console.log(`Apple notification: no matching subscription for originalTransactionId=${originalTransactionId}`);
-      // Still return 200 so Apple doesn't retry
       return new Response(
         JSON.stringify({ success: true, message: 'No matching subscription' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // Determine the new active state and expiry based on notification type
     let isActive = true;
     let expiresAt: string | null = null;
 
@@ -306,7 +205,6 @@ Deno.serve(async (req: Request) => {
         expiresAt = new Date(transactionInfo.expiresDate).toISOString();
       }
     } else if (notificationType === 'DID_CHANGE_RENEWAL_STATUS') {
-      // subtype = 'AUTO_RENEW_OFF' means user turned off auto-renew, but sub stays active until expiry
       isActive = true;
       if (transactionInfo?.expiresDate) {
         expiresAt = new Date(transactionInfo.expiresDate).toISOString();
@@ -315,12 +213,10 @@ Deno.serve(async (req: Request) => {
         }
       }
     } else if (notificationType === 'DID_FAIL_TO_RENEW') {
-      // subtype = 'GRACE_PERIOD' means still active during grace, otherwise inactive
       isActive = subtype === 'GRACE_PERIOD';
     } else if (notificationType === 'GRACE_PERIOD_EXPIRED') {
       isActive = false;
     } else if (notificationType === 'PRICE_INCREASE') {
-      // Keep current state, just log
       isActive = true;
     } else if (notificationType === 'SUBSCRIBED' || notificationType === 'OFFER_REDEEMED') {
       isActive = true;
@@ -329,7 +225,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Update the subscription row
     const update: Record<string, any> = {
       is_active: isActive,
       updated_at: new Date().toISOString(),

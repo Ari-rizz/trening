@@ -17,6 +17,7 @@ interface Props {
 interface DayData {
   date: string;
   calories: number;
+  steps: number;
 }
 
 export function CalorieHistorySheet({ open, onClose, userId }: Props) {
@@ -34,13 +35,13 @@ export function CalorieHistorySheet({ open, onClose, userId }: Props) {
     setLoading(true);
     supabase
       .from('daily_calorie_logs')
-      .select('date, calories')
+      .select('date, calories, steps')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .limit(365)
       .then(({ data, error }) => {
         if (!error && data && data.length > 0) {
-          const mapped = data.map(d => ({ date: d.date, calories: Number(d.calories) || 0 }));
+          const mapped = data.map(d => ({ date: d.date, calories: Number(d.calories) || 0, steps: Number(d.steps) || 0 }));
           setDays(mapped);
           setCurrentIndex(0);
         } else {
@@ -168,6 +169,12 @@ export function CalorieHistorySheet({ open, onClose, userId }: Props) {
                           {currentDay ? Math.round(currentDay.calories) : 0}
                         </p>
                         <p className="text-zinc-500 text-sm mt-1">kalorier brent</p>
+                        {currentDay && currentDay.steps > 0 && (
+                          <p className="text-zinc-600 text-xs mt-2 flex items-center justify-center gap-1">
+                            <Activity size={12} />
+                            {currentDay.steps.toLocaleString('no')} skritt
+                          </p>
+                        )}
                       </div>
 
                       {/* Weekly average comparison */}

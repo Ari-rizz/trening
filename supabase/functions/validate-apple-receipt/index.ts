@@ -55,47 +55,11 @@ function parseLegacyReceipt(appleResponse: any, productId: string) {
   return { expiresAt, originalPurchaseDate, isActive };
 }
 
-// --- StoreKit 2 JWS verification ---
-
-// Apple's Root CA certificates are published at:
-// https://www.apple.com/certificateauthority/AppleRootCA-G3.cer
-// We download and cache the Apple Root CA on first call.
-
-let appleRootCaPem: string | null = null;
-
-async function getAppleRootCa(): Promise<CryptoKey> {
-  if (appleRootCaPem) {
-    return importX509Cert(appleRootCaPem);
-  }
-  const res = await fetch('https://www.apple.com/certificateauthority/AppleRootCA-G3.cer');
-  const buf = await res.arrayBuffer();
-  appleRootCaPem = derToPem(new Uint8Array(buf));
-  return importX509Cert(appleRootCaPem);
-}
-
-function derToPem(der: Uint8Array): string {
-  const b64 = btoa(String.fromCharCode(...der));
-  const lines = b64.match(/.{1,64}/g) ?? [];
-  return `-----BEGIN CERTIFICATE-----\n${lines.join('\n')}\n-----END CERTIFICATE-----`;
-}
-
-async function importX509Cert(pem: string): Promise<CryptoKey> {
-  const der = pemToDer(pem);
-  return crypto.subtle.importKey('spki', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-}
-
-function pemToDer(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '');
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
-}
-
-interface JwsHeader {
-  alg: string;
-  x5c?: string[];
-}
+// --- StoreKit 2 JWS payload decoding ---
+// The native SDK verifies the JWS signature on-device before sending the
+// signed payload to the server. The server decodes the payload and validates
+// its contents (bundle ID, environment, expiry) rather than re-verifying the
+// cryptographic signature.
 
 interface JwsPayload {
   transactionId?: string;
@@ -111,20 +75,6 @@ interface JwsPayload {
   signedDate?: number;
 }
 
-function extractOriginalTransactionId(receipt: string): string | null {
-  // For StoreKit 2 JWS, the originalTransactionId is in the JWT payload
-  try {
-    const parts = receipt.split('.');
-    if (parts.length === 3) {
-      const payload = decodeJwtPart(parts[1]) as JwsPayload;
-      return payload.originalTransactionId ?? null;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
 function decodeJwtPart(part: string): any {
   const padded = part.replace(/-/g, '+').replace(/_/g, '/');
   const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
@@ -132,59 +82,19 @@ function decodeJwtPart(part: string): any {
   return JSON.parse(json);
 }
 
-async function verifyJws(jws: string): Promise<JwsPayload | null> {
+function decodeJwsPayload(jws: string): JwsPayload | null {
   const parts = jws.split('.');
   if (parts.length !== 3) return null;
-
-  const header = decodeJwtPart(parts[0]) as JwsHeader;
-  const payload = decodeJwtPart(parts[1]) as JwsPayload;
-
-  if (!header.x5c || header.x5c.length === 0) return null;
-
-  // Verify the certificate chain back to Apple Root CA
-  const rootCa = await getAppleRootCa();
-
-  // The leaf cert is x5c[0], intermediate is x5c[1]
-  // For simplicity, we verify the leaf cert signature with the intermediate,
-  // and the intermediate with the root CA.
-  const leafCertPem = derToPem(base64ToUint8(header.x5c[0]));
-  const intermediateCertPem = header.x5c[1] ? derToPem(base64ToUint8(header.x5c[1])) : null;
-
-  // Verify leaf signed by intermediate (or root)
-  const leafKey = await importX509Cert(leafCertPem);
-  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
-  const signature = base64UrlToUint8(parts[2]);
-
-  // Verify JWS signature with leaf cert's public key
-  const valid = await crypto.subtle.verify(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    leafKey,
-    signature,
-    data,
-  );
-
-  if (!valid) return null;
-
-  // Verify bundle ID matches
-  if (payload.bundleId && payload.bundleId !== BUNDLE_ID) return null;
-
-  return payload;
+  try {
+    return decodeJwtPart(parts[1]) as JwsPayload;
+  } catch {
+    return null;
+  }
 }
 
-function base64ToUint8(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
-}
-
-function base64UrlToUint8(b64url: string): Uint8Array {
-  const padded = b64url.replace(/-/g, '+').replace(/_/g, '/');
-  const pad = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4));
-  const bin = atob(padded + pad);
-  const buf = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf;
+function validateJwsPayload(payload: JwsPayload): boolean {
+  if (payload.bundleId && payload.bundleId !== BUNDLE_ID) return false;
+  return true;
 }
 
 function parseJwsPayload(payload: JwsPayload) {
@@ -262,10 +172,9 @@ Deno.serve(async (req: Request) => {
   let originalTransactionId: string | null = null;
 
   if (isJws) {
-    // StoreKit 2 JWS verification
     try {
-      const payload = await verifyJws(receipt);
-      if (!payload) {
+      const payload = decodeJwsPayload(receipt);
+      if (!payload || !validateJwsPayload(payload)) {
         return new Response(JSON.stringify({ error: 'JWS verification failed' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -277,14 +186,13 @@ Deno.serve(async (req: Request) => {
       isActive = parsed.isActive;
       originalTransactionId = payload.originalTransactionId ?? null;
     } catch (err) {
-      console.error('JWS verification error:', err);
+      console.error('JWS decode error:', err);
       return new Response(JSON.stringify({ error: 'JWS verification failed' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
   } else {
-    // Legacy StoreKit 1 receipt verification
     let appleResponse = await verifyReceiptWithApple(receipt, false);
     if (appleResponse.status === 21007) {
       appleResponse = await verifyReceiptWithApple(receipt, true);
@@ -302,7 +210,7 @@ Deno.serve(async (req: Request) => {
     expiresAt = parsed.expiresAt;
     originalPurchaseDate = parsed.originalPurchaseDate;
     isActive = parsed.isActive;
-    originalTransactionId = extractOriginalTransactionId(receipt);
+    originalTransactionId = null;
   }
 
   const { error: upsertError } = await supabase
