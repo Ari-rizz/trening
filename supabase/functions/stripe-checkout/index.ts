@@ -170,7 +170,6 @@ Deno.serve(async (req) => {
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      automatic_payment_methods: { enabled: true },
       line_items: [
         {
           price: price_id,
