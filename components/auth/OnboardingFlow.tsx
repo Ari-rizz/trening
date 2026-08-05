@@ -9,6 +9,7 @@ import { searchExercises } from '@/lib/exercise-search';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
 import { connectHealthApp, isHealthAvailable } from '@/lib/health';
 import { registerPushNotifications, updateNotificationPreferences } from '@/lib/push';
+import { isNative } from '@/lib/native';
 
 interface OnboardingFlowProps {
   userId: string;
@@ -172,13 +173,12 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
     if (step === 1) return fullName.trim().length > 0;
     if (step === 2) return username.trim().length >= 3 && !usernameError;
     if (step === 7) return termsAccepted;
-    if (step === 9) return notifGranted || notifDenied;
+    if (step === 9) return isNative() ? notifGranted || notifDenied : true;
     return true;
   };
 
   useEffect(() => {
-    if (step === 9 && !notifGranted && !notifDenied) {
-      // Auto-trigger permission prompt when entering step 9
+    if (step === 9 && isNative() && !notifGranted && !notifDenied) {
       handleEnableNotifications();
     }
   }, [step]);
@@ -785,37 +785,60 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
               </div>
             </div>
 
-            {notifGranted ? (
+            {isNative() ? (
+              notifGranted ? (
+                <div className="mt-4 flex items-center gap-2 text-green-400 text-sm">
+                  <Check size={18} />
+                  <span>Varsler er aktivert!</span>
+                </div>
+              ) : notifDenied ? (
+                <>
+                  <div className="mt-4 flex items-start gap-2 text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+                    <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                    <span>Varsler er avslått. Du kan slå dem på senere i Innstillinger &gt; IronGrid &gt; Varsler, eller i profilen din i appen.</span>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={handleEnableNotifications}
+                    disabled={notifRequesting}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {notifRequesting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Bell size={16} />
+                        Prøv igjen
+                      </>
+                    )}
+                  </motion.button>
+                </>
+              ) : (
+                <div className="mt-4 flex items-center gap-2 text-zinc-400 text-sm">
+                  <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
+                  <span>Venter på tillatelse...</span>
+                </div>
+              )
+            ) : !notifGranted ? (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleEnableNotifications}
+                disabled={notifRequesting}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {notifRequesting ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Bell size={16} />
+                    Slå på varsler
+                  </>
+                )}
+              </motion.button>
+            ) : (
               <div className="mt-4 flex items-center gap-2 text-green-400 text-sm">
                 <Check size={18} />
                 <span>Varsler er aktivert!</span>
-              </div>
-            ) : notifDenied ? (
-              <>
-                <div className="mt-4 flex items-start gap-2 text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                  <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-                  <span>Varsler er avslått. Du kan slå dem på senere i Innstillinger &gt; IronGrid &gt; Varsler, eller i profilen din i appen.</span>
-                </div>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleEnableNotifications}
-                  disabled={notifRequesting}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold text-sm mt-4 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {notifRequesting ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <Bell size={16} />
-                      Prøv igjen
-                    </>
-                  )}
-                </motion.button>
-              </>
-            ) : (
-              <div className="mt-4 flex items-center gap-2 text-zinc-400 text-sm">
-                <div className="w-5 h-5 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
-                <span>Venter på tillatelse...</span>
               </div>
             )}
 
@@ -847,7 +870,7 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
           )}
         </motion.button>
 
-        {step > 1 && step !== 2 && step !== 7 && step !== 9 && (
+        {step > 1 && step !== 2 && step !== 7 && (step !== 9 || !isNative()) && (
           <button
             onClick={handleSkip}
             className="w-full text-zinc-500 hover:text-zinc-300 text-sm font-medium py-2 transition-colors"
