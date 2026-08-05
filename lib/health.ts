@@ -3,10 +3,10 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
 
-type HealthDataType = 'calories' | 'totalCalories' | 'activeEnergyBurned';
+type HealthDataType = 'calories' | 'totalCalories';
 type WorkoutType = 'strengthTraining' | 'traditionalStrengthTraining' | 'functionalStrengthTraining' | 'running' | 'cycling' | 'walking' | 'swimming' | 'rowing' | 'elliptical' | 'other';
 
-const READ_TYPES: HealthDataType[] = ['totalCalories', 'activeEnergyBurned', 'calories'];
+const READ_TYPES: HealthDataType[] = ['totalCalories', 'calories'];
 const WRITE_TYPES: HealthDataType[] = ['calories'];
 
 export interface HealthAvailability {

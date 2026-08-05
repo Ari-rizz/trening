@@ -36,7 +36,7 @@ function derToPem(der: Uint8Array): string {
 
 async function importX509Cert(pem: string): Promise<CryptoKey> {
   const der = pemToDer(pem);
-  return crypto.subtle.importKey('spki', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  return crypto.subtle.importKey('spki', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
 }
 
 function pemToDer(pem: string): ArrayBuffer {
@@ -97,7 +97,7 @@ async function verifyJws(jws: string): Promise<JwsPayload | null> {
   const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
   const signature = base64UrlToUint8(parts[2]);
 
-  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', leafKey, signature, data);
+  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
   if (!valid) return null;
 
   return payload;
@@ -136,7 +136,7 @@ async function verifySignedTransactionInfo(signedInfo: string): Promise<Transact
   const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
   const signature = base64UrlToUint8(parts[2]);
 
-  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', leafKey, signature, data);
+  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
   if (!valid) return null;
 
   if (payload.bundleId && payload.bundleId !== BUNDLE_ID) return null;
@@ -158,7 +158,7 @@ async function verifySignedRenewalInfo(signedInfo: string): Promise<RenewalInfo 
   const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
   const signature = base64UrlToUint8(parts[2]);
 
-  const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', leafKey, signature, data);
+  const valid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, leafKey, signature, data);
   if (!valid) return null;
 
   return payload;

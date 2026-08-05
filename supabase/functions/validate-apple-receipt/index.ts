@@ -81,7 +81,7 @@ function derToPem(der: Uint8Array): string {
 
 async function importX509Cert(pem: string): Promise<CryptoKey> {
   const der = pemToDer(pem);
-  return crypto.subtle.importKey('spki', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  return crypto.subtle.importKey('spki', der, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
 }
 
 function pemToDer(pem: string): ArrayBuffer {
@@ -157,7 +157,7 @@ async function verifyJws(jws: string): Promise<JwsPayload | null> {
 
   // Verify JWS signature with leaf cert's public key
   const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
+    { name: 'ECDSA', hash: 'SHA-256' },
     leafKey,
     signature,
     data,
