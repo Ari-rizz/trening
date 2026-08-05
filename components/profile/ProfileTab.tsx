@@ -59,6 +59,7 @@ export function ProfileTab() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [subscribeError, setSubscribeError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [healthConnected, setHealthConnected] = useState(false);
   const [nativePlatform] = useState(() => isNativePlatform());
@@ -225,6 +226,7 @@ export function ProfileTab() {
 
   const handleSubscribe = async () => {
     setSubscribeLoading(true);
+    setSubscribeError('');
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const url = await createCheckoutSession(
@@ -232,9 +234,11 @@ export function ProfileTab() {
         `${origin}/?payment=success`,
         `${origin}/?payment=cancel`,
       );
+      if (!url) throw new Error('Kunne ikke opprette betalingssesjon. Prøv igjen.');
       window.location.href = url;
     } catch (err: any) {
-      setCancelError(err.message ?? 'Noe gikk galt.');
+      console.error('Subscribe error:', err?.message);
+      setSubscribeError(err.message ?? 'Noe gikk galt. Prøv igjen.');
       setSubscribeLoading(false);
     }
   };
@@ -558,6 +562,11 @@ export function ProfileTab() {
                   </motion.button>
                 )}
               </>
+            )}
+            {subscribeError && (
+              <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                {subscribeError}
+              </p>
             )}
             {iapError && <p className="text-red-400 text-xs">{iapError}</p>}
             <p className="text-zinc-600 text-xs">
