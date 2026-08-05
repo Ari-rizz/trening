@@ -23,7 +23,8 @@ export async function purchaseIAP(): Promise<{ success: boolean; error?: string 
       productType: PURCHASE_TYPE.SUBS,
     });
 
-    if (!transaction.receipt) {
+    const receipt = transaction.receipt ?? transaction.jwsRepresentation;
+    if (!receipt) {
       return { success: false, error: 'Ingen kvittering mottatt fra App Store' };
     }
 
@@ -42,7 +43,8 @@ export async function purchaseIAP(): Promise<{ success: boolean; error?: string 
           Apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
         body: JSON.stringify({
-          receipt: transaction.receipt,
+          receipt,
+          isJws: !transaction.receipt,
           transactionId: transaction.transactionId,
           productId: IAP_PRODUCT_ID,
           environment: transaction.environment ?? 'Production',
@@ -73,7 +75,12 @@ export async function restoreIAPPurchases(): Promise<{ success: boolean; isActiv
       (p) => p.productIdentifier === IAP_PRODUCT_ID && p.isActive,
     );
 
-    if (!activeSub || !activeSub.receipt) {
+    if (!activeSub) {
+      return { success: true, isActive: false };
+    }
+
+    const receipt = activeSub.receipt ?? activeSub.jwsRepresentation;
+    if (!receipt) {
       return { success: true, isActive: false };
     }
 
@@ -90,7 +97,8 @@ export async function restoreIAPPurchases(): Promise<{ success: boolean; isActiv
           Apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
         body: JSON.stringify({
-          receipt: activeSub.receipt,
+          receipt,
+          isJws: !activeSub.receipt,
           transactionId: activeSub.transactionId,
           productId: IAP_PRODUCT_ID,
           environment: activeSub.environment ?? 'Production',
