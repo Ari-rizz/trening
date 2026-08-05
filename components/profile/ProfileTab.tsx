@@ -105,7 +105,7 @@ export function ProfileTab() {
         fetchProfile(data.session.user.id);
         fetchStats(data.session.user.id);
         fetchSubscription();
-        if (isNativePlatform()) checkActiveIAPSubscription(data.session.user.id).then(setIapActive);
+        checkActiveIAPSubscription(data.session.user.id).then(setIapActive);
       }
     });
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -114,7 +114,7 @@ export function ProfileTab() {
         fetchProfile(session.user.id);
         fetchStats(session.user.id);
         fetchSubscription();
-        if (isNativePlatform()) checkActiveIAPSubscription(session.user.id).then(setIapActive);
+        checkActiveIAPSubscription(session.user.id).then(setIapActive);
       }
     });
     return () => authSub.unsubscribe();
@@ -418,20 +418,26 @@ export function ProfileTab() {
             <span className="text-white font-semibold text-sm">Mitt abonnement</span>
           </div>
 
-          {/* IAP (native iOS) subscription UI */}
-          {nativePlatform ? (
-            <div className="space-y-3">
-              {iapActive || profile?.is_lifetime ? (
-                <>
-                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                    <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-green-300 text-sm font-semibold">
-                        {profile?.is_lifetime ? 'Lifetime-tilgang' : 'Aktivt abonnement (App Store)'}
-                      </p>
-                      <p className="text-green-400/70 text-xs mt-0.5">Abonnementet fornyes automatisk via App Store</p>
-                    </div>
+          {/* Unified cross-platform subscription UI */}
+          <div className="space-y-3">
+            {profile?.is_lifetime ? (
+              <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                <Trophy size={16} className="text-amber-400 flex-shrink-0" />
+                <div>
+                  <p className="text-amber-300 text-sm font-semibold">Lifetime-tilgang</p>
+                  <p className="text-amber-400/70 text-xs mt-0.5">Du har permanent tilgang til IronGrid</p>
+                </div>
+              </div>
+            ) : iapActive ? (
+              <>
+                <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                  <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-green-300 text-sm font-semibold">Aktivt abonnement (App Store)</p>
+                    <p className="text-green-400/70 text-xs mt-0.5">Abonnementet fornyes automatisk via App Store</p>
                   </div>
+                </div>
+                {nativePlatform && (
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={() => openSubscriptionManagement()}
@@ -440,20 +446,66 @@ export function ProfileTab() {
                     <ExternalLink size={14} />
                     Administrer i App Store
                   </motion.button>
-                </>
-              ) : trialActive ? (
-                <>
-                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                    <Clock size={16} className="text-amber-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-amber-300 text-sm font-semibold">
-                        {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
-                      </p>
-                      <p className="text-amber-400/70 text-xs mt-0.5">
-                        Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
-                      </p>
-                    </div>
+                )}
+                {!nativePlatform && (
+                  <p className="text-zinc-600 text-xs">Administrer abonnementet i App Store på din iOS-enhet.</p>
+                )}
+              </>
+            ) : isSubscribed && !isCanceling ? (
+              <>
+                <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+                  <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-green-300 text-sm font-semibold">Aktivt abonnement</p>
+                    {periodEndDate && <p className="text-green-400/70 text-xs mt-0.5">Fornyes {periodEndDate}</p>}
                   </div>
+                </div>
+                {subscription?.payment_method_brand && (
+                  <p className="text-zinc-500 text-xs">
+                    Betaler med {subscription.payment_method_brand.charAt(0).toUpperCase() + subscription.payment_method_brand.slice(1)}
+                    {subscription.payment_method_last4 ? ` ···· ${subscription.payment_method_last4}` : ''}
+                  </p>
+                )}
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => { setShowCancelConfirm(true); setCancelError(''); }}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm transition-colors"
+                >
+                  Avbryt abonnement
+                </motion.button>
+              </>
+            ) : isCanceling ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3">
+                  <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-zinc-200 text-sm font-semibold">Kansellert</p>
+                    {periodEndDate && <p className="text-zinc-400 text-xs mt-0.5">Tilgang til {periodEndDate}</p>}
+                  </div>
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleSubscribe}
+                  disabled={subscribeLoading}
+                  className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                >
+                  {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><RefreshCw size={14} />Gjenaktiver abonnement</>}
+                </motion.button>
+              </div>
+            ) : trialActive ? (
+              <>
+                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+                  <Clock size={16} className="text-amber-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-amber-300 text-sm font-semibold">
+                      {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
+                    </p>
+                    <p className="text-amber-400/70 text-xs mt-0.5">
+                      Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
+                    </p>
+                  </div>
+                </div>
+                {nativePlatform ? (
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={handleIAPSubscribe}
@@ -462,55 +514,7 @@ export function ProfileTab() {
                   >
                     {iapSubscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner nå — 40 kr/mnd'}
                   </motion.button>
-                </>
-              ) : (
-                <>
-                  <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleIAPSubscribe}
-                    disabled={iapSubscribeLoading}
-                    className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
-                  >
-                    {iapSubscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner — 40 kr/mnd'}
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleIAPRestore}
-                    disabled={iapSubscribeLoading}
-                    className="w-full flex items-center justify-center gap-2 text-zinc-500 text-xs py-2 disabled:opacity-50"
-                  >
-                    <RefreshCw size={12} /> Gjenopprett kjøp
-                  </motion.button>
-                </>
-              )}
-              {iapError && <p className="text-red-400 text-xs">{iapError}</p>}
-              <p className="text-zinc-600 text-xs">40 kr/mnd · fornyes automatisk · avbryt via App Store-innstillinger</p>
-            </div>
-          ) : (
-            /* Web (Stripe) subscription UI */
-            <>
-              {profile?.is_lifetime ? (
-                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                  <Trophy size={16} className="text-amber-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-amber-300 text-sm font-semibold">Lifetime-tilgang</p>
-                    <p className="text-amber-400/70 text-xs mt-0.5">Du har permanent tilgang til IronGrid</p>
-                  </div>
-                </div>
-              ) : trialActive && !isSubscribed ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
-                    <Clock size={16} className="text-amber-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-amber-300 text-sm font-semibold">
-                        {trialDaysLeft === 1 ? 'Siste dag' : `${trialDaysLeft} dager`} igjen av prøveperioden
-                      </p>
-                      <p className="text-amber-400/70 text-xs mt-0.5">
-                        Utløper {format(trialEndsAt!, 'd. MMMM yyyy', { locale: nb })}
-                      </p>
-                    </div>
-                  </div>
+                ) : (
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={handleSubscribe}
@@ -519,51 +523,31 @@ export function ProfileTab() {
                   >
                     {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner nå — 30 kr/mnd'}
                   </motion.button>
-                </div>
-              ) : isSubscribed && !isCanceling ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-                    <CheckCircle2 size={16} className="text-green-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-green-300 text-sm font-semibold">Aktivt abonnement</p>
-                      {periodEndDate && <p className="text-green-400/70 text-xs mt-0.5">Fornyes {periodEndDate}</p>}
-                    </div>
-                  </div>
-                  {subscription?.payment_method_brand && (
-                    <p className="text-zinc-500 text-xs">
-                      Betaler med {subscription.payment_method_brand.charAt(0).toUpperCase() + subscription.payment_method_brand.slice(1)}
-                      {subscription.payment_method_last4 ? ` ···· ${subscription.payment_method_last4}` : ''}
-                    </p>
-                  )}
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => { setShowCancelConfirm(true); setCancelError(''); }}
-                    className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 py-3 rounded-xl font-medium text-sm transition-colors"
-                  >
-                    Avbryt abonnement
-                  </motion.button>
-                </div>
-              ) : isCanceling ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3">
-                    <AlertTriangle size={16} className="text-amber-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-zinc-200 text-sm font-semibold">Kansellert</p>
-                      {periodEndDate && <p className="text-zinc-400 text-xs mt-0.5">Tilgang til {periodEndDate}</p>}
-                    </div>
-                  </div>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={handleSubscribe}
-                    disabled={subscribeLoading}
-                    className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-colors"
-                  >
-                    {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><RefreshCw size={14} />Gjenaktiver abonnement</>}
-                  </motion.button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-zinc-500 text-sm">Ingen aktivt abonnement.</p>
+                {nativePlatform ? (
+                  <>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleIAPSubscribe}
+                      disabled={iapSubscribeLoading}
+                      className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                    >
+                      {iapSubscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner — 40 kr/mnd'}
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={handleIAPRestore}
+                      disabled={iapSubscribeLoading}
+                      className="w-full flex items-center justify-center gap-2 text-zinc-500 text-xs py-2 disabled:opacity-50"
+                    >
+                      <RefreshCw size={12} /> Gjenopprett kjøp
+                    </motion.button>
+                  </>
+                ) : (
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={handleSubscribe}
@@ -572,10 +556,16 @@ export function ProfileTab() {
                   >
                     {subscribeLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Abonner — 30 kr/mnd'}
                   </motion.button>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
+            {iapError && <p className="text-red-400 text-xs">{iapError}</p>}
+            <p className="text-zinc-600 text-xs">
+              {nativePlatform
+                ? '40 kr/mnd · fornyes automatisk · avbryt via App Store-innstillinger'
+                : '30 kr/mnd inkl. mva · fornyes automatisk · avbryt når som helst'}
+            </p>
+          </div>
         </div>
 
         {/* Rest timer setting */}

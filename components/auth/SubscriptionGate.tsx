@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { checkActiveIAPSubscription, isNativePlatform } from '@/lib/iap';
+import { checkActiveIAPSubscription } from '@/lib/iap';
 import { PaywallScreen } from './PaywallScreen';
 
 type AccessState =
@@ -37,7 +37,7 @@ export function SubscriptionGate({ userId, children }: SubscriptionGateProps) {
         .from('stripe_user_subscriptions')
         .select('subscription_status, cancel_at_period_end, current_period_end')
         .maybeSingle(),
-      isNativePlatform() ? checkActiveIAPSubscription(userId) : Promise.resolve(false),
+      checkActiveIAPSubscription(userId),
     ]);
 
     if (profile?.is_lifetime || iapActive) {
