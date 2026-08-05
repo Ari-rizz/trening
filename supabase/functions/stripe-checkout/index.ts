@@ -2,34 +2,35 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'npm:stripe@17.7.0';
 import { createClient } from 'npm:@supabase/supabase-js@2.49.1';
 
-const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
-const stripe = new Stripe(stripeSecret, {
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+);
+
+const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY');
+if (!stripeSecret) {
+  console.error('STRIPE_SECRET_KEY is not set');
+}
+const stripe = new Stripe(stripeSecret ?? '', {
   appInfo: {
     name: 'Bolt Integration',
     version: '1.0.0',
   },
 });
 
-// Helper function to create responses with CORS headers
 function corsResponse(body: string | object | null, status = 200) {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': '*',
-  };
-
-  // For 204 No Content, don't include Content-Type or body
   if (status === 204) {
-    return new Response(null, { status, headers });
+    return new Response(null, { status, headers: corsHeaders });
   }
-
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...headers,
-      'Content-Type': 'application/json',
-    },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
@@ -45,21 +46,27 @@ Deno.serve(async (req) => {
 
     const { price_id, success_url, cancel_url, mode } = await req.json();
 
-    const error = validateParameters(
-      { price_id, success_url, cancel_url, mode },
-      {
-        cancel_url: 'string',
-        price_id: 'string',
-        success_url: 'string',
-        mode: { values: ['payment', 'subscription'] },
-      },
-    );
-
-    if (error) {
-      return corsResponse({ error }, 400);
+    if (!price_id || typeof price_id !== 'string' || price_id.trim() === '') {
+      return corsResponse({ error: 'Pris-ID mangler. Kontakt support.' }, 400);
     }
 
-    const authHeader = req.headers.get('Authorization')!;
+    if (!success_url || typeof success_url !== 'string') {
+      return corsResponse({ error: 'Success URL mangler' }, 400);
+    }
+
+    if (!cancel_url || typeof cancel_url !== 'string') {
+      return corsResponse({ error: 'Cancel URL mangler' }, 400);
+    }
+
+    if (!mode || !['payment', 'subscription'].includes(mode)) {
+      return corsResponse({ error: 'Ugyldig modus' }, 400);
+    }
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return corsResponse({ error: 'Authorization header mangler' }, 401);
+    }
+
     const token = authHeader.replace('Bearer ', '');
     const {
       data: { user },
@@ -67,11 +74,12 @@ Deno.serve(async (req) => {
     } = await supabase.auth.getUser(token);
 
     if (getUserError) {
-      return corsResponse({ error: 'Failed to authenticate user' }, 401);
+      console.error('getUser error:', getUserError.message);
+      return corsResponse({ error: 'Kunne ikke autentisere brukeren' }, 401);
     }
 
     if (!user) {
-      return corsResponse({ error: 'User not found' }, 404);
+      return corsResponse({ error: 'Bruker ikke funnet' }, 404);
     }
 
     const { data: customer, error: getCustomerError } = await supabase
@@ -82,22 +90,16 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (getCustomerError) {
-      console.error('Failed to fetch customer information from the database', getCustomerError);
-
-      return corsResponse({ error: 'Failed to fetch customer information' }, 500);
+      console.error('Failed to fetch customer:', getCustomerError.message);
+      return corsResponse({ error: 'Kunne ikke hente kundeinformasjon' }, 500);
     }
 
-    let customerId;
+    let customerId: string;
 
-    /**
-     * In case we don't have a mapping yet, the customer does not exist and we need to create one.
-     */
     if (!customer || !customer.customer_id) {
       const newCustomer = await stripe.customers.create({
         email: user.email,
-        metadata: {
-          userId: user.id,
-        },
+        metadata: { userId: user.id },
       });
 
       console.log(`Created new Stripe customer ${newCustomer.id} for user ${user.id}`);
@@ -108,17 +110,14 @@ Deno.serve(async (req) => {
       });
 
       if (createCustomerError) {
-        console.error('Failed to save customer information in the database', createCustomerError);
-
-        // Try to clean up both the Stripe customer and subscription record
+        console.error('Failed to save customer:', createCustomerError.message);
         try {
           await stripe.customers.del(newCustomer.id);
           await supabase.from('stripe_subscriptions').delete().eq('customer_id', newCustomer.id);
         } catch (deleteError) {
-          console.error('Failed to clean up after customer mapping error:', deleteError);
+          console.error('Cleanup failed:', (deleteError as Error).message);
         }
-
-        return corsResponse({ error: 'Failed to create customer mapping' }, 500);
+        return corsResponse({ error: 'Kunne ikke opprette kundekobling' }, 500);
       }
 
       if (mode === 'subscription') {
@@ -128,27 +127,22 @@ Deno.serve(async (req) => {
         });
 
         if (createSubscriptionError) {
-          console.error('Failed to save subscription in the database', createSubscriptionError);
-
-          // Try to clean up the Stripe customer since we couldn't create the subscription
+          console.error('Failed to save subscription:', createSubscriptionError.message);
           try {
             await stripe.customers.del(newCustomer.id);
           } catch (deleteError) {
-            console.error('Failed to delete Stripe customer after subscription creation error:', deleteError);
+            console.error('Failed to delete customer:', (deleteError as Error).message);
           }
-
-          return corsResponse({ error: 'Unable to save the subscription in the database' }, 500);
+          return corsResponse({ error: 'Kunne ikke lagre abonnementet' }, 500);
         }
       }
 
       customerId = newCustomer.id;
-
-      console.log(`Successfully set up new customer ${customerId} with subscription record`);
+      console.log(`Successfully set up new customer ${customerId}`);
     } else {
       customerId = customer.customer_id;
 
       if (mode === 'subscription') {
-        // Verify subscription exists for existing customer
         const { data: subscription, error: getSubscriptionError } = await supabase
           .from('stripe_subscriptions')
           .select('status')
@@ -156,28 +150,24 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (getSubscriptionError) {
-          console.error('Failed to fetch subscription information from the database', getSubscriptionError);
-
-          return corsResponse({ error: 'Failed to fetch subscription information' }, 500);
+          console.error('Failed to fetch subscription:', getSubscriptionError.message);
+          return corsResponse({ error: 'Kunne ikke hente abonnementsinformasjon' }, 500);
         }
 
         if (!subscription) {
-          // Create subscription record for existing customer if missing
           const { error: createSubscriptionError } = await supabase.from('stripe_subscriptions').insert({
             customer_id: customerId,
             status: 'not_started',
           });
 
           if (createSubscriptionError) {
-            console.error('Failed to create subscription record for existing customer', createSubscriptionError);
-
-            return corsResponse({ error: 'Failed to create subscription record for existing customer' }, 500);
+            console.error('Failed to create subscription record:', createSubscriptionError.message);
+            return corsResponse({ error: 'Kunne ikke opprette abonnementspost' }, 500);
           }
         }
       }
     }
 
-    // create Checkout Session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       automatic_payment_methods: { enabled: true },
@@ -197,31 +187,6 @@ Deno.serve(async (req) => {
     return corsResponse({ sessionId: session.id, url: session.url });
   } catch (error: any) {
     console.error(`Checkout error: ${error.message}`);
-    return corsResponse({ error: error.message }, 500);
+    return corsResponse({ error: error.message ?? 'Noe gikk galt' }, 500);
   }
 });
-
-type ExpectedType = 'string' | { values: string[] };
-type Expectations<T> = { [K in keyof T]: ExpectedType };
-
-function validateParameters<T extends Record<string, any>>(values: T, expected: Expectations<T>): string | undefined {
-  for (const parameter in values) {
-    const expectation = expected[parameter];
-    const value = values[parameter];
-
-    if (expectation === 'string') {
-      if (value == null) {
-        return `Missing required parameter ${parameter}`;
-      }
-      if (typeof value !== 'string') {
-        return `Expected parameter ${parameter} to be a string got ${JSON.stringify(value)}`;
-      }
-    } else {
-      if (!expectation.values.includes(value)) {
-        return `Expected parameter ${parameter} to be one of ${expectation.values.join(', ')}`;
-      }
-    }
-  }
-
-  return undefined;
-}

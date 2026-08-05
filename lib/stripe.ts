@@ -19,19 +19,34 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string,
 ): Promise<string> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      price_id: priceId,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      mode: 'subscription',
-    }),
-  });
+  if (!priceId || priceId.trim() === '') {
+    throw new Error('Betalingsoppsett mangler. Kontakt support.');
+  }
 
-  const json = await res.json();
+  const headers = await getAuthHeaders();
+  let res: Response;
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-checkout`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        price_id: priceId,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        mode: 'subscription',
+      }),
+    });
+  } catch {
+    throw new Error('Kunne ikke kontakte betalingsserveren. Sjekk internettforbindelsen.');
+  }
+
+  let json: any;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error('Uventet svar fra betalingsserveren. Prøv igjen.');
+  }
+
   if (!res.ok || !json.url) {
     throw new Error(json.error ?? 'Kunne ikke opprette betalingssesjon');
   }
@@ -40,12 +55,23 @@ export async function createCheckoutSession(
 
 export async function cancelSubscription(): Promise<{ current_period_end: number }> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-cancel-subscription`, {
-    method: 'POST',
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/stripe-cancel-subscription`, {
+      method: 'POST',
+      headers,
+    });
+  } catch {
+    throw new Error('Kunne ikke kontakte betalingsserveren. Sjekk internettforbindelsen.');
+  }
 
-  const json = await res.json();
+  let json: any;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error('Uventet svar fra betalingsserveren. Prøv igjen.');
+  }
+
   if (!res.ok) {
     throw new Error(json.error ?? 'Kunne ikke kansellere abonnementet');
   }

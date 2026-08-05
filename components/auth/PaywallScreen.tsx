@@ -105,8 +105,12 @@ export function PaywallScreen({ userId, mode, onSubscribed, onTrialStarted }: Pa
         `${origin}/?payment=success`,
         `${origin}/?payment=cancel`,
       );
+      if (!url) {
+        throw new Error('Kunne ikke opprette betalingssesjon. Prøv igjen.');
+      }
       window.location.href = url;
     } catch (err: any) {
+      console.error('Subscribe error:', err?.message);
       setError(err.message ?? 'Noe gikk galt. Prøv igjen.');
       setLoading(null);
     }
