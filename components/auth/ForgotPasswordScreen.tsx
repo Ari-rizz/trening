@@ -20,7 +20,7 @@ export function ForgotPasswordScreen({ onBack }: ForgotPasswordScreenProps) {
     setError('');
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://app.aiassistant.no',
+        redirectTo: 'https://app.ai-assistant.no',
       });
       if (error) throw error;
       setSent(true);

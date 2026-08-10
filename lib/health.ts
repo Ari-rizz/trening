@@ -3,10 +3,10 @@
 import { Capacitor } from '@capacitor/core';
 import { supabase } from './supabase';
 
-type HealthDataType = 'calories' | 'totalCalories' | 'stepCount';
+type HealthDataType = 'calories' | 'totalCalories' | 'steps';
 type WorkoutType = 'strengthTraining' | 'traditionalStrengthTraining' | 'functionalStrengthTraining' | 'running' | 'cycling' | 'walking' | 'swimming' | 'rowing' | 'elliptical' | 'other';
 
-const READ_TYPES: HealthDataType[] = ['totalCalories', 'calories', 'stepCount'];
+const READ_TYPES: HealthDataType[] = ['totalCalories', 'calories', 'steps'];
 const WRITE_TYPES: HealthDataType[] = ['calories'];
 
 export interface HealthAvailability {
@@ -91,7 +91,7 @@ export async function readCaloriesForDay(date: Date): Promise<number> {
 export async function readStepsForDay(Health: any, start: Date, end: Date): Promise<number> {
   try {
     const result = await Health.queryAggregated({
-      dataType: 'stepCount' as any,
+      dataType: 'steps' as any,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
       bucket: 'day',
@@ -101,7 +101,7 @@ export async function readStepsForDay(Health: any, start: Date, end: Date): Prom
       return Math.round(result.samples[0].value);
     }
   } catch {
-    // stepCount not available
+    // steps not available
   }
   return 0;
 }
@@ -168,7 +168,7 @@ export async function readCaloriesForDateRange(startDate: Date, endDate: Date): 
 async function queryStepsRange(Health: any, start: Date, end: Date): Promise<Array<{ date: string; steps: number }>> {
   try {
     const result = await Health.queryAggregated({
-      dataType: 'stepCount' as any,
+      dataType: 'steps' as any,
       startDate: start.toISOString(),
       endDate: end.toISOString(),
       bucket: 'day',
