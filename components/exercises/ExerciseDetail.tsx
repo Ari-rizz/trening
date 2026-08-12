@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Dumbbell, Target, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Dumbbell, Target, Zap, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 
@@ -10,6 +10,7 @@ interface ExerciseDetailProps {
   exercise: Exercise;
   onBack: () => void;
   onAdd?: () => void;
+  isAdded?: boolean;
 }
 
 function ExerciseImageGallery({ images, name }: { images: string[]; name: string }) {
@@ -71,7 +72,7 @@ function ExerciseImageGallery({ images, name }: { images: string[]; name: string
   );
 }
 
-export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps) {
+export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDetailProps) {
   const color = getMuscleGroupColor(exercise.muscle_group);
   const label = getMuscleGroupLabel(exercise.muscle_group);
   const images = exercise.images?.length ? exercise.images : [exercise.image_url, exercise.gif_url].filter(Boolean);
@@ -200,11 +201,25 @@ export function ExerciseDetail({ exercise, onBack, onAdd }: ExerciseDetailProps)
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={onAdd}
-            className="w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 text-base shadow-lg"
-            style={{ backgroundColor: color }}
+            disabled={isAdded}
+            className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-base shadow-lg transition-colors ${
+              isAdded
+                ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-400'
+                : 'text-white'
+            }`}
+            style={!isAdded ? { backgroundColor: color } : undefined}
           >
-            <Plus size={20} />
-            Legg til i økt
+            {isAdded ? (
+              <>
+                <Check size={20} />
+                Allerede i planen
+              </>
+            ) : (
+              <>
+                <Plus size={20} />
+                Legg til i økt
+              </>
+            )}
           </motion.button>
         </div>
       )}

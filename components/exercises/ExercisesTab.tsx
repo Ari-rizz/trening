@@ -14,9 +14,10 @@ import { useAppStore } from '@/lib/store';
 
 interface ExercisesTabProps {
   onAddToWorkout?: (exercise: Exercise) => void;
+  addedExerciseIds?: Set<string>;
 }
 
-export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
+export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabProps) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -149,6 +150,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
           exercise={selectedExercise}
           onBack={() => setSelectedExercise(null)}
           onAdd={onAddToWorkout ? () => { onAddToWorkout(selectedExercise); setSelectedExercise(null); } : undefined}
+          isAdded={addedExerciseIds?.has(selectedExercise.id) ?? false}
         />
       ) : (
     <motion.div
@@ -323,6 +325,7 @@ export function ExercisesTab({ onAddToWorkout }: ExercisesTabProps) {
                     onAdd={onAddToWorkout}
                     onSelect={setSelectedExercise}
                     compact
+                    isAdded={addedExerciseIds?.has(exercise.id) ?? false}
                   />
                 ))}
               </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Dumbbell } from 'lucide-react';
+import { Plus, Dumbbell, Check } from 'lucide-react';
 import { Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel } from '@/lib/exercises-data';
 
@@ -11,6 +11,7 @@ interface ExerciseCardProps {
   onAdd?: (exercise: Exercise) => void;
   onSelect?: (exercise: Exercise) => void;
   compact?: boolean;
+  isAdded?: boolean;
 }
 
 function ExerciseImage({ src, alt, className }: { src: string; alt: string; className: string }) {
@@ -28,7 +29,7 @@ function ExerciseImage({ src, alt, className }: { src: string; alt: string; clas
   );
 }
 
-export function ExerciseCard({ exercise, onAdd, onSelect, compact }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, onAdd, onSelect, compact, isAdded }: ExerciseCardProps) {
   const color = getMuscleGroupColor(exercise.muscle_group);
   const label = getMuscleGroupLabel(exercise.muscle_group);
   const imageUrl = exercise.image_url || exercise.images?.[0] || '';
@@ -56,14 +57,20 @@ export function ExerciseCard({ exercise, onAdd, onSelect, compact }: ExerciseCar
           <p className="text-xs mt-0.5" style={{ color }}>{label}</p>
         </div>
         {onAdd && (
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={(e) => { e.stopPropagation(); onAdd(exercise); }}
-            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: color + '22', border: `1px solid ${color}66` }}
-          >
-            <Plus size={16} style={{ color }} />
-          </motion.button>
+          isAdded ? (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-emerald-500/15 border border-emerald-500/40">
+              <Check size={16} className="text-emerald-400" />
+            </div>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => { e.stopPropagation(); onAdd(exercise); }}
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: color + '22', border: `1px solid ${color}66` }}
+            >
+              <Plus size={16} style={{ color }} />
+            </motion.button>
+          )
         )}
       </motion.div>
     );
@@ -101,14 +108,20 @@ export function ExerciseCard({ exercise, onAdd, onSelect, compact }: ExerciseCar
             )}
           </div>
           {onAdd && (
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={(e) => { e.stopPropagation(); onAdd(exercise); }}
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: color, color: 'white' }}
-            >
-              <Plus size={20} />
-            </motion.button>
+            isAdded ? (
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-emerald-500/15 border border-emerald-500/40">
+                <Check size={20} className="text-emerald-400" />
+            </div>
+            ) : (
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={(e) => { e.stopPropagation(); onAdd(exercise); }}
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: color, color: 'white' }}
+              >
+                <Plus size={20} />
+              </motion.button>
+            )
           )}
         </div>
       </div>

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Trash2, Save, Dumbbell, Repeat2, Link2, Link2Off, ChevronDown, GripVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, Dumbbell, Repeat2, Link2, Link2Off, ChevronDown, GripVertical, Check, CircleAlert as AlertCircle } from 'lucide-react';
 import { supabase, WorkoutTemplate, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor } from '@/lib/exercises-data';
 import { ExercisesTab } from '@/components/exercises/ExercisesTab';
-import { useToast } from '@/hooks/use-toast';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -38,12 +37,21 @@ interface LocalTemplateExercise {
 }
 
 export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateEditorProps) {
-  const { toast } = useToast();
   const [name, setName] = useState(template?.name ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
   const [exercises, setExercises] = useState<LocalTemplateExercise[]>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addedMessage, setAddedMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const addedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showAddedMessage = (text: string, type: 'success' | 'error') => {
+    if (addedTimeoutRef.current) clearTimeout(addedTimeoutRef.current);
+    setAddedMessage({ text, type });
+    addedTimeoutRef.current = setTimeout(() => setAddedMessage(null), 2500);
+  };
+
+  const addedExerciseIds = useMemo(() => new Set(exercises.map(e => e.exercise_id)), [exercises]);
   const [supersetPickerFor, setSupersetPickerFor] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const dndSensors = useSensors(
@@ -137,6 +145,10 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   }, [template]);
 
   const addExercise = (exercise: Exercise) => {
+    if (addedExerciseIds.has(exercise.id)) {
+      showAddedMessage(`${exercise.name} er allerede i planen`, 'error');
+      return;
+    }
     setExercises(prev => [
       ...prev,
       {
@@ -152,7 +164,7 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
         superset_group: null,
       },
     ]);
-    toast({ title: `${exercise.name} lagt til`, duration: 1500 });
+    showAddedMessage(`${exercise.name} lagt til`, 'success');
   };
 
   const linkSuperset = (indexA: number, indexB: number) => {
@@ -277,8 +289,29 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
             Ferdig
           </motion.button>
         </div>
+        <AnimatePresence>
+          {addedMessage && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className={`mx-4 mt-3 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-medium ${
+                addedMessage.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+              }`}>
+                {addedMessage.type === 'success'
+                  ? <Check size={16} className="flex-shrink-0" />
+                  : <AlertCircle size={16} className="flex-shrink-0" />}
+                <span>{addedMessage.text}</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex-1 overflow-hidden">
-          <ExercisesTab onAddToWorkout={addExercise} />
+          <ExercisesTab onAddToWorkout={addExercise} addedExerciseIds={addedExerciseIds} />
         </div>
       </div>
     );
