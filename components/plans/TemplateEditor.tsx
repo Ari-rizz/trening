@@ -49,10 +49,26 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
   const dndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
+  const rendered = new Set<number>();
+  const rows: Array<{ type: 'single'; index: number } | { type: 'superset'; indexA: number; indexB: number; groupId: number }> = [];
+  exercises.forEach((ex, index) => {
+    if (rendered.has(index)) return;
+    if (ex.superset_group != null) {
+      const partnerIndex = exercises.findIndex((e, i) => i !== index && e.superset_group === ex.superset_group);
+      if (partnerIndex > index) {
+        rendered.add(index);
+        rendered.add(partnerIndex);
+        rows.push({ type: 'superset', indexA: index, indexB: partnerIndex, groupId: ex.superset_group });
+        return;
+      }
+    }
+    rendered.add(index);
+    rows.push({ type: 'single', index });
+  });
   const [rowOrder, setRowOrder] = useState<string[]>([]);
   useEffect(() => {
     setRowOrder(rows.map((r, i) => `row-${i}`));
-  }, [exercises.length]);
+  }, [rows.length]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -267,25 +283,6 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
       </div>
     );
   }
-
-  // Build a rendered set — group superset pairs together
-  const rendered = new Set<number>();
-  const rows: Array<{ type: 'single'; index: number } | { type: 'superset'; indexA: number; indexB: number; groupId: number }> = [];
-
-  exercises.forEach((ex, index) => {
-    if (rendered.has(index)) return;
-    if (ex.superset_group != null) {
-      const partnerIndex = exercises.findIndex((e, i) => i !== index && e.superset_group === ex.superset_group);
-      if (partnerIndex > index) {
-        rendered.add(index);
-        rendered.add(partnerIndex);
-        rows.push({ type: 'superset', indexA: index, indexB: partnerIndex, groupId: ex.superset_group });
-        return;
-      }
-    }
-    rendered.add(index);
-    rows.push({ type: 'single', index });
-  });
 
   return (
     <div className="flex flex-col h-full">

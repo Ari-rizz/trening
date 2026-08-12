@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale, Heart, ChevronDown } from 'lucide-react';
+import { Flame, Dumbbell, TrendingUp, Calendar, Trophy, ChartBar as BarChart2, ChevronRight, Play, Zap, Scale, Heart, ChevronDown, RefreshCw } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/lib/supabase';
 import { Workout } from '@/lib/supabase';
 import { useAppStore } from '@/lib/store';
@@ -49,8 +50,10 @@ export function DashboardTab() {
   const [todayWeight, setTodayWeight] = useState<number | null>(null);
   const [todayCalories, setTodayCalories] = useState<number | null>(null);
   const [healthConnected, setHealthConnected] = useState(false);
+  const [caloriesRefreshing, setCaloriesRefreshing] = useState(false);
   const [showCalorieSheet, setShowCalorieSheet] = useState(false);
   const [showCalendarSheet, setShowCalendarSheet] = useState(false);
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const MOCK_STATS: DashboardStats = {
     weekSessions: 3,
@@ -111,6 +114,49 @@ export function DashboardTab() {
       setTodayCalories(cal);
     }
   };
+
+  const refreshCalories = useCallback(async (uid: string) => {
+    setCaloriesRefreshing(true);
+    try {
+      await syncCaloriesToDatabase(uid);
+      const cal = await getTodayCaloriesFromDB(uid);
+      setTodayCalories(cal);
+    } catch {
+      // best-effort
+    } finally {
+      setCaloriesRefreshing(false);
+    }
+  }, []);
+
+  // Re-sync calories every 5 minutes while the dashboard is open
+  useEffect(() => {
+    if (!userId || !healthConnected || !Capacitor.isNativePlatform()) return;
+    syncIntervalRef.current = setInterval(() => {
+      refreshCalories(userId);
+    }, 5 * 60 * 1000);
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
+    };
+  }, [userId, healthConnected, refreshCalories]);
+
+  // Re-sync when the app returns to the foreground
+  useEffect(() => {
+    if (!userId || !healthConnected || !Capacitor.isNativePlatform()) return;
+    let listener: (() => void) | null = null;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) refreshCalories(userId!);
+        });
+        listener = () => handle.remove();
+      } catch {
+        // not available
+      }
+    })();
+    return () => { if (listener) listener(); };
+  }, [userId, healthConnected, refreshCalories]);
 
   const fetchTodayWeight = async (uid: string) => {
     const today = new Date().toISOString().split('T')[0];
@@ -333,13 +379,23 @@ export function DashboardTab() {
         />
         <motion.button
           whileTap={{ scale: 0.97 }}
-          onClick={() => healthConnected ? setShowCalorieSheet(true) : setCurrentTab('profile')}
+          onClick={() => {
+            if (healthConnected) {
+              if (userId) refreshCalories(userId);
+              setShowCalorieSheet(true);
+            } else {
+              setCurrentTab('profile');
+            }
+          }}
           className={`rounded-2xl border p-4 text-left ${healthConnected ? 'bg-orange-500/10 border-orange-500/20' : 'bg-zinc-900 border-zinc-800'}`}
         >
-          <div className="mb-2">
+          <div className="mb-2 flex items-center justify-between">
             {healthConnected
               ? <Flame size={18} className="text-orange-400" />
               : <Heart size={18} className="text-zinc-500" />}
+            {healthConnected && caloriesRefreshing && (
+              <RefreshCw size={14} className="text-orange-400 animate-spin" />
+            )}
           </div>
           <p className="text-2xl font-bold text-white">
             {healthConnected ? (todayCalories ?? 0) : '—'}
