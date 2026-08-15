@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { LogIn, UserPlus } from 'lucide-react';
+import { MuscleMap } from '@/components/dashboard/MuscleMap';
 
 interface WelcomeScreenProps {
   onCreateAccount: () => void;
@@ -37,11 +38,9 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
           className="relative flex w-full max-w-[360px] flex-1 items-center justify-center"
         >
           <div className="absolute h-[24rem] w-[20rem] rounded-full bg-red-500/15 blur-3xl" />
-          <img
-            src="/irongrid-body-front.svg"
-            alt="Muscular human figure"
-            className="relative max-h-[min(54vh,460px)] w-full object-contain drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]"
-          />
+          <div className="relative max-h-[min(54vh,460px)] w-full drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]">
+            <MuscleMap mode="default" />
+          </div>
         </motion.div>
 
         <motion.div
