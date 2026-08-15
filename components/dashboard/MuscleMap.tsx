@@ -13,6 +13,9 @@ interface Props {
   regionIntensities?: Record<string, number>;
   mode?: 'default' | 'balance';
   balanceScores?: Record<string, number>;
+  highlightGroups?: string[];
+  showBack?: boolean;
+  showLabels?: boolean;
   onGroupSelect?: (group: string) => void;
 }
 
@@ -87,6 +90,7 @@ function partStyle(
   mode: string,
   regionIntensities?: Record<string, number>,
   balanceScores?: Record<string, number>,
+  highlightGroups?: string[],
 ) {
   const group = REGION_TO_GROUP[region] ?? region;
 
@@ -109,7 +113,7 @@ function partStyle(
     } as React.CSSProperties;
   }
 
-  const active = trainedRegions.has(region) || trainedGroups.has(group);
+  const active = trainedRegions.has(region) || trainedGroups.has(group) || highlightGroups?.includes(group);
   if (!active) {
     return {
       fill: INACTIVE,
@@ -118,7 +122,15 @@ function partStyle(
     } as React.CSSProperties;
   }
 
-  // Use intensity to modulate brightness if available
+  if (highlightGroups?.includes(group)) {
+    return {
+      fill: '#ef4444',
+      transition: 'fill 0.4s ease, filter 0.4s ease',
+      filter: 'drop-shadow(0 0 5px #ef4444cc)',
+      cursor: 'pointer',
+    } as React.CSSProperties;
+  }
+
   const intensity = regionIntensities?.[region];
   const baseColor = getMuscleGroupColor(group);
   if (intensity && intensity < 1) {
@@ -149,11 +161,12 @@ interface BodyPartProps {
   mode: string;
   regionIntensities?: Record<string, number>;
   balanceScores?: Record<string, number>;
+  highlightGroups?: string[];
 }
 
-function BodyPart({ id, d, trainedRegions, trainedGroups, hovered, setHovered, setSelected, mode, regionIntensities, balanceScores }: BodyPartProps) {
+function BodyPart({ id, d, trainedRegions, trainedGroups, hovered, setHovered, setSelected, mode, regionIntensities, balanceScores, highlightGroups }: BodyPartProps) {
   const region = PATH_TO_REGION[id] ?? id;
-  const style = partStyle(region, trainedRegions, trainedGroups, mode, regionIntensities, balanceScores);
+  const style = partStyle(region, trainedRegions, trainedGroups, mode, regionIntensities, balanceScores, highlightGroups);
   const group = REGION_TO_GROUP[region] ?? region;
   if (hovered === id && mode === 'default' && !trainedRegions.has(region) && !trainedGroups.has(group)) {
     (style as React.CSSProperties).fill = HOVER;
@@ -236,6 +249,7 @@ function BodyView({
   mode,
   regionIntensities,
   balanceScores,
+  highlightGroups,
 }: {
   paths: Record<string, string>;
   trainedRegions: Set<string>;
@@ -247,6 +261,7 @@ function BodyView({
   mode: string;
   regionIntensities?: Record<string, number>;
   balanceScores?: Record<string, number>;
+  highlightGroups?: string[];
 }) {
   return (
     <svg
@@ -270,13 +285,14 @@ function BodyView({
           mode={mode}
           regionIntensities={regionIntensities}
           balanceScores={balanceScores}
+          highlightGroups={highlightGroups}
         />
       ))}
     </svg>
   );
 }
 
-export function MuscleMap({ trainedMuscles = [], trainedRegions, regionIntensities, mode = 'default', balanceScores, onGroupSelect }: Props) {
+export function MuscleMap({ trainedMuscles = [], trainedRegions, regionIntensities, mode = 'default', balanceScores, highlightGroups, showBack = true, showLabels = true, onGroupSelect }: Props) {
   const trainedGroups = new Set(trainedMuscles);
   const trainedRegionSet = new Set(trainedRegions ?? []);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -329,11 +345,12 @@ export function MuscleMap({ trainedMuscles = [], trainedRegions, regionIntensiti
               mode={mode}
               regionIntensities={regionIntensities}
               balanceScores={balanceScores}
+              highlightGroups={highlightGroups}
             />
           </div>
-          <span className="text-[10px] text-zinc-600 font-medium">Front</span>
+          {showLabels && <span className="text-[10px] text-zinc-600 font-medium">Front</span>}
         </div>
-        <div className="flex flex-col items-center gap-1">
+        {showBack && <div className="flex flex-col items-center gap-1">
           <div style={{ width: 110, height: 290 }}>
             <BodyView
               paths={BACK_PATHS}
@@ -346,10 +363,11 @@ export function MuscleMap({ trainedMuscles = [], trainedRegions, regionIntensiti
               mode={mode}
               regionIntensities={regionIntensities}
               balanceScores={balanceScores}
+              highlightGroups={highlightGroups}
             />
           </div>
-          <span className="text-[10px] text-zinc-600 font-medium">Back</span>
-        </div>
+          {showLabels && <span className="text-[10px] text-zinc-600 font-medium">Back</span>}
+        </div>}
       </div>
     </div>
   );

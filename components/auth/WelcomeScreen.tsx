@@ -39,7 +39,12 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
         >
           <div className="absolute h-[24rem] w-[20rem] rounded-full bg-red-500/15 blur-3xl" />
           <div className="relative max-h-[min(54vh,460px)] w-full drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]">
-            <MuscleMap mode="default" />
+            <MuscleMap
+              mode="default"
+              highlightGroups={['chest', 'shoulders', 'abs']}
+              showBack={false}
+              showLabels={false}
+            />
           </div>
         </motion.div>
 
