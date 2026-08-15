@@ -7,6 +7,7 @@ import { Exercise, MuscleGroup, Equipment, Difficulty } from '@/lib/supabase';
 import { supabase } from '@/lib/supabase';
 import { MUSCLE_GROUPS, EQUIPMENT_OPTIONS, DIFFICULTY_OPTIONS } from '@/lib/exercises-data';
 import { scoreExercise, isOnlyFuzzyMatches } from '@/lib/exercise-search';
+import { getPopularExercises, POPULAR_EXERCISE_IDS } from '@/lib/popular-exercises';
 import { ExerciseCard } from './ExerciseCard';
 import { ExerciseDetail } from './ExerciseDetail';
 import { CustomExerciseSheet } from './CustomExerciseSheet';
@@ -22,6 +23,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
+  const [showPopularOnly, setShowPopularOnly] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -84,6 +86,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
   const filtered = useMemo(() => {
     const result = exercises.filter(e => {
       if (search && scoreExercise(e, search) === 0) return false;
+      if (showPopularOnly && !POPULAR_EXERCISE_IDS.includes(e.id)) return false;
       if (selectedMuscle && !matchesMuscle(e, selectedMuscle)) return false;
       if (selectedEquipment && e.equipment !== selectedEquipment) return false;
       if (selectedDifficulty && e.difficulty !== selectedDifficulty) return false;
@@ -94,7 +97,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
       result.sort((a, b) => scoreExercise(b, term) - scoreExercise(a, term) || a.name.localeCompare(b.name));
     }
     return result;
-  }, [exercises, search, selectedMuscle, selectedEquipment, selectedDifficulty]);
+  }, [exercises, search, selectedMuscle, selectedEquipment, selectedDifficulty, showPopularOnly]);
 
   const showFuzzyNotice = search.trim().length > 0 && filtered.length > 0 && isOnlyFuzzyMatches(filtered, search);
 
@@ -133,12 +136,13 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
     return entries;
   }, [grouped, selectedMuscle]);
 
-  const hasFilters = selectedMuscle || selectedEquipment || selectedDifficulty;
+  const hasFilters = selectedMuscle || selectedEquipment || selectedDifficulty || showPopularOnly;
 
   const clearFilters = () => {
     setSelectedMuscle(null);
     setSelectedEquipment(null);
     setSelectedDifficulty(null);
+    setShowPopularOnly(false);
   };
 
   return (
@@ -212,6 +216,18 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
                 {[selectedMuscle, selectedEquipment, selectedDifficulty].filter(Boolean).length}
               </span>
             )}
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowPopularOnly(!showPopularOnly)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              showPopularOnly
+                ? 'bg-red-500 border-red-500 text-white'
+                : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+            }`}
+          >
+            Populære
           </motion.button>
 
           {MUSCLE_GROUPS.map(mg => (

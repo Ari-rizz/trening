@@ -6,6 +6,7 @@ import { Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check
 import { supabase, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { searchExercises } from '@/lib/exercise-search';
+import { getPopularExercises } from '@/lib/popular-exercises';
 import { TermsAcceptanceCheckbox } from './TermsAcceptanceCheckbox';
 import { connectHealthApp, isHealthAvailable } from '@/lib/health';
 import { registerPushNotifications, updateNotificationPreferences } from '@/lib/push';
@@ -207,11 +208,17 @@ export function OnboardingFlow({ userId, userEmail, userName, onComplete }: Onbo
     { value: 'bodyweight', label: 'Kroppsvekt' },
     { value: 'bands', label: 'Elastikk' },
   ];
+  const allEquipmentValues = equipmentOptions.map(e => e.value);
+  const isFullGym = allEquipmentValues.every(v => availableEquipment.includes(v));
 
   const toggleEquipment = (value: string) => {
     setAvailableEquipment(prev =>
       prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
     );
+  };
+
+  const toggleFullGym = () => {
+    setAvailableEquipment(isFullGym ? [] : [...allEquipmentValues]);
   };
 
   return (
@@ -490,6 +497,16 @@ export function OnboardingFlow({ userId, userEmail, userName, onComplete }: Onbo
               <div>
                 <label className="text-xs text-zinc-500 font-medium mb-2 block">Tilgjengelig utstyr</label>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={toggleFullGym}
+                    className={`px-3.5 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                      isFullGym
+                        ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    Helt gym
+                  </button>
                   {equipmentOptions.map(opt => (
                     <button
                       key={opt.value}
@@ -568,6 +585,16 @@ export function OnboardingFlow({ userId, userEmail, userName, onComplete }: Onbo
             {/* Muscle group category filter */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide -mx-1 px-1">
               <button
+                onClick={() => setMuscleFilter('popular')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
+                  muscleFilter === 'popular'
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                Populære
+              </button>
+              <button
                 onClick={() => setMuscleFilter('all')}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ${
                   muscleFilter === 'all'
@@ -597,7 +624,9 @@ export function OnboardingFlow({ userId, userEmail, userName, onComplete }: Onbo
             <div className="flex-1 overflow-y-auto space-y-1.5 pb-2">
               {(() => {
                 let results = searchExercises(allExercises, exerciseSearch);
-                if (muscleFilter !== 'all') {
+                if (muscleFilter === 'popular') {
+                  results = getPopularExercises(results);
+                } else if (muscleFilter !== 'all') {
                   results = results.filter(ex => ex.muscle_group === muscleFilter);
                 }
                 const sliced = results.slice(0, 50);

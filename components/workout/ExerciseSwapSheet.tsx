@@ -8,6 +8,7 @@ import { Exercise, supabase } from '@/lib/supabase';
 import { fetchSimilarExercises, ScoredExercise } from '@/lib/exercise-swap';
 import { getMuscleGroupLabel, getMuscleGroupColor, EQUIPMENT_OPTIONS } from '@/lib/exercises-data';
 import { scoreExercise } from '@/lib/exercise-search';
+import { getPopularExercises } from '@/lib/popular-exercises';
 
 interface Props {
   open: boolean;
@@ -26,6 +27,8 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
   const [results, setResults] = useState<ScoredExercise[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [showPopular, setShowPopular] = useState(false);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
   useEffect(() => {
@@ -33,10 +36,23 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
       setResults([]);
       setSearch('');
       setSelectedExercise(null);
+      setShowPopular(false);
       return;
     }
     loadAlternatives();
   }, [open]);
+
+  useEffect(() => {
+    if (open && showPopular && allExercises.length === 0) {
+      supabase
+        .from('exercises')
+        .select('id, name, muscle_group, secondary_muscles, equipment, difficulty, gif_url')
+        .order('name')
+        .then(({ data }) => {
+          if (data) setAllExercises(data as Exercise[]);
+        });
+    }
+  }, [open, showPopular, allExercises.length]);
 
   const loadAlternatives = async () => {
     setLoading(true);
@@ -46,12 +62,11 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
   };
 
   const filtered = search.trim()
-    ? results
-        .map(r => ({ r, score: scoreExercise(r.exercise, search) }))
+    ? (showPopular ? getPopularExercises(allExercises) : results.map(r => r.exercise))
+        .map(ex => ({ exercise: ex, score: scoreExercise(ex, search) }))
         .filter(x => x.score > 0)
-        .sort((a, b) => b.score - a.score || a.r.exercise.name.localeCompare(b.r.exercise.name))
-        .map(x => x.r)
-    : results;
+        .sort((a, b) => b.score - a.score || a.exercise.name.localeCompare(b.exercise.name))
+    : (showPopular ? getPopularExercises(allExercises).map(ex => ({ exercise: ex, score: 0 })) : results);
 
   const handleConfirm = (permanent: boolean) => {
     if (!selectedExercise) return;
@@ -163,6 +178,18 @@ export function ExerciseSwapSheet({ open, currentExercise, templateExerciseId, u
                     placeholder="Sok etter øvelse..."
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
                   />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => setShowPopular(!showPopular)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      showPopular
+                        ? 'bg-red-500 border-red-500 text-white'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    Populære
+                  </button>
                 </div>
               </div>
 
