@@ -86,13 +86,23 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
   const filtered = useMemo(() => {
     const result = exercises.filter(e => {
       if (search && scoreExercise(e, search) === 0) return false;
-      if (showPopularOnly && !POPULAR_EXERCISE_IDS.includes(e.id)) return false;
       if (selectedMuscle && !matchesMuscle(e, selectedMuscle)) return false;
       if (selectedEquipment && e.equipment !== selectedEquipment) return false;
       if (selectedDifficulty && e.difficulty !== selectedDifficulty) return false;
       return true;
     });
-    if (search) {
+    if (showPopularOnly) {
+      result.sort((a, b) => {
+        const ai = POPULAR_EXERCISE_IDS.indexOf(a.id);
+        const bi = POPULAR_EXERCISE_IDS.indexOf(b.id);
+        const aPop = ai !== -1;
+        const bPop = bi !== -1;
+        if (aPop && !bPop) return -1;
+        if (!aPop && bPop) return 1;
+        if (aPop && bPop) return ai - bi;
+        return a.name.localeCompare(b.name);
+      });
+    } else if (search) {
       const term = search.trim();
       result.sort((a, b) => scoreExercise(b, term) - scoreExercise(a, term) || a.name.localeCompare(b.name));
     }
@@ -324,30 +334,45 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
           </div>
         )}
 
-        {groupedEntries.map(([group, exs]) => {
-          const mg = MUSCLE_GROUPS.find(m => m.value === group);
-          return (
-            <div key={group}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: mg?.color }} />
-                <h3 className="text-sm font-bold text-white">{mg?.label ?? group}</h3>
-                <span className="text-xs text-zinc-600">{exs.length}</span>
+        {showPopularOnly ? (
+          <div className="space-y-2">
+            {filtered.map(exercise => (
+              <ExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                onAdd={onAddToWorkout}
+                onSelect={setSelectedExercise}
+                compact
+                isAdded={addedExerciseIds?.has(exercise.id) ?? false}
+              />
+            ))}
+          </div>
+        ) : (
+          groupedEntries.map(([group, exs]) => {
+            const mg = MUSCLE_GROUPS.find(m => m.value === group);
+            return (
+              <div key={group}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: mg?.color }} />
+                  <h3 className="text-sm font-bold text-white">{mg?.label ?? group}</h3>
+                  <span className="text-xs text-zinc-600">{exs.length}</span>
+                </div>
+                <div className="space-y-2">
+                  {exs.map(exercise => (
+                    <ExerciseCard
+                      key={exercise.id}
+                      exercise={exercise}
+                      onAdd={onAddToWorkout}
+                      onSelect={setSelectedExercise}
+                      compact
+                      isAdded={addedExerciseIds?.has(exercise.id) ?? false}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="space-y-2">
-                {exs.map(exercise => (
-                  <ExerciseCard
-                    key={exercise.id}
-                    exercise={exercise}
-                    onAdd={onAddToWorkout}
-                    onSelect={setSelectedExercise}
-                    compact
-                    isAdded={addedExerciseIds?.has(exercise.id) ?? false}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </motion.div>
       )}
