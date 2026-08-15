@@ -38,13 +38,21 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
           className="relative flex w-full max-w-[360px] flex-1 items-center justify-center"
         >
           <div className="absolute h-[24rem] w-[20rem] rounded-full bg-red-500/15 blur-3xl" />
-          <div className="relative max-h-[min(54vh,460px)] w-full drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]">
-            <MuscleMap
-              mode="default"
-              highlightGroups={['chest', 'shoulders', 'abs']}
-              showBack={false}
-              showLabels={false}
-            />
+          <div
+            className="relative max-h-[min(54vh,460px)] w-full overflow-hidden drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]"
+            style={{
+              maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+            }}
+          >
+            <div className="scale-[1.18]">
+              <MuscleMap
+                mode="default"
+                highlightGroups={['chest', 'shoulders', 'abs']}
+                showBack={false}
+                showLabels={false}
+              />
+            </div>
           </div>
         </motion.div>
 
