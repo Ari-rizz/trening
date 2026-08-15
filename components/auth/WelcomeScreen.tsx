@@ -36,12 +36,11 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
           transition={{ duration: 0.6, delay: 0.1 }}
           className="relative flex w-full max-w-[360px] flex-1 items-center justify-center"
         >
-          <div className="absolute h-[22rem] w-[18rem] rounded-full bg-red-500/10 blur-3xl" />
+          <div className="absolute h-[24rem] w-[20rem] rounded-full bg-red-500/15 blur-3xl" />
           <img
-            src="/noun-human-muscle-1487291.svg"
+            src="/irongrid-geometric-athlete.webp"
             alt="Muscular human figure"
-            className="relative max-h-[min(52vh,430px)] w-full object-contain"
-            style={{ filter: 'invert(1) brightness(0.85) sepia(1) hue-rotate(-10deg) saturate(3)' }}
+            className="relative max-h-[min(54vh,460px)] w-full object-contain drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]"
           />
         </motion.div>
 
