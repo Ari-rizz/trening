@@ -131,6 +131,7 @@ export function AuthGate({ children }: AuthGateProps) {
       <OnboardingFlow
         userId={session.user.id}
         userEmail={session.user.email}
+        userName={session.user.user_metadata?.full_name ?? ''}
         onComplete={() => setOnboardingDone(true)}
       />
     );

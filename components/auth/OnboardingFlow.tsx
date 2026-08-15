@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell, Heart, Activity, Flame, Bell, BellRing, CircleAlert as AlertCircle } from 'lucide-react';
+import { Ruler, Target, ArrowRight, AtSign, Calendar, ShieldCheck, Search, Check, X, Dumbbell, Heart, Activity, Flame, Bell, BellRing, CircleAlert as AlertCircle } from 'lucide-react';
 import { supabase, Exercise } from '@/lib/supabase';
 import { getMuscleGroupColor, getMuscleGroupLabel, MUSCLE_GROUPS } from '@/lib/exercises-data';
 import { searchExercises } from '@/lib/exercise-search';
@@ -14,16 +14,17 @@ import { isNative } from '@/lib/native';
 interface OnboardingFlowProps {
   userId: string;
   userEmail: string;
+  userName: string;
   onComplete: () => void;
 }
 
-export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlowProps) {
+export function OnboardingFlow({ userId, userEmail, userName, onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [usernameError, setUsernameError] = useState('');
 
-  // Step 1: Name & DOB
-  const [fullName, setFullName] = useState('');
+  // Step 1: DOB (name already collected during registration)
+  const fullName = userName;
   const [dobDay, setDobDay] = useState('');
   const [dobMonth, setDobMonth] = useState('');
   const [dobYear, setDobYear] = useState('');
@@ -170,7 +171,6 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
   };
 
   const canProceed = () => {
-    if (step === 1) return fullName.trim().length > 0;
     if (step === 2) return username.trim().length >= 3 && !usernameError;
     if (step === 7) return termsAccepted;
     if (step === 9) return isNative() ? notifGranted || notifDenied : true;
@@ -240,23 +240,12 @@ export function OnboardingFlow({ userId, userEmail, onComplete }: OnboardingFlow
             className="flex-1 flex flex-col min-w-0"
           >
             <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
-              <User size={24} className="text-red-400" />
+              <Calendar size={24} className="text-red-400" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Hva heter du?</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">Hei{fullName.trim() ? `, ${fullName.trim().split(' ')[0]}` : ''}!</h1>
             <p className="text-zinc-500 text-sm mb-8">Fortell oss litt om deg selv</p>
 
             <div className="space-y-4 min-w-0">
-              <div className="min-w-0">
-                <label className="text-xs text-zinc-500 font-medium mb-1.5 block">Fullt navn</label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder="Ola Nordmann"
-                  className="w-full max-w-full min-w-0 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-red-500 transition-colors"
-                  autoComplete="name"
-                />
-              </div>
               <div className="min-w-0">
                 <label className="text-xs text-zinc-500 font-medium mb-1.5 block">Fødselsdato (valgfritt)</label>
                 <div className="grid grid-cols-3 gap-2">
