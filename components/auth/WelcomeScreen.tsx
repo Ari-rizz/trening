@@ -38,9 +38,10 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
         >
           <div className="absolute h-[22rem] w-[18rem] rounded-full bg-red-500/10 blur-3xl" />
           <img
-            src="/1c21f7c8-7c94-47e8-b2c0-02fcda0c46a1-converted.svg"
+            src="/noun-human-muscle-1487291.svg"
             alt="Muscular human figure"
-            className="relative max-h-[min(52vh,430px)] w-full object-contain opacity-90 brightness-125 contrast-125"
+            className="relative max-h-[min(52vh,430px)] w-full object-contain"
+            style={{ filter: 'invert(1) brightness(0.85) sepia(1) hue-rotate(-10deg) saturate(3)' }}
           />
         </motion.div>
 
