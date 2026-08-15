@@ -20,6 +20,7 @@ export const POPULAR_EXERCISE_IDS: string[] = [
   '22d4e40d-7b21-4714-9e6b-7da7e9be9904', // Dumbbell Flyes
   '531c240a-fc0e-480d-b83c-be27f4b959e7', // Chin-Up
   '3268eade-c738-4d9f-839f-751ceeb6c3e4', // Close-Grip Front Lat Pulldown
+  'cee3de0d-9635-4687-991c-b324dee355a6', // Wide-Grip Lat Pulldown
   '16b94d25-c9e6-4ed0-9112-99a1caa0529c', // Seated Cable Rows
   '708bc470-22ac-47a2-9b29-6770d51b46e3', // Bent Over Barbell Row
   '07d09e7e-8825-4b6d-9083-a52d90ae5928', // One-Arm Dumbbell Row
