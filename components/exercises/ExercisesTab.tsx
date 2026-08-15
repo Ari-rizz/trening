@@ -85,6 +85,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
 
   const filtered = useMemo(() => {
     const result = exercises.filter(e => {
+      if (showPopularOnly && !POPULAR_EXERCISE_IDS.includes(e.id)) return false;
       if (search && scoreExercise(e, search) === 0) return false;
       if (selectedMuscle && !matchesMuscle(e, selectedMuscle)) return false;
       if (selectedEquipment && e.equipment !== selectedEquipment) return false;
@@ -92,16 +93,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
       return true;
     });
     if (showPopularOnly) {
-      result.sort((a, b) => {
-        const ai = POPULAR_EXERCISE_IDS.indexOf(a.id);
-        const bi = POPULAR_EXERCISE_IDS.indexOf(b.id);
-        const aPop = ai !== -1;
-        const bPop = bi !== -1;
-        if (aPop && !bPop) return -1;
-        if (!aPop && bPop) return 1;
-        if (aPop && bPop) return ai - bi;
-        return a.name.localeCompare(b.name);
-      });
+      result.sort((a, b) => POPULAR_EXERCISE_IDS.indexOf(a.id) - POPULAR_EXERCISE_IDS.indexOf(b.id));
     } else if (search) {
       const term = search.trim();
       result.sort((a, b) => scoreExercise(b, term) - scoreExercise(a, term) || a.name.localeCompare(b.name));
