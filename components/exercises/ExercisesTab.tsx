@@ -155,10 +155,10 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
       ) : (
     <motion.div
       key="list"
-      initial={{ x: '-100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '-100%' }}
-      transition={{ type: 'spring', damping: 35, stiffness: 500 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.15 }}
       className="flex flex-col h-full"
     >
       {/* Header */}

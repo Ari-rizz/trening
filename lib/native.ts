@@ -82,6 +82,12 @@ export async function scheduleRestTimerNotification(seconds: number): Promise<nu
       extra: null,
     }],
   }).catch(() => {});
+  if (isNative()) {
+    const { Haptics, NotificationType } = await import('@capacitor/haptics');
+    setTimeout(() => {
+      Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+    }, seconds * 1000);
+  }
   return id;
 }
 

@@ -12,7 +12,7 @@ import { WeightLogModal } from './WeightLogModal';
 import { MuscleMap } from './MuscleMap';
 import { CalorieHistorySheet } from './CalorieHistorySheet';
 import { WorkoutCalendarSheet } from './WorkoutCalendarSheet';
-import { getHealthConnection, getTodayCaloriesFromDB, syncCaloriesToDatabase } from '@/lib/health';
+import { getHealthConnection, getTodayCaloriesFromDB, syncCaloriesToDatabase, refreshTodayCalories } from '@/lib/health';
 import { getRegionsForExercise } from '@/lib/muscle-regions';
 import { format, startOfWeek, endOfWeek, isThisWeek, subDays, differenceInDays } from 'date-fns';
 import { nb } from 'date-fns/locale';
@@ -25,6 +25,7 @@ interface DashboardStats {
   topMuscleGroup: string | null;
   weekMuscles: string[];
   weekRegions: string[];
+  weekWorkoutDates: string[];
   recentWorkouts: Workout[];
   prs: Array<{ exercise_name: string; weight_kg: number; reps: number; one_rep_max: number; achieved_at: string }>;
 }
@@ -38,6 +39,7 @@ export function DashboardTab() {
     topMuscleGroup: null,
     weekMuscles: [],
     weekRegions: [],
+    weekWorkoutDates: [],
     recentWorkouts: [],
     prs: [],
   });
@@ -63,6 +65,11 @@ export function DashboardTab() {
     topMuscleGroup: 'chest',
     weekMuscles: ['chest', 'shoulders', 'triceps', 'back', 'glutes'],
     weekRegions: ['chest_middle', 'shoulders_front', 'shoulders_side', 'triceps', 'back_lats', 'back_upper', 'legs_glutes', 'legs_quads'],
+    weekWorkoutDates: [
+      format(subDays(new Date(), 1), 'yyyy-MM-dd'),
+      format(subDays(new Date(), 3), 'yyyy-MM-dd'),
+      format(subDays(new Date(), 5), 'yyyy-MM-dd'),
+    ],
     recentWorkouts: [],
     prs: [
       { exercise_name: 'Benkpress', weight_kg: 90, reps: 5, one_rep_max: 101, achieved_at: new Date().toISOString() },
@@ -110,7 +117,11 @@ export function DashboardTab() {
     setHealthConnected(conn.connected);
     if (conn.connected) {
       await syncCaloriesToDatabase(uid);
-      const cal = await getTodayCaloriesFromDB(uid);
+      let cal = await getTodayCaloriesFromDB(uid);
+      if (cal === 0 && Capacitor.isNativePlatform()) {
+        const { readCaloriesForDay } = await import('@/lib/health');
+        cal = await readCaloriesForDay(new Date());
+      }
       setTodayCalories(cal);
     }
   };
@@ -118,9 +129,8 @@ export function DashboardTab() {
   const refreshCalories = useCallback(async (uid: string) => {
     setCaloriesRefreshing(true);
     try {
-      await syncCaloriesToDatabase(uid);
-      const cal = await getTodayCaloriesFromDB(uid);
-      setTodayCalories(cal);
+      const cal = await refreshTodayCalories(uid);
+      if (cal > 0) setTodayCalories(cal);
     } catch {
       // best-effort
     } finally {
@@ -128,12 +138,12 @@ export function DashboardTab() {
     }
   }, []);
 
-  // Re-sync calories every 5 minutes while the dashboard is open
+  // Re-sync calories every 2 minutes while the dashboard is open
   useEffect(() => {
     if (!userId || !healthConnected || !Capacitor.isNativePlatform()) return;
     syncIntervalRef.current = setInterval(() => {
       refreshCalories(userId);
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
     return () => {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
       syncIntervalRef.current = null;
@@ -190,6 +200,7 @@ export function DashboardTab() {
       });
 
       const weekVolume = weekWorkouts.reduce((a, w) => a + (w.total_volume_kg ?? 0), 0);
+      const weekWorkoutDates = weekWorkouts.map(w => getDateKey(w.date));
 
       // Calculate streak
       let streak = 0;
@@ -244,6 +255,7 @@ export function DashboardTab() {
         topMuscleGroup: null,
         weekMuscles: Array.from(weekMusclesSet),
         weekRegions: Array.from(weekRegionsSet),
+        weekWorkoutDates: Array.from(new Set(weekWorkoutDates)),
         recentWorkouts: ws.slice(0, 5),
         prs,
       });
@@ -317,26 +329,28 @@ export function DashboardTab() {
             )}
           </div>
           <div className="flex justify-between">
-            {weekDays.map((day, i) => (
-              <div key={i} className="flex flex-col items-center gap-1.5">
-                <span className="text-xs text-zinc-600">{day}</span>
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                    i === adjustedToday
-                      ? 'bg-red-500 text-white'
-                      : 'bg-zinc-800 text-zinc-600'
-                  }`}
-                >
-                  {i < adjustedToday ? (
-                    <div className="w-2 h-2 rounded-full bg-zinc-600" />
-                  ) : i === adjustedToday ? (
-                    <Flame size={14} />
-                  ) : (
-                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                  )}
+            {weekDays.map((day, i) => {
+              const dayDate = new Date();
+              dayDate.setDate(dayDate.getDate() - adjustedToday + i);
+              const trained = (isTourMode ? MOCK_STATS.weekWorkoutDates : stats.weekWorkoutDates).includes(getDateKey(dayDate));
+
+              return (
+                <div key={i} className="flex flex-col items-center gap-1.5">
+                  <span className="text-xs text-zinc-600">{day}</span>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      trained ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-600'
+                    }`}
+                  >
+                    {trained ? (
+                      <Flame size={14} />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </motion.button>
       </div>
@@ -561,6 +575,11 @@ function StatCard({ icon, label, value, sub, color }: {
       <p className="text-xs text-zinc-600 mt-1">{label}</p>
     </div>
   );
+}
+
+function getDateKey(value: string | Date): string {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  return format(new Date(value), 'yyyy-MM-dd');
 }
 
 function getTimeGreeting(): string {

@@ -279,7 +279,7 @@ export function WorkoutTab() {
     fetchPreviousSessions(currentEx.exerciseId).then((hasSessions) => {
       if (hasSessions) showToastForExercise(currentEx.exerciseId);
     });
-  }, [activeWorkout, currentExerciseIndex, userId]);
+  }, [currentExerciseIndex, userId, activeWorkout?.exercises[currentExerciseIndex]?.exerciseId]);
 
   useEffect(() => {
     if (!activeWorkout) return;

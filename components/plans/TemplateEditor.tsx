@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+  SortableContext, verticalListSortingStrategy, useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -73,18 +73,14 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
     rendered.add(index);
     rows.push({ type: 'single', index });
   });
-  const [rowOrder, setRowOrder] = useState<string[]>([]);
-  useEffect(() => {
-    setRowOrder(rows.map((r, i) => `row-${i}`));
-  }, [rows.length]);
+  const rowItems = rows.map((_, i) => `row-${i}`);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldRowIdx = rowOrder.indexOf(active.id as string);
-    const newRowIdx = rowOrder.indexOf(over.id as string);
+    const oldRowIdx = rowItems.indexOf(active.id as string);
+    const newRowIdx = rowItems.indexOf(over.id as string);
     if (oldRowIdx === -1 || newRowIdx === -1) return;
-    setRowOrder(prev => arrayMove(prev, oldRowIdx, newRowIdx));
     const fromRow = rows[oldRowIdx];
     const toRow = rows[newRowIdx];
     if (fromRow.type === 'superset' || toRow.type === 'superset') return;
@@ -367,9 +363,9 @@ export function TemplateEditor({ template, userId, onSave, onCancel }: TemplateE
           <p className="text-xs text-zinc-500 font-medium mb-2">Øvelser ({exercises.length})</p>
           <div className="space-y-2">
             <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={rowOrder} strategy={verticalListSortingStrategy}>
+            <SortableContext items={rowItems} strategy={verticalListSortingStrategy}>
             <AnimatePresence>
-              {rowOrder.map((rowKey, rowIdx) => {
+              {rowItems.map((rowKey, rowIdx) => {
                 const rowIdxNum = parseInt(rowKey.replace('row-', ''));
                 const row = rows[rowIdxNum];
                 if (!row) return null;

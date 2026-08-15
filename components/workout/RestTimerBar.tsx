@@ -95,6 +95,7 @@ export function RestTimerBar() {
           stopRestTimer();
           playDoneSound();
           vibrateDevice();
+          hapticWarning();
           setShowDoneBanner(true);
           setTimeout(() => setShowDoneBanner(false), 4000);
         } else {

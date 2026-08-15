@@ -62,27 +62,36 @@ export interface DailyCalorieData {
   steps?: number;
 }
 
+async function readDayCaloriesAndSteps(Health: any, date: Date): Promise<{ calories: number; steps: number }> {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+
+  // Try totalCalories first (active + basal)
+  let calories = await queryCalories(Health, 'totalCalories', start, end);
+  // Fallback to calories if totalCalories returned 0
+  if (calories === 0) {
+    calories = await queryCalories(Health, 'calories', start, end);
+  }
+
+  const steps = await readStepsForDay(Health, start, end);
+
+  // Only add step-based estimate when there's no active energy data,
+  // otherwise the active energy already includes step calories (e.g. Apple Watch)
+  if (calories === 0 && steps > 0) {
+    calories = estimateCaloriesFromSteps(steps);
+  }
+
+  return { calories, steps };
+}
+
 export async function readCaloriesForDay(date: Date): Promise<number> {
   if (!Capacitor.isNativePlatform()) return 0;
   try {
     const { Health } = await import('@capgo/capacitor-health');
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-
-    // Try totalCalories first (active + basal)
-    let value = await queryCalories(Health, 'totalCalories', start, end);
-    // Fallback to calories if totalCalories returned 0
-    if (value === 0) {
-      value = await queryCalories(Health, 'calories', start, end);
-    }
-    // Add step-based calorie estimate
-    const steps = await readStepsForDay(Health, start, end);
-    if (steps > 0) {
-      value += estimateCaloriesFromSteps(steps);
-    }
-    return value;
+    const { calories } = await readDayCaloriesAndSteps(Health, date);
+    return calories;
   } catch {
     return 0;
   }
@@ -146,15 +155,31 @@ export async function readCaloriesForDateRange(startDate: Date, endDate: Date): 
       samples = await queryCaloriesRange(Health, 'calories', start, end);
     }
 
-    // Merge step-based calories
+    // Merge step data
     const stepSamples = await queryStepsRange(Health, start, end);
     if (stepSamples.length > 0) {
       const stepMap = new Map(stepSamples.map(s => [s.date, s.steps]));
+      const existingDates = new Set(samples.map(s => s.date));
+
+      // Add steps to existing calorie days, but only estimate when no active energy
       for (const s of samples) {
         const steps = stepMap.get(s.date) ?? 0;
         if (steps > 0) {
-          s.calories += estimateCaloriesFromSteps(steps);
           s.steps = steps;
+          if (s.calories === 0) {
+            s.calories = estimateCaloriesFromSteps(steps);
+          }
+        }
+      }
+
+      // Create entries for step-only days (no active energy data at all)
+      for (const { date, steps } of stepSamples) {
+        if (!existingDates.has(date) && steps > 0) {
+          samples.push({
+            date,
+            calories: estimateCaloriesFromSteps(steps),
+            steps,
+          });
         }
       }
     }
@@ -233,6 +258,16 @@ export async function syncCaloriesToDatabase(userId: string, days = 365): Promis
 
     const dailyData = await readCaloriesForDateRange(startDate, endDate);
 
+    // Also read today directly as a fallback — the range query may miss today
+    const todayCal = await readCaloriesForDay(new Date());
+    const todayStr = localDateString(new Date());
+    const todayEntry = dailyData.find(d => d.date === todayStr);
+    if (todayEntry) {
+      todayEntry.calories = Math.max(todayEntry.calories, todayCal);
+    } else if (todayCal > 0) {
+      dailyData.push({ date: todayStr, calories: todayCal });
+    }
+
     if (dailyData.length === 0) return;
 
     const rows = dailyData.map(d => ({
@@ -254,8 +289,40 @@ export async function syncCaloriesToDatabase(userId: string, days = 365): Promis
   }
 }
 
+export async function refreshTodayCalories(userId: string): Promise<number> {
+  if (!Capacitor.isNativePlatform()) return 0;
+  try {
+    const { Health } = await import('@capgo/capacitor-health');
+    const { calories, steps } = await readDayCaloriesAndSteps(Health, new Date());
+    const todayStr = localDateString(new Date());
+
+    const { error } = await supabase
+      .from('daily_calorie_logs')
+      .upsert({
+        user_id: userId,
+        date: todayStr,
+        calories,
+        steps,
+        source: 'health_app',
+        synced_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,date' });
+
+    if (error) console.error('Failed to refresh today calories', error);
+    return calories;
+  } catch {
+    return 0;
+  }
+}
+
+function localDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export async function getTodayCaloriesFromDB(userId: string): Promise<number> {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateString(new Date());
   const { data, error } = await supabase
     .from('daily_calorie_logs')
     .select('calories')
@@ -270,12 +337,13 @@ export async function getTodayCaloriesFromDB(userId: string): Promise<number> {
 export async function getCalorieHistoryFromDB(userId: string, days = 365): Promise<DailyCalorieData[]> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
+  const startStr = localDateString(startDate);
 
   const { data, error } = await supabase
     .from('daily_calorie_logs')
     .select('date, calories')
     .eq('user_id', userId)
-    .gte('date', startDate.toISOString().split('T')[0])
+    .gte('date', startStr)
     .order('date', { ascending: false });
 
   if (error || !data) return [];
