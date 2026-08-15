@@ -814,7 +814,8 @@ export function ProfileTab() {
             className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-14 pb-6 flex-shrink-0">
+            <div className="flex items-center justify-between px-6 pb-6 flex-shrink-0"
+                 style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center overflow-hidden">
                   <img src="/561FDBE9-8BBB-49EC-8502-9C434E74EE5E.PNG" alt="IronGrid" className="w-8 h-8 object-contain" />
@@ -993,7 +994,8 @@ export function ProfileTab() {
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
               className="fixed bottom-0 left-0 right-0 top-0 z-[101] bg-zinc-950 flex flex-col"
             >
-              <div className="flex items-center justify-between px-5 pt-14 pb-4 flex-shrink-0 border-b border-zinc-800">
+              <div className="flex items-center justify-between px-5 pb-4 flex-shrink-0 border-b border-zinc-800"
+                   style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
                 <h2 className="text-white font-bold text-lg">Brukervilkår</h2>
                 <button
                   onClick={() => setShowTerms(false)}
@@ -1071,7 +1073,8 @@ export function ProfileTab() {
               transition={{ type: 'spring', damping: 30, stiffness: 320 }}
               className="fixed bottom-0 left-0 right-0 top-0 z-[101] bg-zinc-950 flex flex-col"
             >
-              <div className="flex items-center justify-between px-5 pt-14 pb-4 flex-shrink-0 border-b border-zinc-800">
+              <div className="flex items-center justify-between px-5 pb-4 flex-shrink-0 border-b border-zinc-800"
+                   style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
                 <h2 className="text-white font-bold text-lg">Personvern</h2>
                 <button
                   onClick={() => setShowPrivacy(false)}

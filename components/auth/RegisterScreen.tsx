@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, Lock, Eye, EyeOff, UserPlus, User, CircleCheck as CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, UserPlus, User, CircleCheck as CheckCircle2, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface RegisterScreenProps {
   onSwitchToLogin: () => void;
+  onBackToWelcome: () => void;
 }
 
-export function RegisterScreen({ onSwitchToLogin }: RegisterScreenProps) {
+export function RegisterScreen({ onSwitchToLogin, onBackToWelcome }: RegisterScreenProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,6 +98,13 @@ export function RegisterScreen({ onSwitchToLogin }: RegisterScreenProps) {
         className="flex-1 flex flex-col"
       >
         {/* Logo */}
+        <button
+          onClick={onBackToWelcome}
+          className="flex items-center gap-1 text-zinc-500 hover:text-white transition-colors mb-6"
+        >
+          <ArrowLeft size={16} />
+          <span className="text-xs font-medium">Tilbake</span>
+        </button>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center overflow-hidden">
             <img src="/561FDBE9-8BBB-49EC-8502-9C434E74EE5E.PNG" alt="IronGrid" className="w-8 h-8 object-contain" />

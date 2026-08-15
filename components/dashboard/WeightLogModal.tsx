@@ -81,7 +81,8 @@ export function WeightLogModal({ open, userId, onClose, onSaved }: WeightLogModa
           className="fixed inset-0 z-[200] bg-zinc-950 flex flex-col"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pt-12 pb-5 border-b border-zinc-800/60">
+          <div className="flex items-center justify-between px-5 pb-5 border-b border-zinc-800/60"
+               style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 5rem)' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-500/15 flex items-center justify-center">
                 <Scale size={20} className="text-blue-400" />

@@ -91,7 +91,7 @@ export default function Home() {
     <main className="flex flex-col h-screen bg-black overflow-hidden">
       {/* Header */}
       <div
-        className="flex-shrink-0 flex items-center justify-between px-4 pt-3 bg-black/95 backdrop-blur-xl border-b border-zinc-900/50 h-20"
+        className="flex-shrink-0 flex items-center justify-between px-4 pt-3 bg-black/95 backdrop-blur-xl border-b border-zinc-900/50 min-h-[80px]"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
       >
         <div className="flex items-center gap-2.5">

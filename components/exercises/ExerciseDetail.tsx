@@ -101,7 +101,8 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
       className="flex flex-col h-full bg-black"
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-12 pb-3 flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 pb-3 flex-shrink-0"
+           style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3rem)' }}>
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onBack}

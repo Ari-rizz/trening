@@ -603,7 +603,8 @@ export function PlansTab() {
               className="fixed inset-0 z-[61] bg-zinc-950 flex flex-col"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-14 pb-5 border-b border-zinc-800/60">
+              <div className="flex items-center justify-between px-5 pb-5 border-b border-zinc-800/60"
+                   style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
                     <AlertTriangle size={18} className="text-amber-400" />

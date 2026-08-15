@@ -28,8 +28,9 @@ export function ProgramDetail({ program, onBack, onAddDay, onAddAll, addingAll }
     <div className="fixed inset-0 bg-zinc-950 z-50 flex flex-col">
       {/* Header */}
       <div
-        className="flex-shrink-0 px-4 pt-14 pb-4"
+        className="flex-shrink-0 px-4 pb-4"
         style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)',
           background: `linear-gradient(135deg, ${program.accentColor}22 0%, transparent 60%)`,
           borderBottom: `1px solid ${program.accentColor}33`,
         }}

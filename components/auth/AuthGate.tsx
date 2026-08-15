@@ -10,8 +10,9 @@ import { OnboardingFlow } from './OnboardingFlow';
 import { IntroTour } from './IntroTour';
 import { SubscriptionGate } from './SubscriptionGate';
 import { UpdatePasswordScreen } from './UpdatePasswordScreen';
+import { WelcomeScreen } from './WelcomeScreen';
 
-type AuthScreen = 'login' | 'register' | 'forgot-password';
+type AuthScreen = 'welcome' | 'login' | 'register' | 'forgot-password';
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [loading, setLoading] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [introTourDone, setIntroTourDone] = useState<boolean | null>(null);
-  const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('welcome');
   const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   useEffect(() => {
@@ -102,8 +103,16 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (!session) {
+    if (authScreen === 'welcome') {
+      return (
+        <WelcomeScreen
+          onCreateAccount={() => setAuthScreen('register')}
+          onLogin={() => setAuthScreen('login')}
+        />
+      );
+    }
     if (authScreen === 'register') {
-      return <RegisterScreen onSwitchToLogin={() => setAuthScreen('login')} />;
+      return <RegisterScreen onSwitchToLogin={() => setAuthScreen('login')} onBackToWelcome={() => setAuthScreen('welcome')} />;
     }
     if (authScreen === 'forgot-password') {
       return <ForgotPasswordScreen onBack={() => setAuthScreen('login')} />;
@@ -112,6 +121,7 @@ export function AuthGate({ children }: AuthGateProps) {
       <LoginScreen
         onSwitchToRegister={() => setAuthScreen('register')}
         onSwitchToForgotPassword={() => setAuthScreen('forgot-password')}
+        onBackToWelcome={() => setAuthScreen('welcome')}
       />
     );
   }
