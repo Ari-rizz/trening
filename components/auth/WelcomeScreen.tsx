@@ -38,7 +38,7 @@ export function WelcomeScreen({ onCreateAccount, onLogin }: WelcomeScreenProps) 
         >
           <div className="absolute h-[24rem] w-[20rem] rounded-full bg-red-500/15 blur-3xl" />
           <img
-            src="/irongrid-body-front.svg"
+            src="/irongrid-lowpoly-athlete.webp"
             alt="Muscular human figure"
             className="relative max-h-[min(54vh,460px)] w-full object-contain drop-shadow-[0_0_30px_rgba(239,68,68,0.25)]"
           />
