@@ -116,9 +116,9 @@ export async function readStepsForDay(Health: any, start: Date, end: Date): Prom
 }
 
 export function estimateCaloriesFromSteps(steps: number, weightKg?: number | null): number {
-  // Roughly 0.04 kcal per step for a 70kg person, scaled by body weight
+  // 0.04 kcal per step for a 70kg person, scaled by body weight
   const weight = weightKg && weightKg > 0 ? weightKg : 70;
-  return Math.round(steps * 0.0004 * weight);
+  return Math.round(steps * 0.04 * (weight / 70));
 }
 
 async function queryCalories(Health: any, dataType: string, start: Date, end: Date): Promise<number> {
