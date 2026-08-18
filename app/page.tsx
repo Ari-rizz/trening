@@ -16,7 +16,7 @@ import { PlansTab } from '@/components/plans/PlansTab';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { initStatusBar, hideSplash, requestNotificationPermission, clearDeliveredNotifications } from '@/lib/native';
+import { initStatusBar, hideSplash, requestNotificationPermission, clearDeliveredNotifications, isNative, scheduleWeightReminder, scheduleWorkoutDailyReminder } from '@/lib/native';
 import { useOfflineSync } from '@/lib/use-offline-sync';
 
 export default function Home() {
@@ -81,6 +81,29 @@ export default function Home() {
       loadInitials();
     });
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!isNative()) return;
+    const syncReminders = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return;
+      const { data: prefs } = await supabase
+        .from('notification_preferences')
+        .select('weight_reminder, workout_reminder, weight_reminder_time, workout_reminder_time')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (!prefs) return;
+      if (prefs.weight_reminder) {
+        const [h, m] = (prefs.weight_reminder_time ?? '06:00').split(':').map(Number);
+        await scheduleWeightReminder(h, m);
+      }
+      if (prefs.workout_reminder) {
+        const [h, m] = (prefs.workout_reminder_time ?? '12:00').split(':').map(Number);
+        await scheduleWorkoutDailyReminder(h, m);
+      }
+    };
+    syncReminders();
   }, []);
 
   // Close help sheet when tab changes

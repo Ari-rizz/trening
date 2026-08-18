@@ -5,6 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bell, RefreshCw, Check, CircleAlert as AlertCircle, BellRing } from 'lucide-react';
 import { getNotificationPreferences, updateNotificationPreferences, registerPushNotifications } from '@/lib/push';
 import { Capacitor } from '@capacitor/core';
+import {
+  scheduleWeightReminder,
+  cancelWeightReminder,
+  scheduleWorkoutDailyReminder,
+  cancelWorkoutDailyReminder,
+  isNative,
+} from '@/lib/native';
 
 interface Props {
   open: boolean;
@@ -44,6 +51,14 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
         if (perm.display === 'granted') {
           setPermissionStatus('granted');
           setRegistered(true);
+          if (data?.weight_reminder) {
+            const [h, m] = (data.weight_reminder_time ?? '06:00').split(':').map(Number);
+            await scheduleWeightReminder(h, m);
+          }
+          if (data?.workout_reminder) {
+            const [h, m] = (data.workout_reminder_time ?? '12:00').split(':').map(Number);
+            await scheduleWorkoutDailyReminder(h, m);
+          }
         } else if (perm.display === 'denied') {
           setPermissionStatus('denied');
         } else {
@@ -69,6 +84,23 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
     setPrefs(updated);
     setSaving(true);
     await updateNotificationPreferences({ [key]: value });
+    if (isNative()) {
+      if (key === 'weight_reminder') {
+        if (value) {
+          const [h, m] = (updated.weight_reminder_time ?? '06:00').split(':').map(Number);
+          await scheduleWeightReminder(h, m);
+        } else {
+          await cancelWeightReminder();
+        }
+      } else if (key === 'workout_reminder') {
+        if (value) {
+          const [h, m] = (updated.workout_reminder_time ?? '12:00').split(':').map(Number);
+          await scheduleWorkoutDailyReminder(h, m);
+        } else {
+          await cancelWorkoutDailyReminder();
+        }
+      }
+    }
     setSaving(false);
   };
 
@@ -77,6 +109,14 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
     setPrefs(updated);
     setSaving(true);
     await updateNotificationPreferences({ [key]: time });
+    if (isNative()) {
+      const [h, m] = time.split(':').map(Number);
+      if (key === 'weight_reminder_time' && updated.weight_reminder) {
+        await scheduleWeightReminder(h, m);
+      } else if (key === 'workout_reminder_time' && updated.workout_reminder) {
+        await scheduleWorkoutDailyReminder(h, m);
+      }
+    }
     setSaving(false);
   };
 

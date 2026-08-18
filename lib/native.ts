@@ -131,6 +131,69 @@ export async function cancelWorkoutReminder() {
   workoutReminderId = null;
 }
 
+// ---- Daily Reminders (weight + workout) ------------------------------------
+
+const WEIGHT_REMINDER_ID = 9001;
+const WORKOUT_REMINDER_ID = 9002;
+
+export async function scheduleWeightReminder(hour: number, minute: number): Promise<void> {
+  if (!isNative()) return;
+  if (notificationPermission === 'denied') return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: WEIGHT_REMINDER_ID }] }).catch(() => {});
+  const at = nextDailyAt(hour, minute);
+  await LocalNotifications.schedule({
+    notifications: [{
+      id: WEIGHT_REMINDER_ID,
+      title: 'Tid for å veie seg',
+      body: 'Logg dagens kroppsvekt i IronGrid.',
+      schedule: { at, repeats: true, every: 'day' as any },
+      sound: undefined,
+      actionTypeId: '',
+      extra: null,
+    }],
+  }).catch(() => {});
+}
+
+export async function cancelWeightReminder(): Promise<void> {
+  if (!isNative()) return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: WEIGHT_REMINDER_ID }] }).catch(() => {});
+}
+
+export async function scheduleWorkoutDailyReminder(hour: number, minute: number): Promise<void> {
+  if (!isNative()) return;
+  if (notificationPermission === 'denied') return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: WORKOUT_REMINDER_ID }] }).catch(() => {});
+  const at = nextDailyAt(hour, minute);
+  await LocalNotifications.schedule({
+    notifications: [{
+      id: WORKOUT_REMINDER_ID,
+      title: 'Øktpåminnelse',
+      body: 'Husk å trene i dag! Kom igjen!',
+      schedule: { at, repeats: true, every: 'day' as any },
+      sound: undefined,
+      actionTypeId: '',
+      extra: null,
+    }],
+  }).catch(() => {});
+}
+
+export async function cancelWorkoutDailyReminder(): Promise<void> {
+  if (!isNative()) return;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.cancel({ notifications: [{ id: WORKOUT_REMINDER_ID }] }).catch(() => {});
+}
+
+function nextDailyAt(hour: number, minute: number): Date {
+  const now = new Date();
+  const at = new Date();
+  at.setHours(hour, minute, 0, 0);
+  if (at <= now) at.setDate(at.getDate() + 1);
+  return at;
+}
+
 // ---- Keep Awake -------------------------------------------------------------
 
 export async function keepScreenAwake(_on: boolean) {
@@ -158,12 +221,6 @@ export async function clearDeliveredNotifications() {
   if (!isNative()) return;
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
-    const pending = await LocalNotifications.getPending().catch(() => ({ notifications: [] }));
-    if (pending.notifications.length > 0) {
-      await LocalNotifications.cancel({
-        notifications: pending.notifications.map(n => ({ id: n.id })),
-      }).catch(() => {});
-    }
     await LocalNotifications.removeAllDeliveredNotifications?.().catch(() => {});
   } catch {}
 }

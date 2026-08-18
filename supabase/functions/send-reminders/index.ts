@@ -81,9 +81,9 @@ Deno.serve(async (req: Request) => {
     const usersWithPush = new Set((pushSubs || []).map((p: any) => p.user_id));
 
     let sent = 0;
-    const now = new Date();
-    const currentHour = now.getHours();
-    const todayStr = now.toISOString().split("T")[0];
+    const osloNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Oslo" }));
+    const currentHour = osloNow.getHours();
+    const todayStr = osloNow.toISOString().split("T")[0];
 
     for (const user of users) {
       if (!usersWithPush.has(user.user_id)) continue;
@@ -150,7 +150,7 @@ Deno.serve(async (req: Request) => {
         !title &&
         (reminderType === "all") &&
         prefs.goal_reminder &&
-        now.getDay() === 1 &&
+        osloNow.getDay() === 1 &&
         currentHour === 6
       ) {
         title = "Måloppdatering";

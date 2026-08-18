@@ -79,6 +79,7 @@ async function saveWebPushSubscription(sub: PushSubscription): Promise<void> {
       platform: 'web',
       endpoint: subJson.endpoint,
       token: JSON.stringify(subJson.keys ?? {}),
+      keys: subJson.keys ?? {},
     }, { onConflict: 'user_id,endpoint' });
 }
 

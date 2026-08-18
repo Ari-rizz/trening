@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: subs, error } = await supabase
       .from("push_subscriptions")
-      .select("endpoint, keys")
+      .select("endpoint, keys, token, platform")
       .eq("user_id", user_id);
 
     if (error) throw error;
@@ -67,7 +67,11 @@ Deno.serve(async (req: Request) => {
     let sent = 0;
     for (const sub of subs) {
       try {
-        const keys = typeof sub.keys === "string" ? JSON.parse(sub.keys) : sub.keys;
+        let keys = typeof sub.keys === "string" ? JSON.parse(sub.keys) : sub.keys;
+        if (!keys && sub.token) {
+          keys = typeof sub.token === "string" ? JSON.parse(sub.token) : sub.token;
+        }
+        if (!keys || !keys.p256dh || !keys.auth) continue;
         const payload = JSON.stringify({
           notification: {
             title,
