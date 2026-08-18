@@ -93,7 +93,15 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
       return true;
     });
     if (showPopularOnly) {
-      result.sort((a, b) => POPULAR_EXERCISE_IDS.indexOf(a.id) - POPULAR_EXERCISE_IDS.indexOf(b.id));
+      result.sort((a, b) => {
+        const muscleOrder = ['legs', 'chest', 'back', 'shoulders', 'biceps', 'triceps', 'abs', 'glutes', 'forearms', 'full body', 'cardio'];
+        const am = muscleOrder.indexOf(a.muscle_group);
+        const bm = muscleOrder.indexOf(b.muscle_group);
+        const amIdx = am === -1 ? 999 : am;
+        const bmIdx = bm === -1 ? 999 : bm;
+        if (amIdx !== bmIdx) return amIdx - bmIdx;
+        return POPULAR_EXERCISE_IDS.indexOf(a.id) - POPULAR_EXERCISE_IDS.indexOf(b.id);
+      });
     } else if (search) {
       const term = search.trim();
       result.sort((a, b) => scoreExercise(b, term) - scoreExercise(a, term) || a.name.localeCompare(b.name));
@@ -327,17 +335,45 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
         )}
 
         {showPopularOnly ? (
-          <div className="space-y-2">
-            {filtered.map(exercise => (
-              <ExerciseCard
-                key={exercise.id}
-                exercise={exercise}
-                onAdd={onAddToWorkout}
-                onSelect={setSelectedExercise}
-                compact
-                isAdded={addedExerciseIds?.has(exercise.id) ?? false}
-              />
-            ))}
+          <div className="space-y-4">
+            {(() => {
+              const groups: Record<string, Exercise[]> = {};
+              filtered.forEach(e => {
+                if (!groups[e.muscle_group]) groups[e.muscle_group] = [];
+                groups[e.muscle_group].push(e);
+              });
+              const muscleOrder = ['legs', 'chest', 'back', 'shoulders', 'biceps', 'triceps', 'abs', 'glutes', 'forearms', 'full body', 'cardio'];
+              return Object.entries(groups)
+                .sort((a, b) => {
+                  const ai = muscleOrder.indexOf(a[0]);
+                  const bi = muscleOrder.indexOf(b[0]);
+                  return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                })
+                .map(([group, exs]) => {
+                  const mg = MUSCLE_GROUPS.find(m => m.value === group);
+                  return (
+                    <div key={group}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: mg?.color }} />
+                        <h3 className="text-sm font-bold text-white">{mg?.label ?? group}</h3>
+                        <span className="text-xs text-zinc-600">{exs.length}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {exs.map(exercise => (
+                          <ExerciseCard
+                            key={exercise.id}
+                            exercise={exercise}
+                            onAdd={onAddToWorkout}
+                            onSelect={setSelectedExercise}
+                            compact
+                            isAdded={addedExerciseIds?.has(exercise.id) ?? false}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+            })()}
           </div>
         ) : (
           groupedEntries.map(([group, exs]) => {
