@@ -16,7 +16,7 @@ import { PlansTab } from '@/components/plans/PlansTab';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { initStatusBar, hideSplash, requestNotificationPermission } from '@/lib/native';
+import { initStatusBar, hideSplash, requestNotificationPermission, clearDeliveredNotifications } from '@/lib/native';
 import { useOfflineSync } from '@/lib/use-offline-sync';
 
 export default function Home() {
@@ -48,6 +48,18 @@ export default function Home() {
     initStatusBar();
     hideSplash();
     requestNotificationPermission();
+    clearDeliveredNotifications();
+
+    let listener: { remove: () => void } | null = null;
+    (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        listener = await App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) clearDeliveredNotifications();
+        });
+      } catch {}
+    })();
+    return () => { listener?.remove(); };
   }, []);
 
   useEffect(() => {

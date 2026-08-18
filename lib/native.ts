@@ -151,3 +151,19 @@ export async function hideSplash() {
   const { SplashScreen } = await import('@capacitor/splash-screen');
   await SplashScreen.hide().catch(() => {});
 }
+
+// ---- Clear delivered notifications -----------------------------------------
+
+export async function clearDeliveredNotifications() {
+  if (!isNative()) return;
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const pending = await LocalNotifications.getPending().catch(() => ({ notifications: [] }));
+    if (pending.notifications.length > 0) {
+      await LocalNotifications.cancel({
+        notifications: pending.notifications.map(n => ({ id: n.id })),
+      }).catch(() => {});
+    }
+    await LocalNotifications.removeAllDeliveredNotifications?.().catch(() => {});
+  } catch {}
+}

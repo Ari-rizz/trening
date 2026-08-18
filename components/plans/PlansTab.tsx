@@ -166,8 +166,8 @@ export function PlansTab() {
     const fakeTemplate: WorkoutTemplate = {
       id: '',
       user_id: userId,
-      name: `${program.name} — ${day.name}`,
-      description: program.shortDescription,
+      name: day.name,
+      description: program.name,
       created_at: '',
       updated_at: '',
       template_exercises: templateExercises,
@@ -187,7 +187,7 @@ export function PlansTab() {
       for (const day of program.days) {
         const { data: tmpl, error: tmplErr } = await supabase
           .from('workout_templates')
-          .insert({ user_id: userId, name: `${program.name} — ${day.name}`, description: program.shortDescription })
+          .insert({ user_id: userId, name: day.name, description: program.name })
           .select()
           .single();
         if (tmplErr || !tmpl) continue;
