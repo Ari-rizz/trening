@@ -51,14 +51,6 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
         if (perm.display === 'granted') {
           setPermissionStatus('granted');
           setRegistered(true);
-          if (data?.weight_reminder) {
-            const [h, m] = (data.weight_reminder_time ?? '06:00').split(':').map(Number);
-            await scheduleWeightReminder(h, m);
-          }
-          if (data?.workout_reminder) {
-            const [h, m] = (data.workout_reminder_time ?? '12:00').split(':').map(Number);
-            await scheduleWorkoutDailyReminder(h, m);
-          }
         } else if (perm.display === 'denied') {
           setPermissionStatus('denied');
         } else {
