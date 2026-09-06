@@ -22,6 +22,7 @@ export async function fetchSimilarExercises(
     .from('exercises')
     .select('*')
     .neq('id', current.id)
+    .not('category', 'in', '("stretching","plyometrics")')
     .or(`muscle_group.eq.${current.muscle_group},secondary_muscles.cs.{${current.muscle_group}}`)
     .order('name');
 
@@ -53,7 +54,7 @@ export async function fetchSimilarExercises(
 export async function fetchExercisesWithFilters(
   filters: SwapFilters
 ): Promise<Exercise[]> {
-  let query = supabase.from('exercises').select('*').neq('is_custom', false).order('name');
+  let query = supabase.from('exercises').select('*').neq('is_custom', false).not('category', 'in', '("stretching","plyometrics")').order('name');
 
   if (filters.muscleGroup) {
     query = query.eq('muscle_group', filters.muscleGroup);

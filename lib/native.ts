@@ -140,7 +140,8 @@ export async function scheduleWeightReminder(hour: number, minute: number): Prom
   if (!isNative()) return;
   if (notificationPermission === 'denied') return;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
-  await LocalNotifications.cancel({ notifications: [{ id: WEIGHT_REMINDER_ID }] }).catch(() => {});
+  const pending = await LocalNotifications.getPending().catch(() => ({ notifications: [] }));
+  if (pending.notifications.some(n => n.id === WEIGHT_REMINDER_ID)) return;
   const at = nextDailyAt(hour, minute);
   await LocalNotifications.schedule({
     notifications: [{
@@ -165,7 +166,8 @@ export async function scheduleWorkoutDailyReminder(hour: number, minute: number)
   if (!isNative()) return;
   if (notificationPermission === 'denied') return;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
-  await LocalNotifications.cancel({ notifications: [{ id: WORKOUT_REMINDER_ID }] }).catch(() => {});
+  const pending = await LocalNotifications.getPending().catch(() => ({ notifications: [] }));
+  if (pending.notifications.some(n => n.id === WORKOUT_REMINDER_ID)) return;
   const at = nextDailyAt(hour, minute);
   await LocalNotifications.schedule({
     notifications: [{

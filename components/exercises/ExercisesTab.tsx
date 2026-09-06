@@ -42,7 +42,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
 
   useEffect(() => {
     if (cachedExercises.length > 200 && userId === null) {
-      setExercises(cachedExercises);
+      setExercises(cachedExercises.filter(e => e.category !== 'stretching' && e.category !== 'plyometrics'));
       return;
     }
     loadExercises();
@@ -60,6 +60,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
           .from('exercises')
           .select('*')
           .or(`is_custom.eq.false,created_by.eq.${userId ?? ''}`)
+          .not('category', 'in', '("stretching","plyometrics")')
           .order('name', { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) throw error;
@@ -334,7 +335,20 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
           </div>
         )}
 
-        {showPopularOnly ? (
+        {search.trim() && !showPopularOnly ? (
+          <div className="space-y-2">
+            {filtered.map(exercise => (
+              <ExerciseCard
+                key={exercise.id}
+                exercise={exercise}
+                onAdd={onAddToWorkout}
+                onSelect={setSelectedExercise}
+                compact
+                isAdded={addedExerciseIds?.has(exercise.id) ?? false}
+              />
+            ))}
+          </div>
+        ) : showPopularOnly ? (
           <div className="space-y-4">
             {(() => {
               const groups: Record<string, Exercise[]> = {};

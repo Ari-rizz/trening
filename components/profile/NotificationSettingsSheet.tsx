@@ -104,8 +104,10 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
     if (isNative()) {
       const [h, m] = time.split(':').map(Number);
       if (key === 'weight_reminder_time' && updated.weight_reminder) {
+        await cancelWeightReminder();
         await scheduleWeightReminder(h, m);
       } else if (key === 'workout_reminder_time' && updated.workout_reminder) {
+        await cancelWorkoutDailyReminder();
         await scheduleWorkoutDailyReminder(h, m);
       }
     }
