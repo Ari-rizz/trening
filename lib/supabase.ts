@@ -77,6 +77,8 @@ export interface Exercise {
   nicknames?: string[] | null;
   // Muscle activation ratios stored per-exercise (array of { region, intensity })
   activation_regions?: { region: string; intensity: number }[] | null;
+  // Optional MP4 video URL — when present, the app shows a looping muted video instead of images
+  video_url?: string | null;
 }
 
 export interface Workout {

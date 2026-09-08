@@ -77,6 +77,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
   const label = getMuscleGroupLabel(exercise.muscle_group);
   const images = exercise.images?.length ? exercise.images : [exercise.image_url, exercise.gif_url].filter(Boolean);
   const hasImages = images.some(Boolean);
+  const hasVideo = !!exercise.video_url;
 
   const difficultyLabel: Record<string, string> = {
     beginner: 'Nybegynner',
@@ -114,8 +115,19 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
       </div>
 
       <div className="flex-1 overflow-y-auto pb-40">
-        {/* Image gallery */}
-        {hasImages ? (
+        {/* Video or image gallery */}
+        {hasVideo ? (
+          <div className="mx-4 rounded-2xl overflow-hidden mb-4 border border-zinc-800 bg-black">
+            <video
+              src={exercise.video_url!}
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="w-full h-52 object-contain bg-black"
+            />
+          </div>
+        ) : hasImages ? (
           <div className="mx-4 rounded-2xl overflow-hidden mb-4 border border-zinc-800">
             <ExerciseImageGallery images={images} name={exercise.name} />
           </div>

@@ -29,10 +29,25 @@ function ExerciseImage({ src, alt, className }: { src: string; alt: string; clas
   );
 }
 
+function ExerciseVideoThumbnail({ src, className }: { src: string; className: string }) {
+  const [error, setError] = useState(false);
+  if (error) return null;
+  return (
+    <video
+      src={`${src}#t=0.1`}
+      className={className}
+      preload="metadata"
+      muted
+      playsInline
+    />
+  );
+}
+
 export function ExerciseCard({ exercise, onAdd, onSelect, compact, isAdded }: ExerciseCardProps) {
   const color = getMuscleGroupColor(exercise.muscle_group);
   const label = getMuscleGroupLabel(exercise.muscle_group);
   const imageUrl = exercise.image_url || exercise.images?.[0] || '';
+  const videoUrl = exercise.video_url || '';
 
   if (compact) {
     return (
@@ -46,7 +61,9 @@ export function ExerciseCard({ exercise, onAdd, onSelect, compact, isAdded }: Ex
           className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
           style={{ backgroundColor: color + '22', border: `1px solid ${color}33` }}
         >
-          {imageUrl ? (
+          {videoUrl ? (
+            <ExerciseVideoThumbnail src={videoUrl} className="w-full h-full object-cover rounded-xl" />
+          ) : imageUrl ? (
             <ExerciseImage src={imageUrl} alt={exercise.name} className="w-full h-full object-cover rounded-xl" />
           ) : (
             <Dumbbell size={18} style={{ color }} />
