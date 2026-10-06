@@ -124,7 +124,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
               loop
               muted
               playsInline
-              className="w-full h-full object-contain object-center bg-transparent scale-[1.18]"
+              className="w-full h-full object-contain object-center bg-transparent scale-[1.32]"
             />
           </div>
         ) : hasImages ? (
