@@ -11,6 +11,7 @@ import { useAppStore } from '@/lib/store';
 import { FeedbackSheet } from '@/components/profile/FeedbackSheet';
 import { NotificationSettingsSheet } from '@/components/profile/NotificationSettingsSheet';
 import { getTrialDaysLeft } from '@/lib/trial';
+import { unregisterPushNotifications } from '@/lib/push';
 import { connectHealthApp, getHealthConnection, isHealthAvailable, removeHealthConnection, syncCaloriesToDatabase } from '@/lib/health';
 import { isNativePlatform, checkActiveIAPSubscription, openSubscriptionManagement, purchaseIAP, restoreIAPPurchases, IAP_PRODUCT_ID } from '@/lib/iap';
 
@@ -187,6 +188,7 @@ export function ProfileTab() {
   };
 
   const handleSignOut = async () => {
+    await unregisterPushNotifications();
     await supabase.auth.signOut();
   };
 

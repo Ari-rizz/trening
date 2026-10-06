@@ -80,7 +80,25 @@ async function saveWebPushSubscription(sub: PushSubscription): Promise<void> {
       endpoint: subJson.endpoint,
       token: JSON.stringify(subJson.keys ?? {}),
       keys: subJson.keys ?? {},
-    }, { onConflict: 'user_id,endpoint' });
+    }, { onConflict: 'endpoint' });
+}
+
+export async function unregisterPushNotifications(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) return;
+
+  await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('user_id', session.user.id);
+
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    } catch {}
+  }
 }
 
 export async function getNotificationPreferences() {
