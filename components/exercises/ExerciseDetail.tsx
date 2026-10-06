@@ -117,14 +117,14 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
       <div className="flex-1 overflow-y-auto pb-40">
         {/* Video or image gallery */}
         {hasVideo ? (
-          <div className="mx-4 h-56 rounded-2xl overflow-hidden mb-4 border border-zinc-300 bg-white">
+          <div className="mx-4 h-56 rounded-2xl overflow-hidden mb-4 border border-zinc-300 bg-[#e1e1e1]">
             <video
               src={exercise.video_url!}
               autoPlay
               loop
               muted
               playsInline
-              className="w-full h-full object-contain object-center bg-white scale-[1.08]"
+              className="w-full h-full object-contain object-center bg-transparent scale-[1.18]"
             />
           </div>
         ) : hasImages ? (
