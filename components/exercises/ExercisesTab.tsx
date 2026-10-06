@@ -18,6 +18,18 @@ interface ExercisesTabProps {
   addedExerciseIds?: Set<string>;
 }
 
+const HIDDEN_EXERCISE_CATEGORIES = new Set([
+  'stretching',
+  'stretch',
+  'flexibility',
+  'mobility',
+  'plyometrics',
+]);
+
+function isVisibleExercise(exercise: Exercise): boolean {
+  return !HIDDEN_EXERCISE_CATEGORIES.has((exercise.category ?? '').trim().toLowerCase());
+}
+
 export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabProps) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,7 +54,7 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
 
   useEffect(() => {
     if (cachedExercises.length > 200 && userId === null) {
-      setExercises(cachedExercises.filter(e => e.category !== 'stretching' && e.category !== 'plyometrics'));
+      setExercises(cachedExercises.filter(isVisibleExercise));
       return;
     }
     loadExercises();
@@ -60,12 +72,12 @@ export function ExercisesTab({ onAddToWorkout, addedExerciseIds }: ExercisesTabP
           .from('exercises')
           .select('*')
           .or(`is_custom.eq.false,created_by.eq.${userId ?? ''}`)
-          .not('category', 'in', '("stretching","plyometrics")')
+          .not('category', 'in', '("stretching","stretch","flexibility","mobility","plyometrics")')
           .order('name', { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) throw error;
         if (!data || data.length === 0) break;
-        allExercises.push(...(data as Exercise[]));
+        allExercises.push(...(data as Exercise[]).filter(isVisibleExercise));
         if (data.length < PAGE) break;
         from += PAGE;
       }
