@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
         prefs.weight_reminder
       ) {
         const weightTime = prefs.weight_reminder_time ?? "06:00";
-        if (parseHour(weightTime) === currentHour) {
+        if (matchesCurrentTime(weightTime, osloNow)) {
           // Check if user has ever logged weight
           const { count: weightLogCount } = await supabase
             .from("body_weight_logs")
@@ -128,7 +128,7 @@ Deno.serve(async (req: Request) => {
         prefs.workout_reminder
       ) {
         const workoutTime = prefs.workout_reminder_time ?? "12:00";
-        if (parseHour(workoutTime) === currentHour) {
+        if (matchesCurrentTime(workoutTime, osloNow)) {
           // Check if user already completed a workout today
           const { count: workoutCount } = await supabase
             .from("workouts")
@@ -192,7 +192,10 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function parseHour(timeStr: string): number {
-  const match = timeStr?.match(/^(\d{1,2}):/);
-  return match ? parseInt(match[1], 10) : -1;
+function matchesCurrentTime(timeStr: string, now: Date): boolean {
+  const match = timeStr?.match(/^(\d{1,2}):(\d{1,2})/);
+  if (!match) return false;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  return now.getHours() === h && now.getMinutes() >= m && now.getMinutes() < m + 5;
 }

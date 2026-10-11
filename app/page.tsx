@@ -16,7 +16,7 @@ import { PlansTab } from '@/components/plans/PlansTab';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { useAppStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { initStatusBar, hideSplash, requestNotificationPermission, clearDeliveredNotifications, isNative, scheduleWeightReminder, scheduleWorkoutDailyReminder } from '@/lib/native';
+import { initStatusBar, hideSplash, requestNotificationPermission, clearDeliveredNotifications, cancelOrphanedWorkoutReminders, isNative, scheduleWeightReminder, scheduleWorkoutDailyReminder } from '@/lib/native';
 import { useOfflineSync } from '@/lib/use-offline-sync';
 
 export default function Home() {
@@ -49,6 +49,7 @@ export default function Home() {
     hideSplash();
     requestNotificationPermission();
     clearDeliveredNotifications();
+    cancelOrphanedWorkoutReminders();
 
     let listener: { remove: () => void } | null = null;
     (async () => {

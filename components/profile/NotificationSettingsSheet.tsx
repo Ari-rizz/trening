@@ -80,6 +80,7 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
       if (key === 'weight_reminder') {
         if (value) {
           const [h, m] = (updated.weight_reminder_time ?? '06:00').split(':').map(Number);
+          await cancelWeightReminder();
           await scheduleWeightReminder(h, m);
         } else {
           await cancelWeightReminder();
@@ -87,6 +88,7 @@ export function NotificationSettingsSheet({ open, onClose }: Props) {
       } else if (key === 'workout_reminder') {
         if (value) {
           const [h, m] = (updated.workout_reminder_time ?? '12:00').split(':').map(Number);
+          await cancelWorkoutDailyReminder();
           await scheduleWorkoutDailyReminder(h, m);
         } else {
           await cancelWorkoutDailyReminder();

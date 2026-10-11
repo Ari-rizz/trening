@@ -1,0 +1,41 @@
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.push-send]
+verify_jwt = false
+
+[functions.ai-import-analyze]
+verify_jwt = true
+
+[functions.apple-server-notifications]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.feedback-email]
+verify_jwt = false
+
+[functions.recompute-muscle-activation]
+verify_jwt = true
+
+[functions.seed-exercises]
+verify_jwt = true
+
+[functions.stripe-cancel-subscription]
+verify_jwt = true
+
+[functions.stripe-checkout]
+verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.validate-apple-receipt]
+verify_jwt = true
+
+[functions.add-exercise-aliases]
+verify_jwt = true
+
+[functions.backfill-activation-regions]
+verify_jwt = true
