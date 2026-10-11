@@ -38,6 +38,8 @@
 	<string>IronGrid sender push-varsler for hviletids-timer, vektpåminnelser og øktpåminnelser. Du kan slå av varsler når som helst i profil-fanen.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>

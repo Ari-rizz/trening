@@ -225,6 +225,46 @@ export async function clearDeliveredNotifications() {
   } catch {}
 }
 
+// ---- Live Activity (rest timer on lock screen) -----------------------------
+
+interface RestTimerLiveActivityPlugin {
+  startActivity(opts: { totalSeconds: number }): Promise<{ started: boolean }>;
+  updateActivity(opts: { totalSeconds: number }): Promise<{ updated: boolean }>;
+  endActivity(opts: {}): Promise<{ ended: boolean }>;
+  isSupported(): Promise<{ supported: boolean }>;
+}
+
+let liveActivityActive = false;
+
+export async function startRestTimerLiveActivity(totalSeconds: number): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    const plugin = Capacitor.registerPlugin<RestTimerLiveActivityPlugin>('RestTimerLiveActivity');
+    await plugin.startActivity({ totalSeconds });
+    liveActivityActive = true;
+  } catch {}
+}
+
+export async function updateRestTimerLiveActivity(totalSeconds: number): Promise<void> {
+  if (!isNative() || !liveActivityActive) return;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    const plugin = Capacitor.registerPlugin<RestTimerLiveActivityPlugin>('RestTimerLiveActivity');
+    await plugin.updateActivity({ totalSeconds });
+  } catch {}
+}
+
+export async function endRestTimerLiveActivity(): Promise<void> {
+  if (!isNative() || !liveActivityActive) return;
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    const plugin = Capacitor.registerPlugin<RestTimerLiveActivityPlugin>('RestTimerLiveActivity');
+    await plugin.endActivity({});
+    liveActivityActive = false;
+  } catch {}
+}
+
 export async function cancelOrphanedWorkoutReminders(): Promise<void> {
   if (!isNative()) return;
   try {

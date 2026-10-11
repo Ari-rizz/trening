@@ -8,6 +8,9 @@ import {
   scheduleRestTimerNotification,
   cancelNotification,
   hapticWarning,
+  startRestTimerLiveActivity,
+  updateRestTimerLiveActivity,
+  endRestTimerLiveActivity,
 } from '@/lib/native';
 
 function playDoneSound() {
@@ -48,16 +51,18 @@ export function RestTimerBar() {
     return () => clearInterval(id);
   }, [restTimer.isRunning, isTourMode]);
 
-  // Schedule / cancel native local notification when timer starts or stops
+  // Schedule / cancel native local notification + Live Activity when timer starts or stops
   useEffect(() => {
     if (restTimer.isRunning && !isTourMode) {
       const remaining = Math.max(1, Math.floor((restTimer.startedAt + restTimer.totalSeconds * 1000 - Date.now()) / 1000));
       scheduleRestTimerNotification(remaining).then(id => {
         notificationIdRef.current = id;
       });
+      startRestTimerLiveActivity(remaining);
     } else {
       cancelNotification(notificationIdRef.current);
       notificationIdRef.current = null;
+      endRestTimerLiveActivity();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restTimer.isRunning]);
@@ -113,7 +118,9 @@ export function RestTimerBar() {
 
   const handleAdjust = (delta: number) => {
     const remaining = getRemainingSeconds();
-    startRestTimer(Math.max(10, remaining + delta));
+    const newTotal = Math.max(10, remaining + delta);
+    startRestTimer(newTotal);
+    updateRestTimerLiveActivity(newTotal);
   };
 
   const remaining = getRemainingSeconds();
