@@ -11,6 +11,9 @@ public struct RestTimerAttributes: ActivityAttributes {
             self.totalSeconds = totalSeconds
             self.endDate = endDate
         }
+        public var startDate: Date {
+            endDate.addingTimeInterval(-TimeInterval(totalSeconds))
+        }
     }
     public var startedAt: Date
     public init(startedAt: Date) {
