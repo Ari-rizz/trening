@@ -20,7 +20,6 @@
 		A1B2C3D4E5F6000300000001 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000400000001 /* RestTimerAttributes.swift */; };
 		A1B2C3D4E5F6000500000001 /* RestTimerLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000600000001 /* RestTimerLiveActivityWidget.swift */; };
 		A1B2C3D4E5F6000700000001 /* RestTimerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000800000001 /* RestTimerWidgetBundle.swift */; };
-		A1B2C3D4E5F6000900000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000A00000001 /* Info.plist */; };
 		A1B2C3D4E5F6000B00000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000D00000001 /* RestTimerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -224,7 +223,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1B2C3D4E5F6000900000001 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
