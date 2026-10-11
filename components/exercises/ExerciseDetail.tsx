@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Dumbbell, Target, Zap, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { Exercise } from '@/lib/supabase';
@@ -72,6 +72,31 @@ function ExerciseImageGallery({ images, name }: { images: string[]; name: string
   );
 }
 
+function ExerciseVideoPlayer({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPortrait, setIsPortrait] = useState(true);
+
+  return (
+    <div className="mx-4 h-56 rounded-2xl overflow-hidden mb-4 border border-zinc-300 bg-[#e1e1e1]">
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        onLoadedMetadata={(e) => {
+          const v = e.currentTarget;
+          setIsPortrait(v.videoHeight > v.videoWidth);
+        }}
+        className={`w-full h-full object-contain object-center bg-transparent ${
+          isPortrait ? 'scale-[1.32]' : 'scale-100'
+        }`}
+      />
+    </div>
+  );
+}
+
 export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDetailProps) {
   const color = getMuscleGroupColor(exercise.muscle_group);
   const label = getMuscleGroupLabel(exercise.muscle_group);
@@ -117,16 +142,7 @@ export function ExerciseDetail({ exercise, onBack, onAdd, isAdded }: ExerciseDet
       <div className="flex-1 overflow-y-auto pb-40">
         {/* Video or image gallery */}
         {hasVideo ? (
-          <div className="mx-4 h-56 rounded-2xl overflow-hidden mb-4 border border-zinc-300 bg-[#e1e1e1]">
-            <video
-              src={exercise.video_url!}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-contain object-center bg-transparent scale-[1.32]"
-            />
-          </div>
+          <ExerciseVideoPlayer src={exercise.video_url!} />
         ) : hasImages ? (
           <div className="mx-4 rounded-2xl overflow-hidden mb-4 border border-zinc-800">
             <ExerciseImageGallery images={images} name={exercise.name} />
