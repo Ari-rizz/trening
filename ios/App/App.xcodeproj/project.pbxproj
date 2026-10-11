@@ -16,12 +16,12 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		E9844C99301F774600107CF7 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9844C98301F774500107CF7 /* StoreKit.framework */; };
-		IR0000010000000000000001 /* RestTimerLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000020000000000000001 /* RestTimerLiveActivityPlugin.swift */; };
-		IR0000030000000000000001 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000040000000000000001 /* RestTimerAttributes.swift */; };
-		IR0000050000000000000001 /* RestTimerLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000060000000000000001 /* RestTimerLiveActivityWidget.swift */; };
-		IR0000070000000000000001 /* RestTimerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000080000000000000001 /* RestTimerWidgetBundle.swift */; };
-		IR0000090000000000000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = IR00000A0000000000000001 /* Info.plist */; };
-		IR00000B0000000000000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = IR00000D0000000000000001 /* RestTimerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
+		A1B2C3D4E5F6000100000001 /* RestTimerLiveActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000200000001 /* RestTimerLiveActivityPlugin.swift */; };
+		A1B2C3D4E5F6000300000001 /* RestTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000400000001 /* RestTimerAttributes.swift */; };
+		A1B2C3D4E5F6000500000001 /* RestTimerLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000600000001 /* RestTimerLiveActivityWidget.swift */; };
+		A1B2C3D4E5F6000700000001 /* RestTimerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000800000001 /* RestTimerWidgetBundle.swift */; };
+		A1B2C3D4E5F6000900000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000A00000001 /* Info.plist */; };
+		A1B2C3D4E5F6000B00000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000D00000001 /* RestTimerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,12 +37,12 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		E9844C96301F772300107CF7 /* AppRelease.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppRelease.entitlements; sourceTree = "<group>"; };
 		E9844C98301F774500107CF7 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
-		IR0000020000000000000001 /* RestTimerLiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityPlugin.swift; sourceTree = "<group>"; };
-		IR0000040000000000000001 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerAttributes.swift; sourceTree = "<group>"; };
-		IR0000060000000000000001 /* RestTimerLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityWidget.swift; sourceTree = "<group>"; };
-		IR0000080000000000000001 /* RestTimerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerWidgetBundle.swift; sourceTree = "<group>"; };
-		IR00000A0000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		IR00000D0000000000000001 /* RestTimerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RestTimerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6000200000001 /* RestTimerLiveActivityPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityPlugin.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000400000001 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerAttributes.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000600000001 /* RestTimerLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerLiveActivityWidget.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000800000001 /* RestTimerWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerWidgetBundle.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000A00000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000D00000001 /* RestTimerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RestTimerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,7 +55,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		IR00000E0000000000000001 /* Frameworks */ = {
+		A1B2C3D4E5F6000E00000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -70,7 +70,7 @@
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
-				IR00000F0000000000000001 /* RestTimerWidget */,
+				A1B2C3D4E5F6000F00000001 /* RestTimerWidget */,
 				E9844C97301F774500107CF7 /* Frameworks */,
 				504EC3051FED79650016851F /* Products */,
 			);
@@ -80,7 +80,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
-				IR00000D0000000000000001 /* RestTimerWidgetExtension.appex */,
+				A1B2C3D4E5F6000D00000001 /* RestTimerWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,7 +91,7 @@
 				E9844C96301F772300107CF7 /* AppRelease.entitlements */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
-				IR0000020000000000000001 /* RestTimerLiveActivityPlugin.swift */,
+				A1B2C3D4E5F6000200000001 /* RestTimerLiveActivityPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -102,13 +102,13 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-		IR00000F0000000000000001 /* RestTimerWidget */ = {
+		A1B2C3D4E5F6000F00000001 /* RestTimerWidget */ = {
 			isa = PBXGroup;
 			children = (
-				IR0000040000000000000001 /* RestTimerAttributes.swift */,
-				IR0000060000000000000001 /* RestTimerLiveActivityWidget.swift */,
-				IR0000080000000000000001 /* RestTimerWidgetBundle.swift */,
-				IR00000A0000000000000001 /* Info.plist */,
+				A1B2C3D4E5F6000400000001 /* RestTimerAttributes.swift */,
+				A1B2C3D4E5F6000600000001 /* RestTimerLiveActivityWidget.swift */,
+				A1B2C3D4E5F6000800000001 /* RestTimerWidgetBundle.swift */,
+				A1B2C3D4E5F6000A00000001 /* Info.plist */,
 			);
 			path = RestTimerWidget;
 			sourceTree = "<group>";
@@ -131,12 +131,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
-				IR0000100000000000000001 /* Embed App Extensions */,
+				A1B2C3D4E5F6001000000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				IR0000110000000000000001 /* PBXTargetDependency */,
+				A1B2C3D4E5F6001100000001 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -146,13 +146,13 @@
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
 		};
-		IR0000120000000000000001 /* RestTimerWidgetExtension */ = {
+		A1B2C3D4E5F6001200000001 /* RestTimerWidgetExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = IR0000130000000000000001 /* Build configuration list for PBXNativeTarget "RestTimerWidgetExtension" */;
+			buildConfigurationList = A1B2C3D4E5F6001300000001 /* Build configuration list for PBXNativeTarget "RestTimerWidgetExtension" */;
 			buildPhases = (
-				IR0000140000000000000001 /* Sources */,
-				IR00000E0000000000000001 /* Frameworks */,
-				IR0000150000000000000001 /* Resources */,
+				A1B2C3D4E5F6001400000001 /* Sources */,
+				A1B2C3D4E5F6000E00000001 /* Frameworks */,
+				A1B2C3D4E5F6001500000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -160,7 +160,7 @@
 			);
 			name = RestTimerWidgetExtension;
 			productName = RestTimerWidgetExtension;
-			productReference = IR00000D0000000000000001 /* RestTimerWidgetExtension.appex */;
+			productReference = A1B2C3D4E5F6000D00000001 /* RestTimerWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -178,7 +178,7 @@
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 					};
-					IR0000120000000000000001 = {
+					A1B2C3D4E5F6001200000001 = {
 						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
 					};
@@ -201,7 +201,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
-				IR0000120000000000000001 /* RestTimerWidgetExtension */,
+				A1B2C3D4E5F6001200000001 /* RestTimerWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -220,11 +220,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		IR0000150000000000000001 /* Resources */ = {
+		A1B2C3D4E5F6001500000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				IR0000090000000000000001 /* Info.plist in Resources */,
+				A1B2C3D4E5F6000900000001 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -236,48 +236,48 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
-				IR0000010000000000000001 /* RestTimerLiveActivityPlugin.swift in Sources */,
+				A1B2C3D4E5F6000100000001 /* RestTimerLiveActivityPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		IR0000140000000000000001 /* Sources */ = {
+		A1B2C3D4E5F6001400000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				IR0000030000000000000001 /* RestTimerAttributes.swift in Sources */,
-				IR0000050000000000000001 /* RestTimerLiveActivityWidget.swift in Sources */,
-				IR0000070000000000000001 /* RestTimerWidgetBundle.swift in Sources */,
+				A1B2C3D4E5F6000300000001 /* RestTimerAttributes.swift in Sources */,
+				A1B2C3D4E5F6000500000001 /* RestTimerLiveActivityWidget.swift in Sources */,
+				A1B2C3D4E5F6000700000001 /* RestTimerWidgetBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		IR0000110000000000000001 /* PBXTargetDependency */ = {
+		A1B2C3D4E5F6001100000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = IR0000120000000000000001 /* RestTimerWidgetExtension */;
-			targetProxy = IR0000160000000000000001 /* PBXContainerItemProxy */;
+			target = A1B2C3D4E5F6001200000001 /* RestTimerWidgetExtension */;
+			targetProxy = A1B2C3D4E5F6001600000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXContainerItemProxy section */
-		IR0000160000000000000001 /* PBXContainerItemProxy */ = {
+		A1B2C3D4E5F6001600000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = IR0000120000000000000001;
+			remoteGlobalIDString = A1B2C3D4E5F6001200000001;
 			remoteInfo = RestTimerWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		IR0000100000000000000001 /* Embed App Extensions */ = {
+		A1B2C3D4E5F6001000000001 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				IR00000B0000000000000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */,
+				A1B2C3D4E5F6000B00000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -474,7 +474,7 @@
 			};
 			name = Release;
 		};
-		IR0000170000000000000001 /* Debug */ = {
+		A1B2C3D4E5F6001700000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -501,7 +501,7 @@
 			};
 			name = Debug;
 		};
-		IR0000180000000000000001 /* Release */ = {
+		A1B2C3D4E5F6001800000001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -549,11 +549,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		IR0000130000000000000001 /* Build configuration list for PBXNativeTarget "RestTimerWidgetExtension" */ = {
+		A1B2C3D4E5F6001300000001 /* Build configuration list for PBXNativeTarget "RestTimerWidgetExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				IR0000170000000000000001 /* Debug */,
-				IR0000180000000000000001 /* Release */,
+				A1B2C3D4E5F6001700000001 /* Debug */,
+				A1B2C3D4E5F6001800000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
