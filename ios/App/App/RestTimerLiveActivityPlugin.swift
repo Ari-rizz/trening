@@ -20,16 +20,13 @@ public struct RestTimerAttributes: ActivityAttributes {
 
 @objc(RestTimerLiveActivityPlugin)
 public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let id = "RestTimerLiveActivityPlugin"
-    public let tagged = CAPPluginTag.none
     public let identifier = "RestTimerLiveActivityPlugin"
     public let jsName = "RestTimerLiveActivity"
-    public let pluginType = CAPPluginType.custom
-    public let methods: [CAPBridgedMethod] = [
-        CAPBridgedMethod(name: "startActivity", returnType: CAPPluginReturn.promise),
-        CAPBridgedMethod(name: "updateActivity", returnType: CAPPluginReturn.promise),
-        CAPBridgedMethod(name: "endActivity", returnType: CAPPluginReturn.promise),
-        CAPBridgedMethod(name: "isSupported", returnType: CAPPluginReturn.promise),
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "startActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "isSupported", returnType: CAPPluginReturnPromise),
     ]
 
     private var currentActivity: Activity<RestTimerAttributes>?
@@ -43,7 +40,7 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let now = Date()
         let endDate = now.addingTimeInterval(TimeInterval(totalSeconds))
 
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             guard ActivityAuthorizationInfo().areActivitiesEnabled else {
                 call.resolve(["started": false])
                 return
@@ -51,7 +48,7 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
             if let existing = currentActivity {
                 Task {
-                    await existing.end(activity: nil, dismissalPolicy: .immediate)
+                    await existing.end(content: nil, dismissalPolicy: .immediate)
                     currentActivity = nil
                 }
             }
@@ -79,7 +76,7 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let totalSeconds = call.getInt("totalSeconds") ?? 60
         let endDate = Date().addingTimeInterval(TimeInterval(totalSeconds))
 
-        if #available(iOS 16.1, *), let activity = currentActivity {
+        if #available(iOS 16.2, *), let activity = currentActivity {
             let state = RestTimerAttributes.ContentState(totalSeconds: totalSeconds, endDate: endDate)
             Task {
                 await activity.update(.init(state: state, staleDate: endDate.addingTimeInterval(60)))
@@ -91,9 +88,9 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func endActivity(_ call: CAPPluginCall) {
-        if #available(iOS 16.1, *), let activity = currentActivity {
+        if #available(iOS 16.2, *), let activity = currentActivity {
             Task {
-                await activity.end(activity: nil, dismissalPolicy: .immediate)
+                await activity.end(content: nil, dismissalPolicy: .immediate)
                 currentActivity = nil
                 call.resolve(["ended": true])
             }
