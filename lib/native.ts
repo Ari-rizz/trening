@@ -39,6 +39,19 @@ export async function hapticWarning() {
   await Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
 }
 
+export async function hapticRestTimerDone() {
+  if (!isNative()) return;
+  const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+  await Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  await new Promise(r => setTimeout(r, 150));
+  await Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  await new Promise(r => setTimeout(r, 150));
+  await Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+  await new Promise(r => setTimeout(r, 200));
+  const { NotificationType } = await import('@capacitor/haptics');
+  await Haptics.notification({ type: NotificationType.Success }).catch(() => {});
+}
+
 // ---- Status bar -------------------------------------------------------------
 
 export async function initStatusBar() {
@@ -83,9 +96,12 @@ export async function scheduleRestTimerNotification(seconds: number): Promise<nu
     }],
   }).catch(() => {});
   if (isNative()) {
-    const { Haptics, NotificationType } = await import('@capacitor/haptics');
+    const { Haptics, ImpactStyle, NotificationType } = await import('@capacitor/haptics');
     setTimeout(() => {
-      Haptics.notification({ type: NotificationType.Warning }).catch(() => {});
+      Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {});
+      setTimeout(() => { Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}); }, 150);
+      setTimeout(() => { Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {}); }, 300);
+      setTimeout(() => { Haptics.notification({ type: NotificationType.Success }).catch(() => {}); }, 500);
     }, seconds * 1000);
   }
   return id;

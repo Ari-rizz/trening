@@ -25,7 +25,7 @@ function playDoneSound() {
 
 function vibrateDevice() {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate([200, 100, 200]);
+    navigator.vibrate([400, 100, 400, 100, 400, 150, 600]);
   }
 }
 

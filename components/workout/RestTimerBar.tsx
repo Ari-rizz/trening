@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import {
   scheduleRestTimerNotification,
   cancelNotification,
-  hapticWarning,
+  hapticRestTimerDone,
   startRestTimerLiveActivity,
   updateRestTimerLiveActivity,
   endRestTimerLiveActivity,
@@ -33,7 +33,7 @@ function playDoneSound() {
 
 function vibrateDevice() {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate([200, 100, 200]);
+    navigator.vibrate([400, 100, 400, 100, 400, 150, 600]);
   }
 }
 
@@ -85,7 +85,7 @@ export function RestTimerBar() {
       stopRestTimer();
       playDoneSound();
       vibrateDevice();
-      hapticWarning();
+      hapticRestTimerDone();
       setShowDoneBanner(true);
       setTimeout(() => setShowDoneBanner(false), 4000);
     }
@@ -100,7 +100,7 @@ export function RestTimerBar() {
           stopRestTimer();
           playDoneSound();
           vibrateDevice();
-          hapticWarning();
+          hapticRestTimerDone();
           setShowDoneBanner(true);
           setTimeout(() => setShowDoneBanner(false), 4000);
         } else {
