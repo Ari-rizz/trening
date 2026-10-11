@@ -48,7 +48,7 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
 
             if let existing = currentActivity {
                 Task {
-                    await existing.end(content: nil, dismissalPolicy: .immediate)
+                    await existing.end(nil, dismissalPolicy: .immediate)
                     currentActivity = nil
                 }
             }
@@ -90,7 +90,7 @@ public class RestTimerLiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func endActivity(_ call: CAPPluginCall) {
         if #available(iOS 16.2, *), let activity = currentActivity {
             Task {
-                await activity.end(content: nil, dismissalPolicy: .immediate)
+                await activity.end(nil, dismissalPolicy: .immediate)
                 currentActivity = nil
                 call.resolve(["ended": true])
             }
