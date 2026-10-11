@@ -21,7 +21,7 @@
 		IR0000050000000000000001 /* RestTimerLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000060000000000000001 /* RestTimerLiveActivityWidget.swift */; };
 		IR0000070000000000000001 /* RestTimerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = IR0000080000000000000001 /* RestTimerWidgetBundle.swift */; };
 		IR0000090000000000000001 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = IR00000A0000000000000001 /* Info.plist */; };
-		IR00000B0000000000000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; productRef = IR00000C0000000000000001 /* RestTimerWidgetExtension */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
+		IR00000B0000000000000001 /* RestTimerWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = IR00000D0000000000000001 /* RestTimerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -270,7 +270,7 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase */
+/* Begin PBXCopyFilesBuildPhase section */
 		IR0000100000000000000001 /* Embed App Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -282,7 +282,7 @@
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-/* End PBXCopyFilesBuildPhase */
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
